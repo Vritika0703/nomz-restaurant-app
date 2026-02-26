@@ -1,12 +1,23 @@
 {% extends 'nomz/base.html' %}
 
-{% block title %}Login - Nomz{% endblock %}
+{% block title %}{{ title }} - Nomz{% endblock %}
 
 {% block content %}
 <div class="auth-container">
     <div class="card auth-card">
         <div class="card-header">
-            <h2>Login</h2>
+            <h2>{{ title }}</h2>
+            {% if role %}
+            <p style="margin: 0.5rem 0 0 0; opacity: 0.9; font-size: 0.95rem;">
+                {% if role == 'user' %}
+                👤 Diner Account
+                {% elif role == 'restaurant' %}
+                🏪 Restaurant Account
+                {% elif role == 'admin' %}
+                🔐 Admin Account
+                {% endif %}
+            </p>
+            {% endif %}
         </div>
         <div class="card-body">
             <form method="POST" novalidate>
@@ -62,8 +73,10 @@
             </form>
 
             <div class="auth-links">
-                <p class="mb-2">Don't have an account? <a href="{% url 'register' %}">Register here</a></p>
-                <p class="mb-0"><a href="{% url 'home' %}">← Back to Home</a></p>
+                {% if role %}
+                <p class="mb-2">Don't have an account? <a href="{% url 'register' role %}">Register here</a></p>
+                {% endif %}
+                <p class="mb-0"><a href="{% url 'role_selection' %}?flow=login">← Choose Different Role</a></p>
             </div>
         </div>
     </div>
