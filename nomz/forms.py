@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from .models import UserProfile
 
 
 class UserRegisterForm(UserCreationForm):
@@ -8,6 +9,15 @@ class UserRegisterForm(UserCreationForm):
     Custom user registration form that extends Django's UserCreationForm.
     Adds email field and improves styling.
     """
+    # Add the Role selection field
+    ROLE_CHOICES = [
+        ('diner', 'I am a Diner'),
+        ('restaurant', 'I am a Restaurant Owner'),
+    ]
+    role = forms.ChoiceField(
+        choices=ROLE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'}) 
+    )
     email = forms.EmailField(
         required=True,
         widget=forms.EmailInput(attrs={
@@ -39,7 +49,7 @@ class UserRegisterForm(UserCreationForm):
 
     class Meta:
         model = User
-        fields = ['email', 'username', 'password1', 'password2']
+        fields = ['email', 'username', 'role', 'password1', 'password2']
 
     def clean_email(self):
         """Ensure email is unique"""
@@ -49,11 +59,16 @@ class UserRegisterForm(UserCreationForm):
         return email
 
     def save(self, commit=True):
-        """Save user with email"""
+        """Save user with email AND create their UserProfile"""
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
         if commit:
             user.save()
+            # This is where the backend permanently stores the role!
+            UserProfile.objects.create(
+                user=user,
+                role=self.cleaned_data['role']
+            )
         return user
 
 

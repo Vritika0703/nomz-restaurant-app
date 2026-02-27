@@ -9,8 +9,8 @@
     <p>Discover the Best Dining Experiences in Your Neighborhood</p>
     {% if not user.is_authenticated %}
     <div class="mt-4">
-        <a href="{% url 'role_selection' %}?flow=signup" class="btn btn-light btn-lg me-3">Get Started</a>
-        <a href="{% url 'role_selection' %}?flow=login" class="btn btn-outline-light btn-lg">Sign In</a>
+        <a href="{% url 'register' %}" class="btn btn-light btn-lg me-3">Get Started</a>
+        <a href="{% url 'login' %}" class="btn btn-outline-light btn-lg">Sign In</a>
     </div>
     {% else %}
     <div class="mt-4">
