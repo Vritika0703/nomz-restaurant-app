@@ -7,7 +7,7 @@ on:
 
 env:
   EB_ENVIRONMENT_NAME: nomz-prod
-  EB_APPLICATION_NAME: nomz-production
+  EB_APPLICATION_NAME: nomz-app
   REGION: us-east-1
 
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.12'
       
       - name: Install dependencies
         run: |
@@ -43,7 +43,7 @@ jobs:
       
       - name: Deploy to Elastic Beanstalk
         run: |
-          eb init -p python-3.11 ${{ env.EB_APPLICATION_NAME }} --region ${{ env.REGION }} -d
+          eb init -p python-3.12 ${{ env.EB_APPLICATION_NAME }} --region ${{ env.REGION }} -d
           eb deploy ${{ env.EB_ENVIRONMENT_NAME }} --verbose --timeout 20
       
       - name: Notify Deployment
@@ -53,3 +53,4 @@ jobs:
       - name: Notify Failure
         if: failure()
         run: echo "❌ Deployment failed! Check logs for details."
+
