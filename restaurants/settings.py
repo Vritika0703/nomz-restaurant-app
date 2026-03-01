@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 import platform
+import socket
 from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -31,6 +32,13 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-x40=kccvv69vwa$t@twav
 DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+
+# Allow EC2 instance's own IP so EB health checks pass (required when DEBUG=False)
+try:
+    local_ip = socket.gethostbyname(socket.gethostname())
+    ALLOWED_HOSTS.append(local_ip)
+except socket.gaierror:
+    pass
 
 
 # Application definition
@@ -183,13 +191,11 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Security Settings for Production
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    # EB terminates SSL at the load balancer; redirect at Django level causes loops
+    SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
-    SECURE_CONTENT_SECURITY_POLICY = {
-        'default-src': ("'self'",),
-    }
     X_FRAME_OPTIONS = 'DENY'
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
