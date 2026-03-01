@@ -13,21 +13,24 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 import platform
+from decouple import config, Csv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Environment Configuration
+ENVIRONMENT = config('ENVIRONMENT', default='development')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-x40=kccvv69vwa$t@twavm*i#qf_y%si*@-$@$nr*s=rmn@b=#'
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-x40=kccvv69vwa$t@twavm*i#qf_y%si*@-$@$nr*s=rmn@b=#')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 
 # Application definition
@@ -39,12 +42,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
+    'storages',
     'nomz',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Add CORS middleware
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -75,23 +82,27 @@ WSGI_APPLICATION = 'restaurants.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.contrib.gis.db.backends.postgis',
-#         'NAME': 'nomz',
-#         'USER': 'test_user',
-#         'PASSWORD': 'testuser123',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
-# Temporarily using SQLite to build out the UI and Auth flows
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+if DEBUG:
+    # SQLite for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    # PostgreSQL for production (AWS RDS)
+    DATABASES = {
+        'default': {
+            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
+            'NAME': config('DB_NAME'),
+            'USER': config('DB_USER'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': config('DB_HOST'),
+            'PORT': config('DB_PORT', default='5432'),
+            'CONN_MAX_AGE': 600,  # Connection pooling
+        }
+    }
 
 
 # Password validation
@@ -128,9 +139,58 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/6.0/howto/static-files/
+
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# AWS S3 Configuration
+USE_S3 = config('USE_S3', default=False, cast=bool)
+
+if USE_S3:
+    # AWS S3 Settings
+    AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME')
+    AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-1')
+    AWS_S3_CUSTOM_DOMAIN = config('AWS_S3_CUSTOM_DOMAIN', default=f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com')
+    AWS_LOCATION = 'static'
+    AWS_DEFAULT_ACL = 'public-read'
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    
+    # S3 Static Settings
+    STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
+    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    
+    # S3 Public Media Settings
+    PUBLIC_MEDIA_LOCATION = 'media'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/'
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# CORS Configuration
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000,http://127.0.0.1:3000', cast=Csv())
 
 # User login redirect
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
+
+# Security Settings for Production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_SECURITY_POLICY = {
+        'default-src': ("'self'",),
+    }
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
