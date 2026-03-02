@@ -31,12 +31,19 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-x40=kccvv69vwa$t@twav
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+# Build ALLOWED_HOSTS list from config and production domains
+ALLOWED_HOSTS = list(config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv()))
+
+# Ensure production domain is always in ALLOWED_HOSTS
+ALLOWED_HOSTS.extend([
+    'nomz-prod.eba-phpyq9gh.us-east-1.elasticbeanstalk.com',
+])
 
 # Allow EC2 instance's own IP so EB health checks pass (required when DEBUG=False)
 try:
     local_ip = socket.gethostbyname(socket.gethostname())
-    ALLOWED_HOSTS.append(local_ip)
+    if local_ip not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(local_ip)
 except socket.gaierror:
     pass
 
@@ -189,12 +196,20 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
+# CSRF Configuration - Allow both domains
+CSRF_TRUSTED_ORIGINS = [
+    'http://nomz-prod.eba-phpyq9gh.us-east-1.elasticbeanstalk.com',
+    'https://nomz-prod.eba-phpyq9gh.us-east-1.elasticbeanstalk.com',
+]
+
 # Security Settings for Production
 if not DEBUG:
     # EB terminates SSL at the load balancer; redirect at Django level causes loops
+    # Django receives HTTP from load balancer, so cookies must work over HTTP
     SECURE_SSL_REDIRECT = False
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = False  # Allow cookies over HTTP (load balancer handles HTTPS)
+    CSRF_COOKIE_SECURE = False     # Allow CSRF cookies over HTTP (load balancer handles HTTPS)
+    CSRF_COOKIE_HTTPONLY = False   # Allow form to read CSRF token
     SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
     SECURE_HSTS_SECONDS = 31536000
