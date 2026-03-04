@@ -206,7 +206,9 @@ CSRF_TRUSTED_ORIGINS = [
 if not DEBUG:
     # EB terminates SSL at the load balancer; redirect at Django level causes loops
     # Django receives HTTP from load balancer, so cookies must work over HTTP
-    SECURE_SSL_REDIRECT = False
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+
     SESSION_COOKIE_SECURE = False  # Allow cookies over HTTP (load balancer handles HTTPS)
     CSRF_COOKIE_SECURE = False     # Allow CSRF cookies over HTTP (load balancer handles HTTPS)
     CSRF_COOKIE_HTTPONLY = False   # Allow form to read CSRF token
