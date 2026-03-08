@@ -116,6 +116,7 @@ def user_logout(request):
     messages.success(request, 'You have been logged out successfully.')
     return redirect('landing')
 
+@login_required(login_url='login')
 def restaurant_search(request):
     query = request.GET.get('q', '')
     neighborhood = request.GET.get('neighborhood', '')
