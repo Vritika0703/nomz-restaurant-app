@@ -118,6 +118,7 @@ else:
             'CONN_MAX_AGE': 600,  # Connection pooling
         }
     }
+}
 
 
 # Password validation
