@@ -6,6 +6,7 @@ from django.shortcuts import render, redirect
 from django.views.decorators.http import require_http_methods
 from .forms import UserRegisterForm, UserLoginForm
 from .models import Restaurant
+from django.db.models import Q
 
 
 def landing_page(request):
@@ -181,3 +182,33 @@ def user_logout(request):
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
     return redirect('landing')
+
+@login_required(login_url='login')
+def restaurant_search(request):
+    query = request.GET.get('q', '')
+    neighborhood = request.GET.get('neighborhood', '')
+    
+    # Start with all restaurants
+    results = Restaurant.objects.all()
+    
+    # Apply keyword search (Name or Description)
+    if query:
+        results = results.filter(
+            Q(name__icontains=query) | 
+            Q(description__icontains=query) |
+            Q(cuisine__icontains=query)
+        )
+    
+    # Apply neighborhood filter
+    if neighborhood:
+        results = results.filter(neighborhood__iexact=neighborhood)
+        
+    # Get unique neighborhoods for the dropdown filter
+    all_neighborhoods = Restaurant.objects.values_list('neighborhood', flat=True).distinct()
+
+    return render(request, 'nomz/search_results.html', {
+        'results': results,
+        'query': query,
+        'neighborhood': neighborhood,
+        'all_neighborhoods': all_neighborhoods
+    })
