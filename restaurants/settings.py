@@ -97,15 +97,26 @@ WSGI_APPLICATION = 'restaurants.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD', default=''),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
-        'CONN_MAX_AGE': 600,
+if DEBUG:
+    # SQLite for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    # PostgreSQL for production (AWS RDS). Defaults allow settings to load locally without .env.
+    DATABASES = {
+        'default': {
+            'ENGINE': config('DB_ENGINE', default='django.db.backends.postgresql'),
+            'NAME': config('DB_NAME', default='nomz_db'),
+            'USER': config('DB_USER', default='postgres'),
+            'PASSWORD': config('DB_PASSWORD', default=''),
+            'HOST': config('DB_HOST', default='localhost'),
+            'PORT': config('DB_PORT', default='5432'),
+            'CONN_MAX_AGE': 600,  # Connection pooling
+        }
     }
 }
 
@@ -186,6 +197,22 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
 
+# Email (Django built-in). Credentials from env only; never hardcode.
+# When EMAIL_HOST_USER is set (e.g. Gmail App Password), use SMTP; else file backend in DEBUG, console otherwise.
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_BACKEND = (
+    'django.core.mail.backends.smtp.EmailBackend'
+    if EMAIL_HOST_USER
+    else ('django.core.mail.backends.filebased.EmailBackend' if DEBUG else 'django.core.mail.backends.console.EmailBackend')
+)
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+# File backend writes to this directory when DEBUG and no Gmail config.
+EMAIL_FILE_PATH = BASE_DIR / 'tmp' / 'emails'
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER or 'webmaster@localhost')
+
 # CSRF Configuration - Allow both domains
 CSRF_TRUSTED_ORIGINS = [
     'http://nomz-prod.eba-phpyq9gh.us-east-1.elasticbeanstalk.com',
@@ -196,7 +223,9 @@ CSRF_TRUSTED_ORIGINS = [
 if not DEBUG:
     # EB terminates SSL at the load balancer; redirect at Django level causes loops
     # Django receives HTTP from load balancer, so cookies must work over HTTP
-    SECURE_SSL_REDIRECT = False
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+
     SESSION_COOKIE_SECURE = False  # Allow cookies over HTTP (load balancer handles HTTPS)
     CSRF_COOKIE_SECURE = False     # Allow CSRF cookies over HTTP (load balancer handles HTTPS)
     CSRF_COOKIE_HTTPONLY = False   # Allow form to read CSRF token
