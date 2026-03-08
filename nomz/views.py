@@ -2,6 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.db.models import Q
+from django.shortcuts import render, redirect
 from django.views.decorators.http import require_http_methods
 from .forms import UserRegisterForm, UserLoginForm
 from .models import Restaurant
@@ -30,6 +32,72 @@ def home(request):
         'title': 'Home',
     }
     return render(request, 'nomz/home.html', context)
+
+
+def map_view(request):
+    """
+    Render interactive restaurant map page with filters and server-provided options.
+    """
+    restaurants = Restaurant.objects.filter(
+        is_active=True,
+        latitude__isnull=False,
+        longitude__isnull=False,
+    )
+    boroughs = sorted(
+        {
+            borough.strip().title()
+            for borough in restaurants.values_list("borough", flat=True)
+            if borough
+        }
+    )
+
+    search = request.GET.get("search", "").strip()
+    borough = request.GET.get("borough", "").strip()
+    min_score = request.GET.get("min_score", "").strip()
+    max_score = request.GET.get("max_score", "").strip()
+    cuisine = request.GET.get("cuisine", "").strip()
+    sort_by = request.GET.get("sort_by", "score_desc").strip()
+
+    if search:
+        restaurants = restaurants.filter(
+            Q(name__icontains=search)
+            | Q(street__icontains=search)
+            | Q(zip_code__icontains=search)
+            | Q(borough__icontains=search)
+        )
+    if borough:
+        restaurants = restaurants.filter(borough__iexact=borough)
+    if cuisine:
+        restaurants = restaurants.filter(cuisine_tags__icontains=cuisine)
+    if min_score:
+        try:
+            restaurants = restaurants.filter(composite_score__gte=float(min_score))
+        except ValueError:
+            min_score = ""
+    if max_score:
+        try:
+            restaurants = restaurants.filter(composite_score__lte=float(max_score))
+        except ValueError:
+            max_score = ""
+
+    cuisines = set()
+    for row in restaurants.values_list("cuisine_tags", flat=True):
+        for value in row or []:
+            cuisines.add(str(value).strip())
+
+    context = {
+        "title": "Restaurant Map",
+        "search": search,
+        "borough": borough,
+        "min_score": min_score,
+        "max_score": max_score,
+        "cuisine": cuisine,
+        "sort_by": sort_by,
+        "boroughs": boroughs,
+        "cuisines": sorted(filter(None, (item.title() for item in cuisines))),
+        "restaurant_count": restaurants.count(),
+    }
+    return render(request, "nomz/map.html", context)
 
 
 @require_http_methods(["GET", "POST"])
