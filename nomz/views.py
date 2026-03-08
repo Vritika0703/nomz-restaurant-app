@@ -1,3 +1,4 @@
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -183,6 +184,259 @@ def user_logout(request):
     messages.success(request, 'You have been logged out successfully.')
     return redirect('landing')
 
+
+# ============================================================================
+# RESTAURANT PROFILE MANAGEMENT VIEWS
+# ============================================================================
+
+
+def is_restaurant_owner(user):
+    """Helper function to check if user is a restaurant owner"""
+    return hasattr(user, 'userprofile') and user.userprofile.role == 'restaurant'
+
+
+@login_required(login_url='landing')
+def restaurant_profile(request):
+    """
+    View restaurant owner's profile page
+    Shows restaurant details, photos, and status
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('dashboard')
+    
+    try:
+        restaurant = Restaurant.objects.get(owner=request.user)
+    except Restaurant.DoesNotExist:
+        restaurant = None
+    
+    context = {
+        'title': 'Restaurant Profile',
+        'restaurant': restaurant,
+        'has_restaurant': restaurant is not None,
+    }
+    return render(request, 'nomz/restaurant_profile.html', context)
+
+
+@login_required(login_url='landing')
+@require_http_methods(["GET", "POST"])
+def create_restaurant_profile(request):
+    """
+    Create a new restaurant profile
+    Only for restaurant owners without a profile yet
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to create a restaurant profile.')
+        return redirect('dashboard')
+    
+    # Check if user already has a restaurant
+    if Restaurant.objects.filter(owner=request.user).exists():
+        messages.info(request, 'You already have a restaurant profile.')
+        return redirect('restaurant_profile')
+    
+    if request.method == 'POST':
+        form = RestaurantProfileForm(request.POST)
+        if form.is_valid():
+            restaurant = form.save(commit=False)
+            restaurant.owner = request.user
+            restaurant.save()
+            messages.success(request, 'Restaurant profile created successfully!')
+            return redirect('restaurant_profile')
+    else:
+        form = RestaurantProfileForm()
+    
+    context = {
+        'title': 'Create Restaurant Profile',
+        'form': form,
+        'is_create': True,
+    }
+    return render(request, 'nomz/restaurant_form.html', context)
+
+
+@login_required(login_url='landing')
+@require_http_methods(["GET", "POST"])
+def edit_restaurant_profile(request):
+    """
+    Edit existing restaurant profile
+    Handles updates to description, hours, cuisine, and price range
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to edit a restaurant profile.')
+        return redirect('dashboard')
+    
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+    
+    if request.method == 'POST':
+        form = RestaurantProfileForm(request.POST, instance=restaurant)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Restaurant profile updated successfully!')
+            return redirect('restaurant_profile')
+    else:
+        form = RestaurantProfileForm(instance=restaurant)
+    
+    context = {
+        'title': 'Edit Restaurant Profile',
+        'form': form,
+        'restaurant': restaurant,
+        'is_create': False,
+    }
+    return render(request, 'nomz/restaurant_form.html', context)
+
+
+@login_required(login_url='landing')
+@require_http_methods(["GET", "POST"])
+def manage_availability(request):
+    """
+    Manage restaurant availability (temporary closure)
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to manage availability.')
+        return redirect('dashboard')
+    
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+    
+    if request.method == 'POST':
+        form = RestaurantAvailabilityForm(request.POST, instance=restaurant)
+        if form.is_valid():
+            form.save()
+            if restaurant.is_temporarily_unavailable:
+                messages.success(request, 'Restaurant marked as temporarily unavailable.')
+            else:
+                messages.success(request, 'Restaurant availability updated.')
+            return redirect('restaurant_profile')
+    else:
+        form = RestaurantAvailabilityForm(instance=restaurant)
+    
+    context = {
+        'title': 'Manage Availability',
+        'form': form,
+        'restaurant': restaurant,
+    }
+    return render(request, 'nomz/manage_availability.html', context)
+
+
+@login_required(login_url='landing')
+@require_http_methods(["GET", "POST"])
+def manage_activation(request):
+    """
+    Activate or deactivate restaurant profile
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to manage activation.')
+        return redirect('dashboard')
+    
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+    
+    if request.method == 'POST':
+        form = RestaurantActivationForm(request.POST, instance=restaurant)
+        if form.is_valid():
+            form.save()
+            if restaurant.is_active:
+                messages.success(request, 'Restaurant profile is now visible to customers.')
+            else:
+                messages.warning(request, 'Restaurant profile has been deactivated. It is no longer visible to customers.')
+            return redirect('restaurant_profile')
+    else:
+        form = RestaurantActivationForm(instance=restaurant)
+    
+    context = {
+        'title': 'Manage Profile Status',
+        'form': form,
+        'restaurant': restaurant,
+    }
+    return render(request, 'nomz/manage_activation.html', context)
+
+
+@login_required(login_url='landing')
+@require_http_methods(["GET", "POST"])
+def upload_photo(request):
+    """
+    Upload a new restaurant photo
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to upload photos.')
+        return redirect('dashboard')
+    
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+    
+    if request.method == 'POST':
+        form = RestaurantPhotoForm(request.POST, request.FILES)
+        if form.is_valid():
+            photo = form.save(commit=False)
+            photo.restaurant = restaurant
+            photo.save()
+            messages.success(request, 'Photo uploaded successfully!')
+            return redirect('restaurant_photos')
+    else:
+        form = RestaurantPhotoForm()
+    
+    context = {
+        'title': 'Upload Photo',
+        'form': form,
+        'restaurant': restaurant,
+    }
+    return render(request, 'nomz/upload_photo.html', context)
+
+
+@login_required(login_url='landing')
+def restaurant_photos(request):
+    """
+    View and manage all restaurant photos
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('dashboard')
+    
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+    photos = restaurant.photos.all()
+    
+    context = {
+        'title': 'Manage Photos',
+        'restaurant': restaurant,
+        'photos': photos,
+    }
+    return render(request, 'nomz/restaurant_photos.html', context)
+
+
+@login_required(login_url='landing')
+@require_POST
+def delete_photo(request, photo_id):
+    """
+    Delete a restaurant photo
+    """
+    if not is_restaurant_owner(request.user):
+        return HttpResponseForbidden('Permission denied')
+    
+    photo = get_object_or_404(RestaurantPhoto, id=photo_id)
+    
+    if photo.restaurant.owner != request.user:
+        return HttpResponseForbidden('Permission denied')
+    
+    photo.delete()
+    messages.success(request, 'Photo deleted successfully!')
+    return redirect('restaurant_photos')
+
+
+@login_required(login_url='landing')
+@require_POST
+def set_primary_photo(request, photo_id):
+    """
+    Set a photo as the primary (main) photo for the restaurant
+    """
+    if not is_restaurant_owner(request.user):
+        return HttpResponseForbidden('Permission denied')
+    
+    photo = get_object_or_404(RestaurantPhoto, id=photo_id)
+    
+    if photo.restaurant.owner != request.user:
+        return HttpResponseForbidden('Permission denied')
+    
+    # Set this as primary (the save method will handle unsetting others)
+    photo.is_primary = True
+    photo.save()
+    messages.success(request, 'Primary photo updated!')
+    return redirect('restaurant_photos')
 @login_required(login_url='login')
 def restaurant_search(request):
     query = request.GET.get('q', '')
