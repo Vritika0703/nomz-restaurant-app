@@ -3,13 +3,9 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods
-from django.http import HttpResponseForbidden, JsonResponse
-from django.views.decorators.http import require_POST
-from .forms import (
-    UserRegisterForm, UserLoginForm, RestaurantProfileForm,
-    RestaurantAvailabilityForm, RestaurantActivationForm, RestaurantPhotoForm
-)
-from .models import Restaurant, RestaurantPhoto, UserProfile
+from .forms import UserRegisterForm, UserLoginForm
+from .models import Restaurant
+from django.db.models import Q
 
 
 def landing_page(request):
@@ -373,3 +369,32 @@ def set_primary_photo(request, photo_id):
     photo.save()
     messages.success(request, 'Primary photo updated!')
     return redirect('restaurant_photos')
+@login_required(login_url='login')
+def restaurant_search(request):
+    query = request.GET.get('q', '')
+    neighborhood = request.GET.get('neighborhood', '')
+    
+    # Start with all restaurants
+    results = Restaurant.objects.all()
+    
+    # Apply keyword search (Name or Description)
+    if query:
+        results = results.filter(
+            Q(name__icontains=query) | 
+            Q(description__icontains=query) |
+            Q(cuisine__icontains=query)
+        )
+    
+    # Apply neighborhood filter
+    if neighborhood:
+        results = results.filter(neighborhood__iexact=neighborhood)
+        
+    # Get unique neighborhoods for the dropdown filter
+    all_neighborhoods = Restaurant.objects.values_list('neighborhood', flat=True).distinct()
+
+    return render(request, 'nomz/search_results.html', {
+        'results': results,
+        'query': query,
+        'neighborhood': neighborhood,
+        'all_neighborhoods': all_neighborhoods
+    })
