@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable
+from datetime import datetime
+from typing import Any, Dict, Iterable
 from nomz.ingestion.sources.nyc_endpoints import DINING_OUT
 from nomz.ingestion.utils.normalization import (
     first_non_empty,
@@ -54,6 +55,12 @@ def normalize_dining_out_row(row: Dict) -> Dict:
     lat, lon = _extract_coordinates(row)
     cuisines = split_list_fields(first_non_empty(row, ["cuisine", "cuisine_type", "cuisine_style"]))
     raw_lat, raw_lon = lat, lon
+    raw_metadata = row.get("raw_payload", row)
+
+    license_issue_date = _parse_date(first_non_empty(row, ["license_issue_date"]))
+    license_expiration_date = _parse_date(first_non_empty(row, ["license_expiration_date"]))
+    capacity = _parse_int(first_non_empty(row, ["seats", "capacity"]))
+    location_type = first_non_empty(row, ["location_type", "license_type"])
 
     return {
         "source": "DINING_OUT",
@@ -69,6 +76,21 @@ def normalize_dining_out_row(row: Dict) -> Dict:
         "latitude": raw_lat,
         "longitude": raw_lon,
         "cuisine_tags": cuisines,
+        "dining_out_metadata": {
+            "license_type": first_non_empty(row, ["license_type"]),
+            "license_status": first_non_empty(row, ["license_status"]),
+            "license_issue_date": license_issue_date,
+            "license_expiration_date": license_expiration_date,
+            "location_type": location_type,
+            "building_number": first_non_empty(row, ["building_number", "building", "house_number"]),
+            "council_district": first_non_empty(row, ["council_district"]),
+            "community_board": first_non_empty(row, ["community_board"]),
+            "nta2020": first_non_empty(row, ["nta2020"]),
+            "bin": first_non_empty(row, ["bin"]),
+            "bbl": first_non_empty(row, ["bbl"]),
+            "capacity_estimate": capacity,
+            "raw_payload": raw_metadata,
+        },
         "raw_payload": row,
     }
 
@@ -80,3 +102,26 @@ def stream_dining_out_rows(client) -> Iterable[Dict]:
             continue
         if first_non_empty(normalized, ["name", "street", "zip_code"]):
             yield normalized
+
+
+def _parse_date(value: str) -> str | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text[: len(fmt)], fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        return int(float(str(value).strip()))
+    except (TypeError, ValueError):
+        return None

@@ -13,7 +13,13 @@ from django.utils import timezone
 from nomz.ingestion.utils.normalization import normalize_text
 from nomz.ingestion.utils.resolver import resolve_restaurant
 from nomz.ingestion.utils.score import compute_composite_score_from_records
-from nomz.models import DataIngestionRun, InspectionRecord, Restaurant, RestaurantSourceRecord
+from nomz.models import (
+    DataIngestionRun,
+    DiningOutLocation,
+    InspectionRecord,
+    Restaurant,
+    RestaurantSourceRecord,
+)
 
 
 def _to_decimal(value: object) -> Optional[Decimal]:
@@ -141,7 +147,7 @@ class DbIngestionWriter:
                 "external_name": record.get("name", ""),
                 "external_address": self._format_address(record),
                 "raw_payload": record.get("raw_payload"),
-                "confidence": 1.0,
+                "confidence": record.get("match_confidence", 1.0),
             }
 
             if existing:
@@ -162,6 +168,9 @@ class DbIngestionWriter:
             else:
                 RestaurantSourceRecord.objects.create(**payload)
                 self.stats.records_created += 1
+
+            if record.get("source") == "DINING_OUT":
+                self._upsert_dining_out_profile(restaurant, record)
 
     def _handle_inspection_record(self, record: Dict[str, Any]) -> None:
         restaurant = self._resolve_restaurant(record)
@@ -221,9 +230,13 @@ class DbIngestionWriter:
             candidates = candidates.filter(zip_code__startswith=_zip_prefix(zip_code))
         if not candidates.exists() and street:
             candidates = Restaurant.objects.filter(is_active=True, street__iexact=street)
+        if not candidates.exists():
+            candidates = Restaurant.objects.filter(is_active=True)
 
         candidate_payloads = [_record_to_match_payload(item) for item in candidates]
-        matched, score = resolve_restaurant(record, candidate_payloads)
+        matched, score, strategy = resolve_restaurant(record, candidate_payloads)
+        record["match_confidence"] = score
+        record["match_strategy"] = strategy
 
         if not matched:
             normalized_payload = {
@@ -297,6 +310,31 @@ class DbIngestionWriter:
             restaurant.save()
 
         return restaurant
+
+    def _upsert_dining_out_profile(self, restaurant: Restaurant, record: Dict[str, Any]) -> None:
+        metadata = record.get("dining_out_metadata") or {}
+        if not metadata:
+            return
+
+        defaults = {
+            "license_type": metadata.get("license_type"),
+            "license_status": metadata.get("license_status"),
+            "license_issue_date": self._coerce_date(metadata.get("license_issue_date")),
+            "license_expiration_date": self._coerce_date(metadata.get("license_expiration_date")),
+            "location_type": (metadata.get("location_type") or "UNKNOWN").lower()[:20],
+            "building_number": metadata.get("building_number"),
+            "council_district": metadata.get("council_district"),
+            "community_board": metadata.get("community_board"),
+            "nta2020": metadata.get("nta2020"),
+            "bin": metadata.get("bin"),
+            "bbl": metadata.get("bbl"),
+            "capacity_estimate": self._coerce_int(metadata.get("capacity_estimate")),
+        }
+
+        DiningOutLocation.objects.update_or_create(
+            restaurant=restaurant,
+            defaults=defaults,
+        )
 
     def _refresh_restaurant_score(self, restaurant: Restaurant) -> None:
         if self.dry_run:

@@ -1,9 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from difflib import SequenceMatcher
 from math import atan2, cos, radians, sin, sqrt
 from typing import Dict, Iterable, Optional, Tuple
+
+
+_NON_ALNUM_RE = re.compile(r"[^A-Z0-9]")
+
+
+@dataclass(frozen=True)
+class MatchResult:
+    restaurant_payload: Optional[Dict]
+    score: float
+    strategy: str
 
 
 def _to_float(value: object) -> Optional[float]:
@@ -58,10 +69,23 @@ class MatchCandidate:
 
 
 def build_address_key(building: str, street: str, zip_code: str) -> str:
-    b = (building or "").strip().upper().replace(" ", "")
-    s = (street or "").strip().upper().replace(" ", "")
+    b = _normalize_for_match(building)
+    s = _normalize_for_match(street)
     z = (zip_code or "").strip()[:5]
     return f"{b}|{s}|{z}"
+
+
+def _normalize_for_match(value: object) -> str:
+    text = (str(value or "").strip().upper())
+    if not text:
+        return ""
+    text = text.replace(" STREET", " ST")
+    text = text.replace(" AVENUE", " AVE")
+    text = text.replace(" BOULEVARD", " BLVD")
+    text = text.replace(" ROAD", " RD")
+    text = text.replace(" AV", " AV")
+    text = _NON_ALNUM_RE.sub("", text)
+    return text
 
 
 def score_match(
@@ -115,16 +139,66 @@ def resolve_restaurant(
     incoming: Dict,
     candidates: Iterable[Dict],
     threshold: float = 0.86,
-) -> Tuple[Optional[Dict], float]:
-    best_match = None
-    best_score = 0.0
+) -> Tuple[Optional[Dict], float, str]:
+    incoming_name = (incoming.get("name_normalized") or "").upper()
+    incoming_street = _normalize_for_match(incoming.get("street", ""))
+    incoming_zip = (incoming.get("zip_code") or "").strip()[:5]
+    incoming_borough = (incoming.get("borough") or "").strip().upper()
+    candidate_list = list(candidates)
 
-    for candidate in candidates:
+    if not candidate_list:
+        return None, 0.0, "no_candidates"
+
+    for candidate in candidate_list:
+        candidate_name = (candidate.get("name") or candidate.get("name_normalized") or "").upper()
+        candidate_street = _normalize_for_match(candidate.get("street"))
+        candidate_zip = (candidate.get("zip_code") or "").strip()[:5]
+        exact_key_in = build_address_key(
+            incoming.get("building", ""),
+            incoming.get("street", ""),
+            incoming_zip,
+        )
+        exact_key_candidate = build_address_key(
+            candidate.get("building", ""),
+            candidate.get("street", ""),
+            candidate_zip,
+        )
+
+        if incoming_name and exact_key_in == exact_key_candidate and incoming_name == candidate_name:
+            return candidate, 1.0, "exact_name_address_match"
+
+    stage_one = []
+    for candidate in candidate_list:
+        if not incoming_street:
+            continue
+        if _same_or_close_zip(incoming_zip, candidate.get("zip_code", "")) and _normalize_for_match(candidate.get("street")).startswith(incoming_street[:5]):
+            score = score_match(incoming, candidate)
+            if score >= threshold:
+                stage_one.append((score, candidate))
+
+    if stage_one:
+        stage_one.sort(key=lambda item: item[0], reverse=True)
+        return stage_one[0][1], stage_one[0][0], "zip_address_fuzzy"
+
+    stage_two = []
+    for candidate in candidate_list:
+        score = score_match(incoming, candidate)
+        candidate_borough = (candidate.get("borough") or "").strip().upper()
+        if score >= 0.8 and (incoming_borough == candidate_borough or _same_or_close_zip(incoming_zip, candidate.get("zip_code", ""))):
+            stage_two.append((score, candidate))
+
+    if stage_two:
+        stage_two.sort(key=lambda item: item[0], reverse=True)
+        return stage_two[0][1], stage_two[0][0], "name_zip_borough_fuzzy"
+
+    best_match: Optional[Dict] = None
+    best_score = 0.0
+    for candidate in candidate_list:
         score = score_match(incoming, candidate)
         if score > best_score:
             best_score = score
             best_match = candidate
 
     if best_score >= threshold:
-        return best_match, best_score
-    return None, best_score
+        return best_match, best_score, "fallback_fuzzy"
+    return None, best_score, "no_match"

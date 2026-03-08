@@ -102,6 +102,50 @@ class RestaurantSourceRecord(models.Model):
         return f"{self.source} {self.external_id}"
 
 
+class DiningOutLocation(models.Model):
+    LOCATION_TYPE_CHOICES = [
+        ("indoor", "Indoor"),
+        ("outdoor", "Outdoor"),
+        ("sidewalk", "Sidewalk"),
+        ("mixed", "Mixed"),
+        ("unknown", "Unknown"),
+    ]
+
+    restaurant = models.OneToOneField(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="dining_out_profile",
+    )
+    license_type = models.CharField(max_length=80, blank=True, null=True)
+    license_status = models.CharField(max_length=80, blank=True, null=True)
+    license_issue_date = models.DateField(blank=True, null=True)
+    license_expiration_date = models.DateField(blank=True, null=True)
+    location_type = models.CharField(
+        max_length=20,
+        choices=LOCATION_TYPE_CHOICES,
+        default="unknown",
+    )
+    building_number = models.CharField(max_length=40, blank=True, null=True)
+    council_district = models.CharField(max_length=20, blank=True, null=True)
+    community_board = models.CharField(max_length=20, blank=True, null=True)
+    nta2020 = models.CharField(max_length=32, blank=True, null=True)
+    boro_code = models.CharField(max_length=20, blank=True, null=True)
+    bin = models.CharField(max_length=40, blank=True, null=True)
+    bbl = models.CharField(max_length=40, blank=True, null=True)
+    capacity_estimate = models.IntegerField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["restaurant"]),
+            models.Index(fields=["license_type", "license_status"]),
+        ]
+
+    def __str__(self):
+        return f"DiningOutProfile: {self.restaurant_id}"
+
+
 class InspectionRecord(models.Model):
     restaurant = models.ForeignKey(
         Restaurant,
