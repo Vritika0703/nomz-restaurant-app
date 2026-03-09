@@ -1,4 +1,4 @@
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
@@ -38,6 +38,14 @@ def home(request):
         'title': 'Home',
     }
     return render(request, 'nomz/home.html', context)
+
+
+def health_check(request):
+    """
+    Lightweight health endpoint for ELB/EB health checks.
+    Must return HTTP 200 quickly and without auth redirects.
+    """
+    return JsonResponse({"status": "ok"}, status=200)
 
 
 def map_view(request):

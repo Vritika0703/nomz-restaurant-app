@@ -4,6 +4,7 @@ from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path('', views.landing_page, name='landing'),
+    path('health/', views.health_check, name='health_check'),
     path('home/', views.home, name='home'),
     path('map/', views.map_view, name='map'),
     path('api/restaurants/map-data/', api_views.map_restaurant_data, name='api_restaurants_map'),
