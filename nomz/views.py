@@ -455,24 +455,58 @@ def set_primary_photo(request, photo_id):
 def restaurant_search(request):
     query = request.GET.get('q', '')
     neighborhood = request.GET.get('neighborhood', '')
-    
-    # Start with all restaurants
+
+    # Primary search index
     results = RestaurantSearch.objects.all()
-    
-    # Apply keyword search (Name or Description)
     if query:
         results = results.filter(
-            Q(name__icontains=query) | 
-            Q(description__icontains=query) |
-            Q(cuisine__icontains=query)
+            Q(name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(cuisine__icontains=query)
         )
-    
-    # Apply neighborhood filter
     if neighborhood:
         results = results.filter(neighborhood__iexact=neighborhood)
-        
-    # Get unique neighborhoods for the dropdown filter
+
     all_neighborhoods = RestaurantSearch.objects.values_list('neighborhood', flat=True).distinct()
+
+    # Fallback path: if the search index is empty, read directly from Restaurant.
+    if not RestaurantSearch.objects.exists():
+        base_restaurants = Restaurant.objects.filter(is_active=True)
+        if query:
+            base_restaurants = base_restaurants.filter(
+                Q(name__icontains=query)
+                | Q(description__icontains=query)
+                | Q(cuisine__icontains=query)
+                | Q(cuisine_type__icontains=query)
+                | Q(cuisine_tags__icontains=query)
+            )
+        if neighborhood:
+            base_restaurants = base_restaurants.filter(
+                Q(neighborhood__iexact=neighborhood) | Q(borough__iexact=neighborhood)
+            )
+
+        mapped_results = []
+        for restaurant in base_restaurants.order_by('name'):
+            fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ''
+            if not fallback_cuisine and restaurant.cuisine_tags:
+                fallback_cuisine = ', '.join(str(tag) for tag in restaurant.cuisine_tags[:3])
+            mapped_results.append(
+                {
+                    'name': restaurant.name,
+                    'description': restaurant.description or '',
+                    'cuisine': fallback_cuisine,
+                    'neighborhood': restaurant.neighborhood or restaurant.borough or '',
+                }
+            )
+
+        results = mapped_results
+        all_neighborhoods = sorted(
+            {
+                restaurant.neighborhood or restaurant.borough
+                for restaurant in Restaurant.objects.filter(is_active=True)
+                if (restaurant.neighborhood or restaurant.borough)
+            }
+        )
 
     return render(request, 'nomz/search_results.html', {
         'results': results,
