@@ -5,12 +5,12 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'restaurants.settings')
 django.setup()
 
-from nomz.models import Restaurant
+from nomz.models import RestaurantSearch
 
 def seed_restaurants():
     # Clear existing data to avoid duplicates during testing
     print("Cleaning up old restaurant data...")
-    Restaurant.objects.all().delete()
+    RestaurantSearch.objects.all().delete()
 
     # Sample data based on common neighborhood names
     restaurants = [
@@ -54,7 +54,7 @@ def seed_restaurants():
 
     print(f"Seeding {len(restaurants)} restaurants...")
     for r in restaurants:
-        Restaurant.objects.create(**r)
+        RestaurantSearch.objects.create(**r)
     
     print("Done! Your local database is ready for testing.")
 
