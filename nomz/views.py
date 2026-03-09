@@ -13,7 +13,7 @@ from .forms import (
     RestaurantActivationForm,
     RestaurantPhotoForm,
 )
-from .models import Restaurant, RestaurantPhoto
+from .models import Restaurant, RestaurantPhoto, RestaurantSearch
 
 
 def landing_page(request):
@@ -449,7 +449,7 @@ def restaurant_search(request):
     neighborhood = request.GET.get('neighborhood', '')
     
     # Start with all restaurants
-    results = Restaurant.objects.all()
+    results = RestaurantSearch.objects.all()
     
     # Apply keyword search (Name or Description)
     if query:
@@ -464,7 +464,7 @@ def restaurant_search(request):
         results = results.filter(neighborhood__iexact=neighborhood)
         
     # Get unique neighborhoods for the dropdown filter
-    all_neighborhoods = Restaurant.objects.values_list('neighborhood', flat=True).distinct()
+    all_neighborhoods = RestaurantSearch.objects.values_list('neighborhood', flat=True).distinct()
 
     return render(request, 'nomz/search_results.html', {
         'results': results,
