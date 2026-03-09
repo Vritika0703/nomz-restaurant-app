@@ -1,4 +1,6 @@
 from django.contrib.auth.models import User
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
 from django.db import models
 from django.utils import timezone
 
@@ -21,7 +23,7 @@ class UserProfile(models.Model):
 
 class Restaurant(models.Model):
     """
-    Restaurant model that supports both owner-managed profiles and ingestion data.
+    Restaurant profile model for restaurant owners to manage their business information.
     """
     CUISINE_CHOICES = [
         ('american', 'American'),
@@ -71,10 +73,23 @@ class Restaurant(models.Model):
     email = models.EmailField(max_length=254, blank=True, null=True)
     cuisine_type = models.CharField(max_length=50, choices=CUISINE_CHOICES, default='other')
     price_range = models.CharField(max_length=10, choices=PRICE_CHOICES, default='$$')
-
+    
+    # Operating hours
+    days_of_week = [
+        ('MON', 'Monday'),
+        ('TUE', 'Tuesday'),
+        ('WED', 'Wednesday'),
+        ('THU', 'Thursday'),
+        ('FRI', 'Friday'),
+        ('SAT', 'Saturday'),
+        ('SUN', 'Sunday'),
+    ]
+    
+    # Hours stored as JSONField for flexibility (optional: can use TimeField pairs)
     hours_open = models.TimeField(default='09:00', help_text='Opening time')
     hours_close = models.TimeField(default='21:00', help_text='Closing time')
-
+    
+    # Status and availability
     is_active = models.BooleanField(default=True, help_text='Profile is visible to customers')
     is_temporarily_unavailable = models.BooleanField(default=False, help_text='Temporarily mark as unavailable')
     unavailable_reason = models.CharField(max_length=500, blank=True, null=True)
