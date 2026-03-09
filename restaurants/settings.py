@@ -227,6 +227,8 @@ if not DEBUG:
     # Django receives HTTP from load balancer, so cookies must work over HTTP
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
+    # Allow LB health checks over HTTP without redirecting to HTTPS.
+    SECURE_REDIRECT_EXEMPT = [r'^health/?$']
 
     SESSION_COOKIE_SECURE = False  # Allow cookies over HTTP (load balancer handles HTTPS)
     CSRF_COOKIE_SECURE = False     # Allow CSRF cookies over HTTP (load balancer handles HTTPS)
