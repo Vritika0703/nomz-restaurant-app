@@ -59,7 +59,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'storages',
-    'nomz',
+    'nomz.apps.NomzConfig',
 ]
 
 MIDDLEWARE = [
@@ -118,7 +118,6 @@ else:
             'CONN_MAX_AGE': 600,  # Connection pooling
         }
     }
-}
 
 
 # Password validation
