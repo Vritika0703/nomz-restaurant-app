@@ -12,8 +12,9 @@ from .forms import (
     RestaurantAvailabilityForm,
     RestaurantActivationForm,
     RestaurantPhotoForm,
+    UserPreferenceForm,
 )
-from .models import Restaurant, RestaurantPhoto, RestaurantSearch
+from .models import Restaurant, RestaurantPhoto, RestaurantSearch, UserPreference
 
 
 def landing_page(request):
@@ -161,22 +162,28 @@ def user_login(request):
 @login_required(login_url='landing')
 def dashboard(request):
     """
-    Dashboard dynamically routes based on the database profile
+    Dashboard dynamically routes based on the database profile and includes user preferences.
     """
-    # 1. Check if they are a built-in Django Admin
+    # 1. Determine User Role
     if request.user.is_superuser or request.user.is_staff:
         role = 'admin'
-    # 2. Check their profile in the database
     elif hasattr(request.user, 'userprofile'):
         role = request.user.userprofile.role
-    # 3. Fallback
     else:
-        role = 'diner' 
+        role = 'diner'
+
+    # 2. Safely Fetch Preferences
+    # This ensures the dashboard doesn't crash if preferences aren't set yet
+    try:
+        preferences = request.user.preferences
+    except UserPreference.DoesNotExist:
+        preferences = None
 
     context = {
         'title': 'Dashboard',
         'user': request.user,
         'role': role,
+        'preferences': preferences,  # Add this to context
     }
     
     if role == 'restaurant':
@@ -184,6 +191,7 @@ def dashboard(request):
     elif role == 'admin':
         return render(request, 'nomz/admin_dashboard.html', context)
     else:
+        # This matches the user_dashboard.html where your taste profile code is
         return render(request, 'nomz/user_dashboard.html', context)
 
 
@@ -513,4 +521,28 @@ def restaurant_search(request):
         'query': query,
         'neighborhood': neighborhood,
         'all_neighborhoods': all_neighborhoods
+    })
+
+# Add this to views.py
+
+@login_required(login_url='landing')
+def manage_preferences(request):
+    """
+    Create or Update user taste preferences
+    """
+    # Get or create the preference object for the current user
+    preferences, created = UserPreference.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        form = UserPreferenceForm(request.POST, instance=preferences)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Your dining preferences have been updated!')
+            return redirect('dashboard')
+    else:
+        form = UserPreferenceForm(instance=preferences)
+    
+    return render(request, 'nomz/manage_preferences.html', {
+        'form': form,
+        'title': 'My Preferences'
     })

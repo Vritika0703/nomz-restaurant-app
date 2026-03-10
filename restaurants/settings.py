@@ -63,8 +63,13 @@ INSTALLED_APPS = [
     'two_factor',
     'corsheaders',
     'storages',
+    'crispy_forms',
+    'crispy_bootstrap5',
     'nomz.apps.NomzConfig',
 ]
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -238,3 +243,5 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
