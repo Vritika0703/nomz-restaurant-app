@@ -13,6 +13,9 @@ urlpatterns = [
     path('register/', views.register, name='register'), # Removed <str:role>
     path('logout/', views.user_logout, name='logout'),
     path('profile/', views.dashboard, name='profile'),
+    path('dashboard/', views.dashboard, name='dashboard'),
+    path('search/', views.restaurant_search, name='restaurant_search'),
+    path('preferences/', views.manage_preferences, name='manage_preferences'),
     
     # Restaurant Profile Management
     path('restaurant/create/', views.create_restaurant_profile, name='create_restaurant'),
@@ -25,7 +28,6 @@ urlpatterns = [
     path('restaurant/photos/upload/', views.upload_photo, name='upload_photo'),
     path('restaurant/photos/<int:photo_id>/delete/', views.delete_photo, name='delete_photo'),
     path('restaurant/photos/<int:photo_id>/set-primary/', views.set_primary_photo, name='set_primary_photo'),
-    path('search/', views.restaurant_search, name='restaurant_search'),
     # Password reset (Django built-in)
     path('password-reset/', auth_views.PasswordResetView.as_view(
         template_name='registration/password_reset_form.html',

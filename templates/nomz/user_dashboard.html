@@ -4,7 +4,6 @@
 
 {% block content %}
 <div class="row">
-    <!-- User Profile Card -->
     <div class="col-md-4 mb-4">
         <div class="card">
             <div class="card-body text-center p-4">
@@ -12,15 +11,30 @@
                     {{ user.username|first|upper }}
                 </div>
                 <h3 class="card-title">{{ user.username }}</h3>
-                <p class="text-muted mb-3">{{ user.email }}</p>
+                <p class="text-muted mb-1">{{ user.email }}</p>
                 <p class="text-muted small">Member since {{ user.date_joined|date:'F d, Y' }}</p>
+                <hr>
+                
+                <div class="text-start mt-3">
+                    <h6 class="small fw-bold text-uppercase text-muted mb-2">My Taste Profile</h6>
+                    {% if preferences %}
+                        <p class="small mb-1"><strong>Cuisines:</strong> 
+                            {{ preferences.favorite_cuisines|join:", "|default:"Not set" }}
+                        </p>
+                        <p class="small mb-1"><strong>Price:</strong> {{ preferences.price_preference }}</p>
+                    {% else %}
+                        <p class="small text-muted italic">No preferences set yet.</p>
+                    {% endif %}
+                    <a href="{% url 'manage_preferences' %}" class="btn btn-sm btn-outline-primary w-100 mt-2">
+                        Update Preferences
+                    </a>
+                </div>
                 <hr>
                 <p class="text-muted small">👤 Diner Account</p>
             </div>
         </div>
     </div>
 
-    <!-- Dashboard Main Content -->
     <div class="col-md-8">
         <div class="card mb-4">
             <div class="card-header" style="background-color: #465F6E; color: white;">
@@ -35,12 +49,41 @@
                     <li><strong>🌟 Rate Restaurants:</strong> Help others by rating your favorite places</li>
                     <li><strong>❤️ Save Favorites:</strong> Keep track of restaurants you'd like to visit</li>
                     <li><strong>📊 Get Recommendations:</strong> Receive personalized suggestions based on your preferences</li>
-                    <li><strong>💬 Connect with Restaurants:</strong> Message restaurants directly with questions or feedback</li>
                 </ul>
             </div>
         </div>
 
-        <!-- Quick Stats -->
+        <div class="card mb-4 border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1">Personalized Dining Interests</h5>
+                        <p class="text-muted small mb-0">We use these to surface the best NYC restaurants for you.</p>
+                    </div>
+                    <div style="font-size: 1.5rem;">🍽️</div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1 small"><strong>Favorite Cuisines:</strong></p>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% if preferences and preferences.favorite_cuisines %}
+                                {% for cuisine in preferences.favorite_cuisines %}
+                                    <span class="badge bg-light text-dark border">{{ cuisine|title }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted small">None selected</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1 small"><strong>Dietary Preferences:</strong></p>
+                        <p class="small">{{ preferences.dietary_restrictions|join:", "|default:"No restrictions" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-md-6 mb-4">
                 <div class="card">
