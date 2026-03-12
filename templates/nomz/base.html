@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Nomz - Restaurant Discovery Platform{% endblock %}</title>
+    <title>{% block title %}nomz - Restaurant Discovery Platform{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+15&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary-color: #FF6B6B;
@@ -14,33 +15,33 @@
         }
 
         body {
-            background-color: #f8f9fa;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #203440;
+            font-family: 'Jersey 15', cursive;
         }
 
         .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: #FDFFF6;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         .navbar-brand {
             font-weight: bold;
             font-size: 1.5rem;
-            color: white !important;
+            color: var(--dark-color) !important;
         }
 
         .nav-link {
-            color: rgba(255, 255, 255, 0.9) !important;
+            color: var(--dark-color) !important;
             margin-left: 1rem;
             transition: color 0.3s ease;
         }
 
         .nav-link:hover {
-            color: white !important;
+            color: #D3DBC0 !important;
         }
 
         .nav-link.active {
-            color: white !important;
+            color: #D3DBC0 !important;
             font-weight: bold;
         }
 
@@ -66,13 +67,14 @@
 
         .card {
             border: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background-color: #D3DBC0;
+            color: #000000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
         .form-control {
@@ -103,20 +105,28 @@
         }
 
         .auth-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: calc(100vh - 200px);
-            padding: 2rem 0;
+            background-color: #465F6E;
+            padding: 0;
+            margin: 0;
+            z-index: 1000;
         }
 
         .auth-card {
             width: 100%;
             max-width: 450px;
+            background-color: #FDFFF6;
         }
 
         .auth-card .card-header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            background-color: #465F6E;
             color: white;
             border: none;
             padding: 2rem;
@@ -131,6 +141,17 @@
 
         .auth-card .card-body {
             padding: 2rem;
+            background-color: #FDFFF6;
+        }
+
+        .auth-card .btn-primary {
+            background-color: #96A99E;
+            border-color: #96A99E;
+        }
+
+        .auth-card .btn-primary:hover {
+            background-color: #7a8a81;
+            border-color: #7a8a81;
         }
 
         .form-group {
@@ -139,8 +160,12 @@
 
         .form-group label {
             font-weight: 500;
-            color: var(--dark-color);
+            color: #465F6E;
             margin-bottom: 0.5rem;
+        }
+
+        .auth-card .form-group label {
+            color: #465F6E;
         }
 
         .auth-links {
@@ -148,12 +173,12 @@
             margin-top: 1.5rem;
             padding-top: 1.5rem;
             border-top: 1px solid #ddd;
+            color: #465F6E;
         }
 
         .auth-links a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
+            color: #96A99E;
+            font-weight: bold;
         }
 
         .auth-links a:hover {
@@ -182,8 +207,8 @@
             background-color: var(--dark-color);
             color: white;
             text-align: center;
-            padding: 2rem;
-            margin-top: 5rem;
+            padding: 0.75rem 2rem;
+            margin-top: 2rem;
         }
 
         .user-info {
@@ -207,79 +232,60 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    {% block navbar %}
+    <nav class="navbar navbar-expand-lg">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'landing' %}">🍽️ Nomz</a>
+            <a class="navbar-brand" href="{% url 'landing' %}">nomz</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'home' %}">Home</a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link" href="{% url 'map' %}">Map</a>
                     </li>
+                    {% if request.resolver_match.url_name == 'dashboard' %}
+                        {% if user.role != 'restaurant' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'home' %}">Home</a>
+                        </li>
+                        {% endif %}
+                    {% elif request.resolver_match.url_name == 'home' %}
+                        {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
+                        </li>
+                        {% endif %}
+                    {% endif %}
+                    
                     {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                            <div class="user-info">
-                                <div class="user-avatar">{{ user.username|first|upper }}</div>
-                                <span>{{ user.username }}</span>
-                            </div>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'dashboard' %}">My Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <form method="POST" action="{% url 'logout' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="dropdown-item">Logout</button>
-                                </form>
-                            </li>
-                        </ul>
-                    </li>
-                    {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'login' %}">Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'register' %}">Register</a>
+                        <form method="POST" action="{% url 'logout' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="nav-link" style="background: none; border: none; padding: 0.5rem 1rem; cursor: pointer;">Logout</button>
+                        </form>
                     </li>
                     {% endif %}
                 </ul>
             </div>
         </div>
     </nav>
+    {% endblock %}
 
-    <!-- Messages -->
-    {% if messages %}
-    <div class="container mt-4">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
 
-    <!-- Main Content -->
+    {% block main_layout %}
     <main class="container my-5">
         {% block content %}{% endblock %}
     </main>
+    {% endblock %}
 
-    <!-- Footer -->
     <footer>
-        <p>&copy; 2026 Nomz - Restaurant Discovery Platform. All rights reserved.</p>
+        <p>&copy; 2026 nomz - Restaurant Discovery Platform. All rights reserved.</p>
         <p>Helping you discover amazing dining experiences!</p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>

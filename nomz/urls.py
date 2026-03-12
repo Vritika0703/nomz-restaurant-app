@@ -5,6 +5,7 @@ from django.contrib.auth import views as auth_views
 urlpatterns = [
     path('', views.landing_page, name='landing'),
     path('health/', views.health_check, name='health_check'),
+    path('signin/', views.signin_page, name='signin'),
     path('home/', views.home, name='home'),
     path('map/', views.map_view, name='map'),
     path('api/restaurants/map-data/', api_views.map_restaurant_data, name='api_restaurants_map'),
@@ -14,7 +15,6 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     
     # Restaurant Profile Management
-    path('restaurant/profile/', views.restaurant_profile, name='restaurant_profile'),
     path('restaurant/create/', views.create_restaurant_profile, name='create_restaurant'),
     path('restaurant/edit/', views.edit_restaurant_profile, name='edit_restaurant'),
     path('restaurant/availability/', views.manage_availability, name='manage_availability'),

@@ -18,14 +18,24 @@ from .models import Restaurant, RestaurantPhoto, RestaurantSearch
 
 def landing_page(request):
     """
-    Landing page - entry point for the application
-    Shows Sign Up and Login options
+    Landing page - splash screen entry point for the application
+    Shows "Nomz" with "Click to start" message
+    """
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    return render(request, 'nomz/splash.html')
+
+
+def signin_page(request):
+    """
+    Sign In page - displays login form
     """
     if request.user.is_authenticated:
         return redirect('dashboard')
     
     context = {
-        'title': 'Welcome to Nomz',
+        'title': 'Sign In',
     }
     return render(request, 'nomz/landing.html', context)
 
@@ -180,6 +190,9 @@ def dashboard(request):
     }
     
     if role == 'restaurant':
+        # Get the restaurant profile for the restaurant owner
+        restaurant = Restaurant.objects.filter(owner=request.user).first()
+        context['restaurant'] = restaurant
         return render(request, 'nomz/restaurant_dashboard.html', context)
     elif role == 'admin':
         return render(request, 'nomz/admin_dashboard.html', context)
@@ -192,11 +205,11 @@ def dashboard(request):
 def user_logout(request):
     """
     User logout view
-    Logs out the user and redirects to landing page
+    Logs out the user and redirects to login page
     """
     logout(request)
     messages.success(request, 'You have been logged out successfully.')
-    return redirect('landing')
+    return redirect('signin')
 
 
 # ============================================================================
@@ -207,29 +220,6 @@ def user_logout(request):
 def is_restaurant_owner(user):
     """Helper function to check if user is a restaurant owner"""
     return hasattr(user, 'userprofile') and user.userprofile.role == 'restaurant'
-
-
-@login_required(login_url='landing')
-def restaurant_profile(request):
-    """
-    View restaurant owner's profile page
-    Shows restaurant details, photos, and status
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to access this page.')
-        return redirect('dashboard')
-    
-    try:
-        restaurant = Restaurant.objects.get(owner=request.user)
-    except Restaurant.DoesNotExist:
-        restaurant = None
-    
-    context = {
-        'title': 'Restaurant Profile',
-        'restaurant': restaurant,
-        'has_restaurant': restaurant is not None,
-    }
-    return render(request, 'nomz/restaurant_profile.html', context)
 
 
 @login_required(login_url='landing')
@@ -246,7 +236,7 @@ def create_restaurant_profile(request):
     # Check if user already has a restaurant
     if Restaurant.objects.filter(owner=request.user).exists():
         messages.info(request, 'You already have a restaurant profile.')
-        return redirect('restaurant_profile')
+        return redirect('dashboard')
     
     if request.method == 'POST':
         form = RestaurantProfileForm(request.POST)
@@ -255,7 +245,7 @@ def create_restaurant_profile(request):
             restaurant.owner = request.user
             restaurant.save()
             messages.success(request, 'Restaurant profile created successfully!')
-            return redirect('restaurant_profile')
+            return redirect('dashboard')
     else:
         form = RestaurantProfileForm()
     
@@ -285,7 +275,7 @@ def edit_restaurant_profile(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'Restaurant profile updated successfully!')
-            return redirect('restaurant_profile')
+            return redirect('dashboard')
     else:
         form = RestaurantProfileForm(instance=restaurant)
     
@@ -318,7 +308,7 @@ def manage_availability(request):
                 messages.success(request, 'Restaurant marked as temporarily unavailable.')
             else:
                 messages.success(request, 'Restaurant availability updated.')
-            return redirect('restaurant_profile')
+            return redirect('dashboard')
     else:
         form = RestaurantAvailabilityForm(instance=restaurant)
     
@@ -350,7 +340,7 @@ def manage_activation(request):
                 messages.success(request, 'Restaurant profile is now visible to customers.')
             else:
                 messages.warning(request, 'Restaurant profile has been deactivated. It is no longer visible to customers.')
-            return redirect('restaurant_profile')
+            return redirect('dashboard')
     else:
         form = RestaurantActivationForm(instance=restaurant)
     
