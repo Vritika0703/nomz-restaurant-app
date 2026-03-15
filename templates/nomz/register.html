@@ -5,6 +5,7 @@
 {% block navbar %}{% endblock %} 
 
 {% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&display=swap" rel="stylesheet">
 <style>
     /* 1. Set the background to match your new login page */
     html, body {
@@ -31,6 +32,8 @@
         border-radius: 12px;
         padding: 2.5rem 3rem;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        position: relative;
+        z-index: 10;
     }
     
     .form-header {
@@ -106,10 +109,13 @@
         cursor: pointer;
         font-size: 1.2rem;
         transition: background-color 0.3s ease;
+        opacity: 1 !important;
+        z-index: 20;
     }
 
     .btn-submit:hover {
         background-color: #7a8a81;
+        opacity: 1 !important;
     }
 
     .invalid-feedback {
@@ -141,12 +147,7 @@
 
     /* Alert Styling for global form errors */
     .alert-danger {
-        background-color: #fdf2f2;
-        border: 1px solid #f2dede;
-        color: #a94442;
-        padding: 0.8rem;
-        border-radius: 6px;
-        margin-bottom: 1.5rem;
+        display: none;
     }
 
     /* Mobile Responsiveness */
@@ -162,11 +163,61 @@
             gap: 0;
         }
     }
+
+    /* Watermark styles */
+    .watermark-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        z-index: 1;
+        pointer-events: none;
+        opacity: 0.08;
+        padding: 1rem 0;
+    }
+
+    .watermark-row {
+        display: flex;
+        justify-content: space-around;
+        font-size: 2rem;
+        font-family: 'Cormorant Garamond', serif;
+        font-style: italic;
+        color: white;
+        width: 100%;
+        gap: 0.2rem;
+        padding: 0 1rem;
+        margin-bottom: 0.5rem;
+    }
 </style>
 {% endblock %}
 
 {% block main_layout %}
-<main style="width: 100vw; display: flex; justify-content: center; align-items: center;">
+<main style="width: 100vw; display: flex; justify-content: center; align-items: center; position: relative;">
+    
+    <!-- Watermark background -->
+    <div class="watermark-background">
+        {% for i in "x"|rjust:"30" %}
+        <div class="watermark-row">
+            {% if forloop.counter|divisibleby:2 %}
+            <span>nomz</span>
+            {% endif %}
+            <span>nomz</span>
+            <span>nomz</span>
+            <span>nomz</span>
+            <span>nomz</span>
+            <span>nomz</span>
+            <span>nomz</span>
+            <span>nomz</span>
+            <span>nomz</span>
+            <span>nomz</span>
+            <span>nomz</span>
+        </div>
+        {% endfor %}
+    </div>
     
     <div class="auth-card-container">
         <div class="form-header">
@@ -176,14 +227,6 @@
         <form method="POST" novalidate>
             {% csrf_token %}
             
-            {% if form.non_field_errors %}
-            <div class="alert-danger">
-                {% for error in form.non_field_errors %}
-                <p style="margin: 0; font-size: 0.9rem;">{{ error }}</p>
-                {% endfor %}
-            </div>
-            {% endif %}
-
             <div class="form-group full-width">
                 <label for="{{ form.role.id_for_label }}">I am a...</label>
                 {{ form.role }}

@@ -27,7 +27,11 @@
 
 <script>
 document.getElementById('splashScreen').addEventListener('click', function() {
-    window.location.href = '{% url 'signin' %}';
+    {% if is_authenticated %}
+        window.location.href = '{% url 'profile' %}';
+    {% else %}
+        window.location.href = '{% url 'signin' %}';
+    {% endif %}
 });
 </script>
 {% endblock %}

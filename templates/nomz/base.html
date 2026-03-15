@@ -8,19 +8,27 @@
     <link href="https://fonts.googleapis.com/css2?family=Jersey+15&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #FF6B6B;
-            --secondary-color: #4ECDC4;
-            --dark-color: #2C3E50;
-            --light-color: #ECF0F1;
+            --primary-color: #465F6E;
+            --secondary-color: #96A99E;
+            --dark-color: #203440;
+            --light-color: #FDFFF6;
+            --accent-color: #D3DBC0;
+        }
+
+        html {
+            height: 100%;
         }
 
         body {
-            background-color: #203440;
+            background-color: var(--dark-color);
             font-family: 'Jersey 15', cursive;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
 
         .navbar {
-            background-color: #FDFFF6;
+            background-color: var(--light-color);
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
@@ -37,37 +45,47 @@
         }
 
         .nav-link:hover {
-            color: #D3DBC0 !important;
+            color: var(--accent-color) !important;
         }
 
         .nav-link.active {
-            color: #D3DBC0 !important;
+            color: var(--accent-color) !important;
             font-weight: bold;
+        }
+
+        /* Ensure all buttons are fully opaque */
+        button, input[type="submit"], .btn {
+            opacity: 1 !important;
+            background-image: none !important;
         }
 
         .btn-primary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
+            opacity: 1 !important;
         }
 
         .btn-primary:hover {
-            background-color: #ff5252;
-            border-color: #ff5252;
+            background-color: #3d4d5b;
+            border-color: #3d4d5b;
+            opacity: 1 !important;
         }
 
         .btn-secondary {
             background-color: var(--secondary-color);
             border-color: var(--secondary-color);
+            opacity: 1 !important;
         }
 
         .btn-secondary:hover {
-            background-color: #45b7aa;
-            border-color: #45b7aa;
+            background-color: #7a8a81;
+            border-color: #7a8a81;
+            opacity: 1 !important;
         }
 
         .card {
             border: none;
-            background-color: #D3DBC0;
+            background-color: var(--accent-color);
             color: #000000;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -84,24 +102,21 @@
         }
 
         .form-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(255, 107, 107, 0.25);
+            border-color: #203440;
+            box-shadow: 0 0 0 0.2rem rgba(32, 52, 64, 0.25);
         }
 
         .alert {
-            border-radius: 0.5rem;
-            border: none;
+            display: none;
         }
 
         .alert-success {
-            background-color: #d4edda;
-            color: #155724;
+            display: none;
         }
 
         .alert-error,
         .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
+            display: none;
         }
 
         .auth-container {
@@ -113,7 +128,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            background-color: #465F6E;
+            background-color: var(--primary-color);
             padding: 0;
             margin: 0;
             z-index: 1000;
@@ -122,11 +137,11 @@
         .auth-card {
             width: 100%;
             max-width: 450px;
-            background-color: #FDFFF6;
+            background-color: var(--light-color);
         }
 
         .auth-card .card-header {
-            background-color: #465F6E;
+            background-color: var(--primary-color);
             color: white;
             border: none;
             padding: 2rem;
@@ -141,17 +156,19 @@
 
         .auth-card .card-body {
             padding: 2rem;
-            background-color: #FDFFF6;
+            background-color: var(--light-color);
         }
 
         .auth-card .btn-primary {
             background-color: #96A99E;
             border-color: #96A99E;
+            opacity: 1 !important;
         }
 
         .auth-card .btn-primary:hover {
             background-color: #7a8a81;
             border-color: #7a8a81;
+            opacity: 1 !important;
         }
 
         .form-group {
@@ -160,12 +177,12 @@
 
         .form-group label {
             font-weight: 500;
-            color: #465F6E;
+            color: var(--primary-color);
             margin-bottom: 0.5rem;
         }
 
         .auth-card .form-group label {
-            color: #465F6E;
+            color: var(--primary-color);
         }
 
         .auth-links {
@@ -173,11 +190,11 @@
             margin-top: 1.5rem;
             padding-top: 1.5rem;
             border-top: 1px solid #ddd;
-            color: #465F6E;
+            color: var(--primary-color);
         }
 
         .auth-links a {
-            color: #96A99E;
+            color: var(--secondary-color);
             font-weight: bold;
         }
 
@@ -203,12 +220,17 @@
             margin-bottom: 2rem;
         }
 
+        main {
+            flex: 1;
+        }
+
         footer {
             background-color: var(--dark-color);
             color: white;
             text-align: center;
             padding: 0.75rem 2rem;
-            margin-top: 2rem;
+            margin-top: auto;
+            width: 100%;
         }
 
         .user-info {
@@ -241,11 +263,13 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
+                    {% if request.resolver_match.url_name != 'map' and user.userprofile.role != 'restaurant' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'map' %}">Map</a>
                     </li>
-                    {% if request.resolver_match.url_name == 'dashboard' %}
-                        {% if user.role != 'restaurant' %}
+                    {% endif %}
+                    {% if request.resolver_match.url_name == 'profile' %}
+                        {% if user.userprofile.role != 'restaurant' %}
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'home' %}">Home</a>
                         </li>
@@ -253,7 +277,25 @@
                     {% elif request.resolver_match.url_name == 'home' %}
                         {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
+                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                        </li>
+                        {% endif %}
+                    {% elif request.resolver_match.url_name == 'map' %}
+                        {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'home' %}">Home</a>
+                        </li>
+                        {% endif %}
+                    {% elif request.resolver_match.url_name == 'restaurant_search' %}
+                        {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'home' %}">Home</a>
                         </li>
                         {% endif %}
                     {% endif %}

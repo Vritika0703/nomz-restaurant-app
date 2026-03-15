@@ -7,15 +7,6 @@
     <div class="row mb-4">
         <div class="col-md-12">
             <h1 class="mb-4">Your Restaurant Profile</h1>
-            
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
         </div>
     </div>
 
@@ -158,18 +149,10 @@
                 </div>
             </div>
         {% else %}
-            <div class="alert alert-info">
-                <i class="bi bi-info-circle"></i> You haven't uploaded any photos yet.
-                <a href="{% url 'upload_photo' %}">Upload your first photo</a>
-            </div>
         {% endif %}
 
     {% else %}
-        <!-- No Restaurant Profile -->
-        <div class="alert alert-info">
-            <p>You haven't created a restaurant profile yet.</p>
-        </div>
-        <a href="{% url 'create_restaurant' %}" class="btn btn-primary btn-lg">Create Restaurant Profile</a>
+        <a href="{% url 'create_restaurant' %}" class="btn btn-lg" style="background-color: #465F6E; border-color: #465F6E; color: white;">Create Restaurant Profile</a>
     {% endif %}
 </div>
 {% endblock %}

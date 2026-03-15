@@ -20,30 +20,24 @@ def landing_page(request):
     """
     Landing page - splash screen entry point for the application
     Shows "Nomz" with "Click to start" message
+    Always shows splash screen regardless of authentication status
     """
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-    
-    return render(request, 'nomz/splash.html')
-
-
-def signin_page(request):
-    """
-    Sign In page - displays login form
-    """
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-    
     context = {
-        'title': 'Sign In',
+        'is_authenticated': request.user.is_authenticated,
     }
-    return render(request, 'nomz/landing.html', context)
+    return render(request, 'nomz/splash.html', context)
 
 
 def home(request):
     """
-    Home page view - displays different content based on authentication status
+    Home page view - displays different content based on authentication status.
+    Restaurant users are redirected to their profile instead.
     """
+    # If user is authenticated and is a restaurant, redirect to profile
+    if request.user.is_authenticated and hasattr(request.user, 'userprofile'):
+        if request.user.userprofile.role == 'restaurant':
+            return redirect('profile')
+    
     context = {
         'title': 'Home',
     }
@@ -127,7 +121,7 @@ def map_view(request):
 @require_http_methods(["GET", "POST"])
 def register(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        return redirect('profile')
     
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
@@ -136,7 +130,7 @@ def register(request):
             username = form.cleaned_data.get('username')
             messages.success(request, f'Account created successfully for {username}!')
             login(request, user)
-            return redirect('dashboard')
+            return redirect('profile')
     else:
         form = UserRegisterForm()
     
@@ -145,29 +139,6 @@ def register(request):
 
 
 @require_http_methods(["GET", "POST"])
-def user_login(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-    
-    if request.method == 'POST':
-        form = UserLoginForm(request, data=request.POST)
-        if form.is_valid():
-            username = form.cleaned_data.get('username')
-            password = form.cleaned_data.get('password')
-            user = authenticate(username=username, password=password)
-            
-            if user is not None:
-                login(request, user)
-                messages.success(request, f'Welcome back, {username}!')
-                next_url = request.GET.get('next', 'dashboard')
-                return redirect(next_url)
-    else:
-        form = UserLoginForm()
-    
-    context = {'form': form, 'title': 'Login'}
-    return render(request, 'nomz/login.html', context)
-
-
 @login_required(login_url='landing')
 def dashboard(request):
     """
@@ -231,12 +202,12 @@ def create_restaurant_profile(request):
     """
     if not is_restaurant_owner(request.user):
         messages.error(request, 'You do not have permission to create a restaurant profile.')
-        return redirect('dashboard')
+        return redirect('profile')
     
     # Check if user already has a restaurant
     if Restaurant.objects.filter(owner=request.user).exists():
         messages.info(request, 'You already have a restaurant profile.')
-        return redirect('dashboard')
+        return redirect('profile')
     
     if request.method == 'POST':
         form = RestaurantProfileForm(request.POST)
@@ -245,7 +216,7 @@ def create_restaurant_profile(request):
             restaurant.owner = request.user
             restaurant.save()
             messages.success(request, 'Restaurant profile created successfully!')
-            return redirect('dashboard')
+            return redirect('profile')
     else:
         form = RestaurantProfileForm()
     
@@ -266,7 +237,7 @@ def edit_restaurant_profile(request):
     """
     if not is_restaurant_owner(request.user):
         messages.error(request, 'You do not have permission to edit a restaurant profile.')
-        return redirect('dashboard')
+        return redirect('profile')
     
     restaurant = get_object_or_404(Restaurant, owner=request.user)
     
@@ -275,7 +246,7 @@ def edit_restaurant_profile(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'Restaurant profile updated successfully!')
-            return redirect('dashboard')
+            return redirect('profile')
     else:
         form = RestaurantProfileForm(instance=restaurant)
     
@@ -296,7 +267,7 @@ def manage_availability(request):
     """
     if not is_restaurant_owner(request.user):
         messages.error(request, 'You do not have permission to manage availability.')
-        return redirect('dashboard')
+        return redirect('profile')
     
     restaurant = get_object_or_404(Restaurant, owner=request.user)
     
@@ -308,7 +279,7 @@ def manage_availability(request):
                 messages.success(request, 'Restaurant marked as temporarily unavailable.')
             else:
                 messages.success(request, 'Restaurant availability updated.')
-            return redirect('dashboard')
+            return redirect('profile')
     else:
         form = RestaurantAvailabilityForm(instance=restaurant)
     
@@ -328,7 +299,7 @@ def manage_activation(request):
     """
     if not is_restaurant_owner(request.user):
         messages.error(request, 'You do not have permission to manage activation.')
-        return redirect('dashboard')
+        return redirect('profile')
     
     restaurant = get_object_or_404(Restaurant, owner=request.user)
     
@@ -340,7 +311,7 @@ def manage_activation(request):
                 messages.success(request, 'Restaurant profile is now visible to customers.')
             else:
                 messages.warning(request, 'Restaurant profile has been deactivated. It is no longer visible to customers.')
-            return redirect('dashboard')
+            return redirect('profile')
     else:
         form = RestaurantActivationForm(instance=restaurant)
     
@@ -360,7 +331,7 @@ def upload_photo(request):
     """
     if not is_restaurant_owner(request.user):
         messages.error(request, 'You do not have permission to upload photos.')
-        return redirect('dashboard')
+        return redirect('profile')
     
     restaurant = get_object_or_404(Restaurant, owner=request.user)
     
@@ -390,7 +361,7 @@ def restaurant_photos(request):
     """
     if not is_restaurant_owner(request.user):
         messages.error(request, 'You do not have permission to access this page.')
-        return redirect('dashboard')
+        return redirect('profile')
     
     restaurant = get_object_or_404(Restaurant, owner=request.user)
     photos = restaurant.photos.all()

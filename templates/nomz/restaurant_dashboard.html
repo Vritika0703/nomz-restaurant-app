@@ -97,12 +97,12 @@
             </div>
             {% else %}
             <div class="card mb-4">
-                <div class="card-header" style="background: linear-gradient(135deg, var(--secondary-color) 0%, #66d9d1 100%); color: white;">
-                    <h5 class="mb-0">Welcome to Your Restaurant Dashboard!</h5>
+                <div class="card-header" style="background-color: #465F6E; color: white;">
+                    <h5 class="mb-0">{{ user.username }}</h5>
                 </div>
                 <div class="card-body">
                     <p class="lead">No restaurant profile found.</p>
-                    <a href="{% url 'create_restaurant' %}" class="btn btn-primary">Create Restaurant Profile</a>
+                    <a href="{% url 'create_restaurant' %}" class="btn" style="background-color: #465F6E; border-color: #465F6E; color: white;">Create Restaurant Profile</a>
                 </div>
             </div>
             {% endif %}
@@ -143,6 +143,7 @@
 <style>
     .btn-outline-primary:hover, .btn-outline-info:hover, .btn-outline-warning:hover, .btn-outline-secondary:hover {
         transition: all 0.3s ease;
+        opacity: 1 !important;
     }
 </style>
 {% endblock %}
