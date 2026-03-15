@@ -22,7 +22,7 @@ from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('login/', RedirectView.as_view(pattern_name='two_factor:login', permanent=False), name='login'),
+    path('login/', RedirectView.as_view(url='/signin/', permanent=False), name='login'),
     path('', include(tf_urls)),
     path('', include('nomz.urls')),
 ]

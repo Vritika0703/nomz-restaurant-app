@@ -131,19 +131,21 @@
             max-height: 330px;
         }
     }
+
+    .form-control,
+    .form-select {
+        min-height: 38px;
+        height: 38px;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-end justify-content-between flex-wrap gap-3 mb-4">
     <div>
-        <p class="text-muted small mb-1">Explore Restaurants</p>
-        <h2 class="fw-bold">NYC Restaurant Map</h2>
-        <p class="text-muted mb-0">
-            Showing {{ restaurant_count }} restaurants with inspection + location data.
-        </p>
+        <p class="small mb-1" style="color: white;">Explore Restaurants</p>
+        <h2 class="fw-bold" style="color: white;">NYC Restaurant Map</h2>
     </div>
-    <a href="{% url 'dashboard' %}" class="btn btn-secondary">Go to Dashboard</a>
 </div>
 
 <div class="card map-controls-card shadow-sm mb-3">
@@ -236,17 +238,12 @@
                 </div>
             </div>
             <div class="col-md-3 d-flex align-items-end">
-                <button type="submit" id="apply-filters" class="btn btn-primary w-100">Apply filters</button>
-            </div>
-            <div class="col-md-3 d-flex align-items-end">
-                <button type="button" id="reset-map-filters" class="btn btn-outline-secondary w-100">
+                <button type="button" id="reset-map-filters" class="btn w-100" style="background-color: #96A99E; border-color: #96A99E; color: white; opacity: 1 !important;">
                     Reset
                 </button>
             </div>
             <div class="col-md-3 d-flex align-items-end">
-                <button type="button" id="locate-me" class="btn btn-outline-primary w-100">
-                    Near me
-                </button>
+                <button type="submit" id="apply-filters" class="btn w-100" style="background-color: #465F6E; border-color: #465F6E; color: white; opacity: 1 !important;">Apply filters</button>
             </div>
         </form>
     </div>
@@ -281,6 +278,9 @@
                         <div class="map-footer">
                             <small id="map-status" class="text-muted">Ready</small>
                         </div>
+                        <button type="button" id="locate-me" class="btn w-100 mt-2" style="background-color: #465F6E; border-color: #465F6E; color: white; opacity: 1 !important;">
+                            Near me
+                        </button>
                     </aside>
                 </div>
             </div>

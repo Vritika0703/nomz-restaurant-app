@@ -13,15 +13,6 @@
         </div>
     </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-
     {% if photos %}
         <div class="row">
             {% for photo in photos %}
@@ -52,7 +43,7 @@
                                 {% if not photo.is_primary %}
                                     <form method="post" action="{% url 'set_primary_photo' photo.id %}" class="d-inline">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-primary w-100">
+                                        <button type="submit" class="btn btn-sm w-100" style="background-color: #96A99E; color: white; border: none;">
                                             <i class="bi bi-star"></i> Set as Main
                                         </button>
                                     </form>
@@ -77,32 +68,15 @@
 
         <!-- Stats -->
         <div class="row mt-4">
-            <div class="col-md-12">
-                <div class="alert alert-info">
-                    <strong>Total Photos:</strong> {{ photos.count }}
-                    <br>
-                    <strong>Main Photo:</strong> 
-                    {% with primary_photo=photos|first %}
-                        {% if primary_photo.is_primary %}
-                            "{{ primary_photo.caption|default:'Untitled' }}"
-                        {% endif %}
-                    {% endwith %}
-                </div>
-            </div>
         </div>
 
     {% else %}
         <!-- No Photos -->
-        <div class="alert alert-info">
-            <h5>No photos uploaded yet</h5>
-            <p>Upload photos of your restaurant to showcase your ambiance, food, and dining experience to customers.</p>
-            <a href="{% url 'upload_photo' %}" class="btn btn-primary">Upload Your First Photo</a>
-        </div>
     {% endif %}
 
     <!-- Back Button -->
     <div class="mt-4">
-        <a href="{% url 'restaurant_profile' %}" class="btn btn-secondary">Back to Profile</a>
+        <a href="{% url 'profile' %}" class="btn btn-secondary">Back to Profile</a>
     </div>
 </div>
 
@@ -118,15 +92,17 @@
     }
 
     .btn-outline-primary:hover {
-        background-color: #FF6B6B;
-        border-color: #FF6B6B;
+        background-color: #96A99E;
+        border-color: #96A99E;
         color: white;
+        opacity: 1 !important;
     }
 
     .btn-outline-danger:hover {
         background-color: #dc3545;
         border-color: #dc3545;
         color: white;
+        opacity: 1 !important;
     }
 </style>
 {% endblock %}

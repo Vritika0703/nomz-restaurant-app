@@ -1,20 +1,20 @@
 from django.urls import path
 from . import api_views, views
 from django.contrib.auth import views as auth_views
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('', views.landing_page, name='landing'),
     path('health/', views.health_check, name='health_check'),
+    path('signin/', RedirectView.as_view(pattern_name='two_factor:login', permanent=False), name='signin'),
     path('home/', views.home, name='home'),
     path('map/', views.map_view, name='map'),
     path('api/restaurants/map-data/', api_views.map_restaurant_data, name='api_restaurants_map'),
     path('register/', views.register, name='register'), # Removed <str:role>
-    path('login/', views.user_login, name='login'),     # Removed <str:role>
     path('logout/', views.user_logout, name='logout'),
-    path('dashboard/', views.dashboard, name='dashboard'),
+    path('profile/', views.dashboard, name='profile'),
     
     # Restaurant Profile Management
-    path('restaurant/profile/', views.restaurant_profile, name='restaurant_profile'),
     path('restaurant/create/', views.create_restaurant_profile, name='create_restaurant'),
     path('restaurant/edit/', views.edit_restaurant_profile, name='edit_restaurant'),
     path('restaurant/availability/', views.manage_availability, name='manage_availability'),
