@@ -4,7 +4,6 @@
 
 {% block content %}
 <div class="row">
-    <!-- User Profile Card -->
     <div class="col-md-4 mb-4">
         <div class="card">
             <div class="card-body text-center p-4">
@@ -15,12 +14,27 @@
                 <p class="text-muted mb-3">{{ user.email }}</p>
                 <p class="text-muted small">Member since {{ user.date_joined|date:'F d, Y' }}</p>
                 <hr>
+                
+                <div class="text-start mt-3">
+                    <h6 class="small fw-bold text-uppercase text-muted mb-2">My Taste Profile</h6>
+                    {% if user.preferences %}
+                        <p class="small mb-1"><strong>Cuisines:</strong> 
+                            {{ user.preferences.favorite_cuisines|join:", "|default:"Not set" }}
+                        </p>
+                        <p class="small mb-1"><strong>Price:</strong> {{ user.preferences.price_preference }}</p>
+                    {% else %}
+                        <p class="small text-muted italic">No preferences set yet.</p>
+                    {% endif %}
+                    <a href="{% url 'manage_preferences' %}" class="btn btn-sm btn-outline-primary w-100 mt-2">
+                        Update Preferences
+                    </a>
+                </div>
+                <hr>
                 <p class="text-muted small">Active User Account</p>
             </div>
         </div>
     </div>
 
-    <!-- Dashboard Main Content -->
     <div class="col-md-8">
         <div class="card mb-4">
             <div class="card-header" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%); color: white;">
@@ -32,15 +46,42 @@
                 <ul>
                     <li><strong>Discover Restaurants:</strong> Browse and search through a curated list of dining options</li>
                     <li><strong>Leave Reviews:</strong> Share your dining experiences with other users</li>
-                    <li><strong>Rate Restaurants:</strong> Help others by rating your favorite (or not-so-favorite) places</li>
+                    <li><strong>Rate Restaurants:</strong> Help others by rating your favorite places</li>
                     <li><strong>Save Favorites:</strong> Keep track of restaurants you'd like to visit</li>
                     <li><strong>Get Recommendations:</strong> Receive personalized suggestions based on your preferences</li>
-                    <li><strong>Connect with Restaurants:</strong> Message restaurants directly with questions or feedback</li>
                 </ul>
             </div>
         </div>
 
-        <!-- Quick Stats -->
+        <div class="card mb-4 border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="card-title mb-1">Personalized Dining Interests</h5>
+                        <p class="text-muted small mb-0">We use these to surface the best NYC restaurants for you.</p>
+                    </div>
+                    <div style="font-size: 1.5rem;">🍽️</div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1 small"><strong>Favorite Cuisines:</strong></p>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for cuisine in user.preferences.favorite_cuisines %}
+                                <span class="badge bg-light text-dark border">{{ cuisine|title }}</span>
+                            {% empty %}
+                                <span class="text-muted small">None selected</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1 small"><strong>Dietary Preferences:</strong></p>
+                        <p class="small">{{ user.preferences.dietary_restrictions|join:", "|default:"No restrictions" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-md-6 mb-4">
                 <div class="card">
@@ -70,7 +111,6 @@
             </div>
         </div>
 
-        <!-- Account Information -->
         <div class="card">
             <div class="card-header" style="background-color: var(--light-color);">
                 <h5 class="mb-0">Account Information</h5>
@@ -101,46 +141,11 @@
                 <hr>
                 <div class="d-flex gap-2">
                     <button class="btn btn-primary" disabled title="Coming soon!">Edit Profile</button>
-                    <button class="btn btn-secondary" disabled title="Coming soon!">Change Password</button>
                     <form method="POST" action="{% url 'logout' %}" class="d-inline">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-danger">Logout</button>
                     </form>
                 </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Feature Preview Section -->
-<div class="row mt-5">
-    <div class="col-12">
-        <h4 class="mb-4">Coming Soon: More Features</h4>
-    </div>
-    <div class="col-md-4 mb-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <div style="font-size: 2rem; margin-bottom: 1rem;">🔔</div>
-                <h5 class="card-title">Notifications</h5>
-                <p class="card-text">Get notified about new reviews, messages, and recommendations</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 mb-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <div style="font-size: 2rem; margin-bottom: 1rem;">📍</div>
-                <h5 class="card-title">Location-Based Search</h5>
-                <p class="card-text">Find restaurants near you with advanced filtering options</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 mb-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <div style="font-size: 2rem; margin-bottom: 1rem;">👥</div>
-                <h5 class="card-title">Share with Friends</h5>
-                <p class="card-text">Share your favorite restaurants and reviews with your network</p>
             </div>
         </div>
     </div>

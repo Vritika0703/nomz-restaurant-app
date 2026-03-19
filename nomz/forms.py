@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from .models import UserProfile, Restaurant, RestaurantPhoto
+from .models import UserProfile, Restaurant, RestaurantPhoto, UserPreference
 
 
 class UserRegisterForm(UserCreationForm):
@@ -222,4 +222,31 @@ class RestaurantPhotoForm(forms.ModelForm):
                 'class': 'form-check-input'
             }),
         }
+
+class UserPreferenceForm(forms.ModelForm):
+    # Defining choices manually or pulling from Restaurant.CUISINE_CHOICES
+    CUISINE_OPTIONS = Restaurant.CUISINE_CHOICES 
+    DIETARY_CHOICES = [
+        ('Vegan', 'Vegan'),
+        ('Vegetarian', 'Vegetarian'),
+        ('Non-vegetarian', 'Non-vegetarian'),
+        ('Gluten-Free', 'Gluten-Free'),
+        ('Halal', 'Halal'),
+        ('Kosher', 'Kosher'),
+    ]
+    
+    favorite_cuisines = forms.MultipleChoiceField(
+        choices=CUISINE_OPTIONS,
+        widget=forms.CheckboxSelectMultiple,
+        required=False
+    )
+    dietary_restrictions = forms.MultipleChoiceField(
+        choices=DIETARY_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=False
+    )
+
+    class Meta:
+        model = UserPreference
+        fields = ['favorite_cuisines', 'dietary_restrictions', 'price_preference', 'neighborhood_preference']
 
