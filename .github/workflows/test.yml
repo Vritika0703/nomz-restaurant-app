@@ -79,11 +79,11 @@ jobs:
 
       - name: Test import statements
         run: |
-          python -c "import django; django.setup(); from nomz import models, views, forms"
+          DJANGO_SETTINGS_MODULE=restaurants.settings python -c "import django; django.setup(); from nomz import models, views, forms"
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: |
