@@ -339,3 +339,20 @@ class DataIngestionRun(models.Model):
 
     def __str__(self):
         return f"{self.dataset} | {self.status} | {self.started_at:%Y-%m-%d %H:%M}"
+    
+#User preferences model to store diner preferences for personalized recommendations and search filtering
+class UserPreference(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
+    favorite_cuisines = models.JSONField(default=list, blank=True, help_text="List of preferred cuisines")
+    dietary_restrictions = models.JSONField(default=list, blank=True, help_text="e.g., Vegan, Gluten-Free")
+    price_preference = models.CharField(
+        max_length=10, 
+        choices=Restaurant.PRICE_CHOICES, 
+        default='$$'
+    )
+    neighborhood_preference = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferences for {self.user.username}"

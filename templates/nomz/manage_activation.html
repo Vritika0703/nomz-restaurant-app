@@ -8,15 +8,6 @@
         <div class="col-md-8">
             <h1 class="mb-4">Manage Profile Status</h1>
             
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-
             <div class="card">
                 <div class="card-body">
                     <p class="text-muted mb-4">
@@ -37,26 +28,9 @@
                             </div>
                         </div>
 
-                        <!-- Current Status Alert -->
-                        <div class="alert {% if restaurant.is_active %}alert-success{% else %}alert-danger{% endif %}" role="alert">
-                            <h5 class="alert-heading">
-                                {% if restaurant.is_active %}
-                                    <i class="bi bi-check-circle"></i> Profile is Active
-                                {% else %}
-                                    <i class="bi bi-x-circle"></i> Profile is Inactive
-                                {% endif %}
-                            </h5>
-                            {% if restaurant.is_active %}
-                                <p>Your restaurant profile is currently visible to customers. They can find you through searches and recommendations.</p>
-                            {% else %}
-                                <p>Your restaurant profile is currently hidden from customers. It will not appear in searches or recommendations.</p>
-                                <p><strong>Note:</strong> You can still edit your profile while it's inactive. Toggle the switch above to make it visible again.</p>
-                            {% endif %}
-                        </div>
-
                         <!-- Information Box -->
-                        <div class="card bg-light mb-4">
-                            <div class="card-body">
+                        <div class="card bg-light mb-4\">
+                            <div class="card-body\">
                                 <h6 class="card-title">What happens when you deactivate?</h6>
                                 <ul class="mb-0">
                                     <li>Your profile will be hidden from customer searches</li>
@@ -69,7 +43,7 @@
 
                         <!-- Buttons -->
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <a href="{% url 'restaurant_profile' %}" class="btn btn-secondary" role="button">Back to Profile</a>
+                            <a href="{% url 'profile' %}" class="btn btn-secondary" role="button">Back to Profile</a>
                             <button type="submit" class="btn btn-primary">
                                 {% if restaurant.is_active %}
                                     Deactivate Profile

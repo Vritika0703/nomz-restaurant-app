@@ -3,76 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Nomz - Restaurant Discovery Platform{% endblock %}</title>
+    <title>{% block title %}nomz - Restaurant Discovery Platform{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Jersey+15&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #FF6B6B;
-            --secondary-color: #4ECDC4;
-            --dark-color: #2C3E50;
-            --light-color: #ECF0F1;
+            --primary-color: #465F6E;
+            --secondary-color: #96A99E;
+            --dark-color: #203440;
+            --light-color: #FDFFF6;
+            --accent-color: #D3DBC0;
+        }
+
+        html {
+            height: 100%;
         }
 
         body {
-            background-color: #f8f9fa;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark-color);
+            font-family: 'Jersey 15', cursive;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
 
         .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: var(--light-color);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         .navbar-brand {
             font-weight: bold;
             font-size: 1.5rem;
-            color: white !important;
+            color: var(--dark-color) !important;
         }
 
         .nav-link {
-            color: rgba(255, 255, 255, 0.9) !important;
+            color: var(--dark-color) !important;
             margin-left: 1rem;
             transition: color 0.3s ease;
         }
 
         .nav-link:hover {
-            color: white !important;
+            color: var(--accent-color) !important;
         }
 
         .nav-link.active {
-            color: white !important;
+            color: var(--accent-color) !important;
             font-weight: bold;
+        }
+
+        /* Ensure all buttons are fully opaque */
+        button, input[type="submit"], .btn {
+            opacity: 1 !important;
+            background-image: none !important;
         }
 
         .btn-primary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
+            opacity: 1 !important;
         }
 
         .btn-primary:hover {
-            background-color: #ff5252;
-            border-color: #ff5252;
+            background-color: #3d4d5b;
+            border-color: #3d4d5b;
+            opacity: 1 !important;
         }
 
         .btn-secondary {
             background-color: var(--secondary-color);
             border-color: var(--secondary-color);
+            opacity: 1 !important;
         }
 
         .btn-secondary:hover {
-            background-color: #45b7aa;
-            border-color: #45b7aa;
+            background-color: #7a8a81;
+            border-color: #7a8a81;
+            opacity: 1 !important;
         }
 
         .card {
             border: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background-color: var(--accent-color);
+            color: #000000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
         .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
         .form-control {
@@ -82,41 +102,46 @@
         }
 
         .form-control:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 0.2rem rgba(255, 107, 107, 0.25);
+            border-color: #203440;
+            box-shadow: 0 0 0 0.2rem rgba(32, 52, 64, 0.25);
         }
 
         .alert {
-            border-radius: 0.5rem;
-            border: none;
+            display: none;
         }
 
         .alert-success {
-            background-color: #d4edda;
-            color: #155724;
+            display: none;
         }
 
         .alert-error,
         .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
+            display: none;
         }
 
         .auth-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: calc(100vh - 200px);
-            padding: 2rem 0;
+            background-color: var(--primary-color);
+            padding: 0;
+            margin: 0;
+            z-index: 1000;
         }
 
         .auth-card {
             width: 100%;
             max-width: 450px;
+            background-color: var(--light-color);
         }
 
         .auth-card .card-header {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            background-color: var(--primary-color);
             color: white;
             border: none;
             padding: 2rem;
@@ -131,6 +156,19 @@
 
         .auth-card .card-body {
             padding: 2rem;
+            background-color: var(--light-color);
+        }
+
+        .auth-card .btn-primary {
+            background-color: #96A99E;
+            border-color: #96A99E;
+            opacity: 1 !important;
+        }
+
+        .auth-card .btn-primary:hover {
+            background-color: #7a8a81;
+            border-color: #7a8a81;
+            opacity: 1 !important;
         }
 
         .form-group {
@@ -139,8 +177,12 @@
 
         .form-group label {
             font-weight: 500;
-            color: var(--dark-color);
+            color: var(--primary-color);
             margin-bottom: 0.5rem;
+        }
+
+        .auth-card .form-group label {
+            color: var(--primary-color);
         }
 
         .auth-links {
@@ -148,12 +190,12 @@
             margin-top: 1.5rem;
             padding-top: 1.5rem;
             border-top: 1px solid #ddd;
+            color: var(--primary-color);
         }
 
         .auth-links a {
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
+            color: var(--secondary-color);
+            font-weight: bold;
         }
 
         .auth-links a:hover {
@@ -178,12 +220,17 @@
             margin-bottom: 2rem;
         }
 
+        main {
+            flex: 1;
+        }
+
         footer {
             background-color: var(--dark-color);
             color: white;
             text-align: center;
-            padding: 2rem;
-            margin-top: 5rem;
+            padding: 0.75rem 2rem;
+            margin-top: auto;
+            width: 100%;
         }
 
         .user-info {
@@ -207,79 +254,80 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    {% block navbar %}
+    <nav class="navbar navbar-expand-lg">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'landing' %}">🍽️ Nomz</a>
+            <a class="navbar-brand" href="{% url 'landing' %}">nomz</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'home' %}">Home</a>
-                    </li>
+                    {% if request.resolver_match.url_name != 'map' and user.userprofile.role != 'restaurant' %}
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'map' %}">Map</a>
                     </li>
+                    {% endif %}
+                    {% if request.resolver_match.url_name == 'profile' %}
+                        {% if user.userprofile.role != 'restaurant' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'home' %}">Home</a>
+                        </li>
+                        {% endif %}
+                    {% elif request.resolver_match.url_name == 'home' %}
+                        {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                        </li>
+                        {% endif %}
+                    {% elif request.resolver_match.url_name == 'map' %}
+                        {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'home' %}">Home</a>
+                        </li>
+                        {% endif %}
+                    {% elif request.resolver_match.url_name == 'restaurant_search' %}
+                        {% if user.is_authenticated %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'home' %}">Home</a>
+                        </li>
+                        {% endif %}
+                    {% endif %}
+                    
                     {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'dashboard' %}">Dashboard</a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                            <div class="user-info">
-                                <div class="user-avatar">{{ user.username|first|upper }}</div>
-                                <span>{{ user.username }}</span>
-                            </div>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'dashboard' %}">My Profile</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <form method="POST" action="{% url 'logout' %}" class="d-inline">
-                                    {% csrf_token %}
-                                    <button type="submit" class="dropdown-item">Logout</button>
-                                </form>
-                            </li>
-                        </ul>
-                    </li>
-                    {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'login' %}">Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'register' %}">Register</a>
+                        <form method="POST" action="{% url 'logout' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="nav-link" style="background: none; border: none; padding: 0.5rem 1rem; cursor: pointer;">Logout</button>
+                        </form>
                     </li>
                     {% endif %}
                 </ul>
             </div>
         </div>
     </nav>
+    {% endblock %}
 
-    <!-- Messages -->
-    {% if messages %}
-    <div class="container mt-4">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
 
-    <!-- Main Content -->
+    {% block main_layout %}
     <main class="container my-5">
         {% block content %}{% endblock %}
     </main>
+    {% endblock %}
 
-    <!-- Footer -->
     <footer>
-        <p>&copy; 2026 Nomz - Restaurant Discovery Platform. All rights reserved.</p>
+        <p>&copy; 2026 nomz - Restaurant Discovery Platform. All rights reserved.</p>
         <p>Helping you discover amazing dining experiences!</p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
     {% block extra_js %}{% endblock %}
 </body>
 </html>
