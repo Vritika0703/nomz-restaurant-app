@@ -18,6 +18,7 @@ from nomz.models import (
     DiningOutLocation,
     InspectionRecord,
     Restaurant,
+    RestaurantSearch,
     RestaurantSourceRecord,
 )
 
@@ -261,6 +262,7 @@ class DbIngestionWriter:
             restaurant = Restaurant.objects.create(**normalized_payload)
             self.stats.records_created += 1
             self.stats.records_matched += 1
+            self._sync_restaurant_search(restaurant)
             return restaurant
 
         self.stats.records_matched += 1
@@ -309,6 +311,7 @@ class DbIngestionWriter:
         if changed:
             restaurant.save()
 
+        self._sync_restaurant_search(restaurant)
         return restaurant
 
     def _upsert_dining_out_profile(self, restaurant: Restaurant, record: Dict[str, Any]) -> None:
@@ -391,6 +394,25 @@ class DbIngestionWriter:
             str(record.get("zip_code") or "").strip(),
         ]
         return ", ".join(part for part in parts if part)
+
+    def _sync_restaurant_search(self, restaurant: Restaurant) -> None:
+        if self.dry_run:
+            return
+
+        neighborhood = (restaurant.neighborhood or restaurant.borough or "").strip()[:100]
+        cuisine = (restaurant.cuisine or restaurant.cuisine_type or "").strip()
+        if not cuisine and restaurant.cuisine_tags:
+            cuisine = ", ".join(str(tag).strip() for tag in restaurant.cuisine_tags if str(tag).strip())
+        cuisine = cuisine[:100]
+
+        RestaurantSearch.objects.update_or_create(
+            name=(restaurant.name or "")[:200],
+            defaults={
+                "neighborhood": neighborhood,
+                "description": restaurant.description or "",
+                "cuisine": cuisine,
+            },
+        )
 
 
 class IngestionRunContext:

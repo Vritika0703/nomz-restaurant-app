@@ -63,8 +63,13 @@ INSTALLED_APPS = [
     'two_factor',
     'corsheaders',
     'storages',
+    'crispy_forms',
+    'crispy_bootstrap5',
     'nomz.apps.NomzConfig',
 ]
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -227,6 +232,8 @@ if not DEBUG:
     # Django receives HTTP from load balancer, so cookies must work over HTTP
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True
+    # Allow LB health checks over HTTP without redirecting to HTTPS.
+    SECURE_REDIRECT_EXEMPT = [r'^health/?$']
 
     SESSION_COOKIE_SECURE = False  # Allow cookies over HTTP (load balancer handles HTTPS)
     CSRF_COOKIE_SECURE = False     # Allow CSRF cookies over HTTP (load balancer handles HTTPS)
@@ -236,3 +243,5 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
