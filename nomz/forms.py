@@ -92,6 +92,39 @@ class UserLoginForm(AuthenticationForm):
     )
 
 
+class AdminLoginForm(UserLoginForm):
+    """
+    Login form for administrators with an extra security code field.
+    """
+    security_code = forms.CharField(
+        max_length=20,
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Security Code'
+        }),
+        help_text="Enter the administrative security code."
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        security_code = cleaned_data.get('security_code')
+        # Simple security code check for demo purposes
+        # Reading from .env for security (Issue #46)
+        from decouple import config
+        expected_code = config('ADMIN_SECURITY_CODE', default='ADM123')
+        
+        if security_code != expected_code:
+            raise forms.ValidationError("Invalid security code.")
+        
+        # AuthenticationForm's clean method authenticates the user and sets self.user
+        # if authentication is successful.
+        user = self.get_user() 
+        if user and not (user.is_staff or user.is_superuser):
+            raise forms.ValidationError("This login is restricted to administrators.")
+        
+        return cleaned_data
+
+
 class RestaurantProfileForm(forms.ModelForm):
     """
     Form for restaurant owners to create and edit their restaurant profile.
