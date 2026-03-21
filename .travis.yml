@@ -47,6 +47,8 @@ script:
 # Send coverage to Coveralls
 after_success:
   - coverage report
+  - coverage xml
+  - pip install --upgrade coveralls
   - coveralls --service=github --repo-token=$COVERALLS_REPO_TOKEN
 
 # Branches to build
