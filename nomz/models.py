@@ -193,6 +193,7 @@ class LoginLog(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     user_agent = models.TextField(blank=True, null=True)
     is_suspicious = models.BooleanField(default=False)
+    is_user_suspicious = models.BooleanField(default=False)
     user = models.ForeignKey(User, blank=True, null=True, on_delete=models.CASCADE)
 
     def __str__(self):

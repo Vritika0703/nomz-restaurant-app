@@ -45,12 +45,20 @@ def log_user_login_failed(sender, credentials, request, **kwargs):
         timestamp__gte=fifteen_mins_ago
     ).count()
     
-    is_suspicious = (failures_by_ip >= 3 or failures_by_user >= 3)
+    # Check if this was an attempt on an admin or dashboard URL (Issue #46)
+    admin_paths = ['/admin/', '/dashboard/', '/dashboard-action/', '/admin-login/']
+    is_admin_path = any(request.path.startswith(p) for p in admin_paths) if request else False
+    
+    # A user is suspicious if they specifically fail 3 times
+    is_user_suspicious = (failures_by_user >= 2)
+    # The overall log is suspicious if IP limit hit OR user limit hit OR admin path
+    is_suspicious = (failures_by_ip >= 2 or is_user_suspicious or is_admin_path)
     
     LoginLog.objects.create(
         username=username,
         ip_address=ip_address,
         status='Failure',
         user_agent=request.META.get('HTTP_USER_AGENT', '') if request else None,
-        is_suspicious=is_suspicious
+        is_suspicious=is_suspicious,
+        is_user_suspicious=is_user_suspicious
     )

@@ -46,4 +46,13 @@ urlpatterns = [
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='registration/password_reset_complete.html',
     ), name='password_reset_complete'),
+    
+    # Admin Quick Actions & Redirects (Fix for Issue #46 relative link 404)
+    path('admin-login/', views.admin_login, name='admin_login'),
+    path('dashboard/Admin-login/', RedirectView.as_view(url='/admin-login/', permanent=False)),
+    path('dashboard/admin-login/', RedirectView.as_view(url='/admin-login/', permanent=False)),
+    path('nomz-admin/logs/', views.admin_login_logs, name='admin_login_logs'),
+    path('nomz-admin/users/', views.admin_manage_users, name='admin_manage_users'),
+    path('nomz-admin/users/<int:user_id>/toggle/', views.toggle_user_status, name='toggle_user_status'),
+    path('dashboard-action/users/<int:user_id>/toggle/', views.admin_toggle_user_status, name='admin_toggle_user_status'),
 ]

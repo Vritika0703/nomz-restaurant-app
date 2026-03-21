@@ -2,19 +2,29 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.db.models import Q
 from django.views.decorators.http import require_http_methods, require_POST
 from .forms import (
     UserRegisterForm,
     UserLoginForm,
+    AdminLoginForm,
     RestaurantProfileForm,
     RestaurantAvailabilityForm,
     RestaurantActivationForm,
     RestaurantPhotoForm,
     UserPreferenceForm,
 )
-from .models import Restaurant, RestaurantPhoto, RestaurantSearch, UserPreference
+from django.contrib.auth.models import User
+from .models import (
+    Restaurant, 
+    RestaurantPhoto, 
+    RestaurantSearch, 
+    UserPreference, 
+    UserProfile, 
+    LoginLog
+)
 
 
 def landing_page(request):
@@ -34,10 +44,16 @@ def home(request):
     Home page view - displays different content based on authentication status.
     Restaurant users are redirected to their profile instead.
     """
-    # If user is authenticated and is a restaurant, redirect to profile
-    if request.user.is_authenticated and hasattr(request.user, 'userprofile'):
-        if request.user.userprofile.role == 'restaurant':
-            return redirect('profile')
+    # If user is authenticated
+    if request.user.is_authenticated:
+        # Redirect staff/admins to dashboard
+        if request.user.is_staff or request.user.is_superuser:
+            return redirect('dashboard')
+            
+        # Redirect restaurants to profile
+        if hasattr(request.user, 'userprofile'):
+            if request.user.userprofile.role == 'restaurant':
+                return redirect('profile')
     
     context = {
         'title': 'Home',
@@ -159,6 +175,81 @@ def register(request):
 
 
 @require_http_methods(["GET", "POST"])
+def admin_login(request):
+    """
+    Secure Login for administrators only.
+    Requires a specialized form with a security code.
+    """
+    if request.user.is_authenticated:
+        if request.user.is_staff or request.user.is_superuser:
+            return redirect('dashboard')
+        else:
+            logout(request) # Logout if non-admin somehow got here
+    
+    if request.method == 'POST':
+        form = AdminLoginForm(request, data=request.POST)
+        username = request.POST.get('username')
+
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            messages.success(request, f'Admin session established for {username}.')
+            return redirect('dashboard')
+        else:
+            # Login failures are logged by signals
+            pass
+    else:
+        form = AdminLoginForm()
+    
+    context = {'form': form, 'title': 'Secure Admin Login'}
+    return render(request, 'nomz/admin_login.html', context)
+
+
+@staff_member_required
+def admin_login_logs(request):
+    logs = LoginLog.objects.all().order_by('-timestamp')
+    context = {
+        'title': 'Login Activity Monitoring',
+        'logs': logs
+    }
+    return render(request, 'nomz/admin_logs.html', context)
+
+
+@staff_member_required
+def admin_manage_users(request):
+    users = User.objects.all().exclude(pk=request.user.pk).order_by('-date_joined')
+    
+    # Identify users with suspicious login activity
+    from django.db.models import Exists, OuterRef
+    suspicious_logs = LoginLog.objects.filter(
+        username=OuterRef('username'),
+        is_user_suspicious=True
+    )
+    users = users.annotate(has_suspicious_activity=Exists(suspicious_logs))
+    
+    context = {
+        'title': 'User Management',
+        'users': users
+    }
+    return render(request, 'nomz/admin_manage_users.html', context)
+
+
+@staff_member_required
+@require_POST
+def toggle_user_status(request, user_id):
+    user_to_toggle = get_object_or_404(User, id=user_id)
+    if user_to_toggle.is_superuser:
+        messages.error(request, "Cannot toggle status of superusers.")
+    else:
+        user_to_toggle.is_active = not user_to_toggle.is_active
+        user_to_toggle.save()
+        status_msg = "restored" if user_to_toggle.is_active else "revoked"
+        messages.success(request, f"Access for {user_to_toggle.username} has been {status_msg}.")
+    
+    return redirect('admin_manage_users')
+
+
+@require_http_methods(["GET", "POST"])
 @login_required(login_url='landing')
 def dashboard(request):
     """
@@ -192,10 +283,54 @@ def dashboard(request):
         context['restaurant'] = restaurant
         return render(request, 'nomz/restaurant_dashboard.html', context)
     elif role == 'admin':
+        # Enhanced metrics for Issue #45 and #46
+        # Fetch all user profiles for management
+        all_users = User.objects.all().select_related('userprofile').order_by('-date_joined')
+        diner_count = UserProfile.objects.filter(role='diner').count()
+        restaurant_count = Restaurant.objects.count()
+        
+        # Recent activities (Logins)
+        recent_logins = LoginLog.objects.all().order_by('-timestamp')[:10]
+        
+        # Security stats
+        suspicious_count = LoginLog.objects.filter(is_suspicious=True).count()
+        
+        context.update({
+            'all_users': all_users,
+            'diner_count': diner_count,
+            'restaurant_count': restaurant_count,
+            'recent_logins': recent_logins,
+            'suspicious_count': suspicious_count,
+            'total_users': User.objects.count(),
+        })
         return render(request, 'nomz/admin_dashboard.html', context)
     else:
         # This matches the user_dashboard.html where your taste profile code is
         return render(request, 'nomz/user_dashboard.html', context)
+
+
+def is_restaurant_owner(user):
+    """Helper function to check if user is a restaurant owner"""
+    return hasattr(user, 'userprofile') and user.userprofile.role == 'restaurant'
+
+
+@login_required(login_url='landing')
+def restaurant_profile(request):
+    """
+    View restaurant owner's profile page
+    Shows restaurant details, photos, and status
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('dashboard')
+        
+    restaurant = Restaurant.objects.filter(owner=request.user).first()
+    context = {
+        'title': 'Restaurant Profile',
+        'restaurant': restaurant,
+        'user': request.user,
+    }
+    return render(request, 'nomz/restaurant_dashboard.html', context)
 
 
 @login_required(login_url='landing')
@@ -540,3 +675,33 @@ def manage_preferences(request):
         'form': form,
         'title': 'My Preferences'
     })
+
+@login_required(login_url='landing')
+@require_POST
+def admin_toggle_user_status(request, user_id):
+    """
+    Directly toggle user active status from the admin dashboard.
+    """
+    if not (request.user.is_staff or request.user.is_superuser):
+        return HttpResponseForbidden('You do not have permission to perform this action.')
+    
+    user_to_change = get_object_or_404(User, id=user_id)
+    action = request.POST.get('action')
+    
+    if user_to_change == request.user:
+        messages.error(request, 'You cannot change your own status!')
+    elif user_to_change.is_superuser and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to change a superuser status.')
+    else:
+        if action == 'activate':
+            user_to_change.is_active = True
+            messages.success(request, f'Access ALLOWED for user: {user_to_change.username}')
+        elif action == 'deactivate':
+            user_to_change.is_active = False
+            messages.success(request, f'Access REVOKED for user: {user_to_change.username}')
+        else:
+            messages.error(request, 'Invalid action.')
+            
+        user_to_change.save()
+    
+    return redirect('dashboard')

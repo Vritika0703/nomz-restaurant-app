@@ -5,14 +5,35 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'restaurants.settings')
 django.setup()
 
-from nomz.models import RestaurantSearch
+from nomz.models import RestaurantSearch, Restaurant, UserProfile, User
+from django.contrib.auth.models import User
 
 def seed_restaurants():
-    # Clear existing data to avoid duplicates during testing
+    # 1. Clear existing data
     print("Cleaning up old restaurant data...")
     RestaurantSearch.objects.all().delete()
+    Restaurant.objects.all().delete()
 
-    # Sample data based on common neighborhood names
+    # 2. Ensure we have a Restaurant Owner user
+    owner_user, created = User.objects.get_or_create(username='rest1')
+    if created:
+        owner_user.set_password('password123')
+        owner_user.save()
+    
+    UserProfile.objects.get_or_create(user=owner_user, role='restaurant')
+
+    # 3. Create a real Restaurant Profile for the dashboard to count
+    Restaurant.objects.create(
+        owner=owner_user,
+        name="The Daily Grind (Official)",
+        neighborhood="Downtown",
+        cuisine="Coffee & Bakery",
+        description="Our official profile for artisan coffee.",
+        address="123 Coffee Lane, NYC",
+        is_active=True
+    )
+
+    # 4. Sample data for RestaurantSearch (Legacy/Search compatibility)
     restaurants = [
         {
             "name": "The Daily Grind",
