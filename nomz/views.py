@@ -61,12 +61,31 @@ def home(request):
     return render(request, 'nomz/home.html', context)
 
 
+def perform_dependency_health_checks() -> None:
+    """
+    Dependency checks for /health/.
+
+    Kept as a function so tests can patch failure scenarios easily.
+    """
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT 1;")
+        cursor.fetchone()
+
+
 def health_check(request):
     """
     Lightweight health endpoint for ELB/EB health checks.
     Must return HTTP 200 quickly and without auth redirects.
     """
-    return JsonResponse({"status": "ok"}, status=200)
+    # Best-effort dependency checks. Keep it fast and avoid expensive ORM work.
+    try:
+        perform_dependency_health_checks()
+        return JsonResponse({"status": "ok"}, status=200)
+    except Exception as exc:
+        # Let monitoring middleware convert non-200 responses into alerts/audit logs.
+        return JsonResponse({"status": "degraded", "error": str(exc)[:200]}, status=503)
 
 
 def map_view(request):
@@ -334,6 +353,20 @@ def user_logout(request):
 def is_restaurant_owner(user):
     """Helper function to check if user is a restaurant owner"""
     return hasattr(user, 'userprofile') and user.userprofile.role == 'restaurant'
+
+
+@login_required(login_url='landing')
+@require_http_methods(["GET"])
+def restaurant_profile(request):
+    """
+    Restaurant-only profile page used by tests and for convenience navigation.
+
+    For restaurant owners, renders the same UI as the dashboard restaurant view.
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'You do not have permission to access this page.')
+        return redirect('profile')
+    return dashboard(request)
 
 
 @login_required(login_url='landing')

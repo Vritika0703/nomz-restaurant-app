@@ -1,10 +1,22 @@
-from django.test import TestCase, Client
+from django.test import TestCase, Client, TransactionTestCase
+from django.http import HttpResponseServerError
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
 from io import BytesIO
 from PIL import Image
-from .models import UserProfile, Restaurant, RestaurantPhoto
+from unittest.mock import patch
+
+from django.test.utils import override_settings
+
+from .models import (
+    Restaurant,
+    RestaurantPhoto,
+    SystemAlert,
+    SystemAuditLog,
+    SystemPerformanceMetric,
+    UserProfile,
+)
 
 
 class RestaurantModelTests(TestCase):
@@ -440,4 +452,57 @@ class RestaurantPhotoViewTests(TestCase):
         photo1.refresh_from_db()
         self.assertTrue(photo2.is_primary)
         self.assertFalse(photo1.is_primary)
+
+
+class SystemMonitoringTests(TransactionTestCase):
+    @override_settings(
+        SYSTEM_METRICS_SNAPSHOT_INTERVAL_SECONDS=1,
+        SYSTEM_ALERT_ERROR_RATE_THRESHOLD=1.1,  # Disable high error rate alerts for single failures
+        SYSTEM_ALERT_AVG_LATENCY_MS_THRESHOLD=100000,
+    )
+    def test_health_check_failure_creates_alert_and_audit_log(self):
+        with patch("nomz.views.perform_dependency_health_checks", side_effect=Exception("db down")):
+            response = self.client.get(reverse("health_check"))
+            self.assertEqual(response.status_code, 503)
+
+        alert_qs = SystemAlert.objects.filter(alert_type="HEALTH_CHECK_FAILURE", is_active=True)
+        audit_qs = SystemAuditLog.objects.filter(action="health_check_failure")
+        self.assertTrue(
+            alert_qs.exists(),
+            msg=(
+                f"Expected active HEALTH_CHECK_FAILURE alert. "
+                f"alerts={alert_qs.count()} total_alerts={SystemAlert.objects.count()} "
+                f"audit_logs={audit_qs.count()}"
+            ),
+        )
+        self.assertTrue(audit_qs.exists())
+
+    @override_settings(
+        DEBUG=False,
+        DEBUG_PROPAGATE_EXCEPTIONS=False,
+        SYSTEM_METRICS_SNAPSHOT_INTERVAL_SECONDS=1,
+        SYSTEM_ALERT_ERROR_RATE_THRESHOLD=1.1,
+        SYSTEM_ALERT_AVG_LATENCY_MS_THRESHOLD=100000,
+    )
+    def test_unhandled_exception_creates_audit_log_and_metric(self):
+        # Replace the `map` URL callback with one that returns a 500 response.
+        # This triggers the middleware's 5xx audit/metric path without relying on
+        # Django's exception propagation/transaction behavior.
+        import nomz.urls as nomz_urlconf
+
+        map_pattern = next(p for p in nomz_urlconf.urlpatterns if getattr(p, "name", None) == "map")
+        original_callback = map_pattern.callback
+
+        def broken_map_view(request):
+            return HttpResponseServerError("boom")
+
+        try:
+            map_pattern.callback = broken_map_view
+            response = self.client.get(reverse("map"))
+            self.assertEqual(response.status_code, 500)
+        finally:
+            map_pattern.callback = original_callback
+
+        self.assertTrue(SystemAuditLog.objects.filter(action="server_error_response").exists())
+        self.assertTrue(SystemPerformanceMetric.objects.filter(status_code=500, is_error=True).exists())
 
