@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("nomz", "0008_userpreference"),
+        ("nomz", "0009_systemalert_systemauditlog_systemperformancemetric_and_more"),
     ]
 
     operations = [
