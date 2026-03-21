@@ -31,15 +31,10 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-x40=kccvv69vwa$t@twav
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-# Build ALLOWED_HOSTS list from config and production domains
+# Build ALLOWED_HOSTS list from config
 ALLOWED_HOSTS = list(config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv()))
 
-# Ensure production domain is always in ALLOWED_HOSTS
-ALLOWED_HOSTS.extend([
-    'nomz-prod.eba-phpyq9gh.us-east-1.elasticbeanstalk.com',
-])
-
-# Allow EC2 instance's own IP so EB health checks pass (required when DEBUG=False)
+# Ensure common production domains/IPs from EB are included
 try:
     local_ip = socket.gethostbyname(socket.gethostname())
     if local_ip not in ALLOWED_HOSTS:
@@ -220,11 +215,10 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_FILE_PATH = BASE_DIR / 'tmp' / 'emails'
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER or 'webmaster@localhost')
 
-# CSRF Configuration - Allow both domains
-CSRF_TRUSTED_ORIGINS = [
-    'http://nomz-prod.eba-phpyq9gh.us-east-1.elasticbeanstalk.com',
-    'https://nomz-prod.eba-phpyq9gh.us-east-1.elasticbeanstalk.com',
-]
+# CSRF Configuration - Trust local and production origins from environment
+CSRF_TRUSTED_ORIGINS = list(config('CSRF_TRUSTED_ORIGINS', 
+                                 default='http://localhost:8000,http://127.0.0.1:8000', 
+                                 cast=Csv()))
 
 # Security Settings for Production
 if not DEBUG:
