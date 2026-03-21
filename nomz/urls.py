@@ -14,6 +14,7 @@ urlpatterns = [
     path('logout/', views.user_logout, name='logout'),
     path('profile/', views.dashboard, name='profile'),
     path('dashboard/', views.dashboard, name='dashboard'),
+    path('restaurant-profile/', views.restaurant_profile, name='restaurant_profile'),
     path('search/', views.restaurant_search, name='restaurant_search'),
     path('preferences/', views.manage_preferences, name='manage_preferences'),
     

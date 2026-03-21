@@ -81,6 +81,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'nomz.middleware.SystemMonitoringMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 

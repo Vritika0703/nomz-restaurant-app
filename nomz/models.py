@@ -356,3 +356,136 @@ class UserPreference(models.Model):
 
     def __str__(self):
         return f"Preferences for {self.user.username}"
+
+
+class SystemAuditLog(models.Model):
+    """
+    System-wide audit trail for critical administrative and platform events.
+    """
+
+    LEVEL_CHOICES = [
+        ("INFO", "Info"),
+        ("WARNING", "Warning"),
+        ("ERROR", "Error"),
+        ("CRITICAL", "Critical"),
+    ]
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    actor_user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="system_audit_logs",
+    )
+    actor_username = models.CharField(max_length=150, blank=True, default="")
+
+    level = models.CharField(max_length=10, choices=LEVEL_CHOICES, default="INFO", db_index=True)
+    action = models.CharField(max_length=255, db_index=True)
+
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+
+    request_path = models.CharField(max_length=2048, null=True, blank=True)
+    http_method = models.CharField(max_length=10, null=True, blank=True)
+
+    # Free-form event details (avoid huge stack traces; keep structured info).
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        actor = self.actor_username or (self.actor_user.username if self.actor_user_id else "anonymous")
+        return f"{self.level} {self.action} ({actor})"
+
+
+class SystemPerformanceMetric(models.Model):
+    """
+    Per-request performance/error metrics used for dashboards and alert evaluation.
+    """
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # request identification
+    method = models.CharField(max_length=10, db_index=True)
+    path = models.CharField(max_length=2048, db_index=True)
+
+    # performance/error details
+    duration_ms = models.PositiveIntegerField()
+    status_code = models.PositiveIntegerField(db_index=True)
+    is_error = models.BooleanField(default=False, db_index=True)
+
+    exception_class = models.CharField(max_length=255, blank=True, default="")
+    exception_message = models.CharField(max_length=500, blank=True, default="")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at", "is_error"], name="nomz_sysperf_err_idx"),
+            models.Index(fields=["created_at", "duration_ms"], name="nomz_sysperf_lat_idx"),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.method} {self.path} {self.status_code} ({self.duration_ms}ms)"
+
+
+class SystemPerformanceSnapshot(models.Model):
+    """
+    Aggregated snapshot over a fixed time bucket for quick admin visibility.
+    """
+
+    interval_start = models.DateTimeField(db_index=True)
+    interval_end = models.DateTimeField(db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    total_requests = models.IntegerField()
+    error_requests = models.IntegerField()
+    error_rate = models.DecimalField(max_digits=6, decimal_places=4)
+
+    avg_latency_ms = models.DecimalField(max_digits=10, decimal_places=2)
+    max_latency_ms = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        unique_together = [("interval_start", "interval_end")]
+        ordering = ["-interval_end"]
+
+    def __str__(self):
+        return f"{self.interval_start:%Y-%m-%d %H:%M:%S} - {self.interval_end:%H:%M:%S}"
+
+
+class SystemAlert(models.Model):
+    """
+    Alert records generated from snapshot evaluation or health-check failures.
+    """
+
+    ALERT_TYPE_CHOICES = [
+        ("HEALTH_CHECK_FAILURE", "Health check failure"),
+        ("HIGH_ERROR_RATE", "High error rate"),
+        ("HIGH_LATENCY", "High latency"),
+    ]
+
+    SEVERITY_CHOICES = [
+        ("LOW", "Low"),
+        ("MEDIUM", "Medium"),
+        ("HIGH", "High"),
+        ("CRITICAL", "Critical"),
+    ]
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    alert_type = models.CharField(max_length=64, choices=ALERT_TYPE_CHOICES, db_index=True)
+    severity = models.CharField(max_length=16, choices=SEVERITY_CHOICES, default="HIGH", db_index=True)
+
+    message = models.CharField(max_length=500)
+    details = models.JSONField(default=dict, blank=True)
+
+    is_active = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.alert_type} ({self.severity}) - {'active' if self.is_active else 'resolved'}"
