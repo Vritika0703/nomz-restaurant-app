@@ -14,7 +14,9 @@ class Command(BaseCommand):
     help = "Fetch and normalize NYC datasets from Socrata endpoints."
 
     def add_arguments(self, parser):
-        parser.add_argument("--app-token", default=None, help="Optional Socrata app token")
+        parser.add_argument(
+            "--app-token", default=None, help="Optional Socrata app token"
+        )
         parser.add_argument(
             "--skip-source",
             action="append",
@@ -64,14 +66,20 @@ class Command(BaseCommand):
 
         writer = self._compose_writers(writer_fns)
 
-        run_context = IngestionRunContext(dataset="nyc-socrata-ingest") if db_writer is not None else None
+        run_context = (
+            IngestionRunContext(dataset="nyc-socrata-ingest")
+            if db_writer is not None
+            else None
+        )
 
         try:
             if run_context is not None:
                 with run_context:
                     summary = run_ingestion(
                         app_token=app_token,
-                        domain=getattr(settings, "SOC_DATA_DOMAIN", "data.cityofnewyork.us"),
+                        domain=getattr(
+                            settings, "SOC_DATA_DOMAIN", "data.cityofnewyork.us"
+                        ),
                         writer=writer,
                         skip_sources=skip_sources,
                     )
@@ -84,7 +92,9 @@ class Command(BaseCommand):
             else:
                 summary = run_ingestion(
                     app_token=app_token,
-                    domain=getattr(settings, "SOC_DATA_DOMAIN", "data.cityofnewyork.us"),
+                    domain=getattr(
+                        settings, "SOC_DATA_DOMAIN", "data.cityofnewyork.us"
+                    ),
                     writer=writer,
                     skip_sources=skip_sources,
                 )
@@ -139,7 +149,9 @@ class Command(BaseCommand):
                         )
                     )
         if dry_run:
-            self.stdout.write(self.style.WARNING("Dry-run mode: no database writes were committed."))
+            self.stdout.write(
+                self.style.WARNING("Dry-run mode: no database writes were committed.")
+            )
 
     def _compose_writers(self, writers):
         if not writers:

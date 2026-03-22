@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from hashlib import sha1
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Optional
 
 from django.db import transaction
 from django.utils import timezone
@@ -50,7 +50,9 @@ def _record_to_match_payload(restaurant: Restaurant) -> Dict[str, Any]:
         "zip_code": restaurant.zip_code or "",
         "borough": restaurant.borough or "",
         "latitude": str(restaurant.latitude) if restaurant.latitude is not None else "",
-        "longitude": str(restaurant.longitude) if restaurant.longitude is not None else "",
+        "longitude": (
+            str(restaurant.longitude) if restaurant.longitude is not None else ""
+        ),
     }
 
 
@@ -81,8 +83,16 @@ def _normalize_inspection_key(row: Dict[str, Any], restaurant_id: int) -> str:
         str(row.get("inspection_date") or ""),
         str(row.get("grade") or ""),
         str(row.get("score") if row.get("score") is not None else ""),
-        str(row.get("critical_violations") if row.get("critical_violations") is not None else ""),
-        str(row.get("noncritical_violations") if row.get("noncritical_violations") is not None else ""),
+        str(
+            row.get("critical_violations")
+            if row.get("critical_violations") is not None
+            else ""
+        ),
+        str(
+            row.get("noncritical_violations")
+            if row.get("noncritical_violations") is not None
+            else ""
+        ),
         str(row.get("violation_description") or row.get("violation") or ""),
     ]
     return sha1("|".join(parts).encode("utf-8")).hexdigest()
@@ -155,16 +165,18 @@ class DbIngestionWriter:
                 for key, value in payload.items():
                     setattr(existing, key, value)
                 existing.last_seen_at = timezone.now()
-                existing.save(update_fields=[
-                    "restaurant",
-                    "source",
-                    "external_id",
-                    "external_name",
-                    "external_address",
-                    "raw_payload",
-                    "confidence",
-                    "last_seen_at",
-                ])
+                existing.save(
+                    update_fields=[
+                        "restaurant",
+                        "source",
+                        "external_id",
+                        "external_name",
+                        "external_address",
+                        "raw_payload",
+                        "confidence",
+                        "last_seen_at",
+                    ]
+                )
                 self.stats.records_updated += 1
             else:
                 RestaurantSourceRecord.objects.create(**payload)
@@ -193,11 +205,17 @@ class DbIngestionWriter:
             "grade": (record.get("grade") or "").strip().upper() or None,
             "score": self._coerce_int(record.get("score")),
             "critical_violations": self._coerce_int(record.get("critical_violations")),
-            "noncritical_violations": self._coerce_int(record.get("noncritical_violations")),
-            "violation_count": self._coerce_int(record.get("violation_count")) or self._coerce_int(record.get("critical_violations")) + self._coerce_int(record.get("noncritical_violations")),
+            "noncritical_violations": self._coerce_int(
+                record.get("noncritical_violations")
+            ),
+            "violation_count": self._coerce_int(record.get("violation_count"))
+            or self._coerce_int(record.get("critical_violations"))
+            + self._coerce_int(record.get("noncritical_violations")),
             "inspection_type": record.get("inspection_type"),
             "action": record.get("action"),
-            "violations": self._coerce_violations(record.get("violation_description") or record.get("violations")),
+            "violations": self._coerce_violations(
+                record.get("violation_description") or record.get("violations")
+            ),
             "camis": record.get("source_external_id"),
             "boro": record.get("borough") or record.get("boro"),
             "raw_payload": record.get("raw_payload"),
@@ -230,7 +248,9 @@ class DbIngestionWriter:
         if zip_code:
             candidates = candidates.filter(zip_code__startswith=_zip_prefix(zip_code))
         if not candidates.exists() and street:
-            candidates = Restaurant.objects.filter(is_active=True, street__iexact=street)
+            candidates = Restaurant.objects.filter(
+                is_active=True, street__iexact=street
+            )
         if not candidates.exists():
             candidates = Restaurant.objects.filter(is_active=True)
 
@@ -314,7 +334,9 @@ class DbIngestionWriter:
         self._sync_restaurant_search(restaurant)
         return restaurant
 
-    def _upsert_dining_out_profile(self, restaurant: Restaurant, record: Dict[str, Any]) -> None:
+    def _upsert_dining_out_profile(
+        self, restaurant: Restaurant, record: Dict[str, Any]
+    ) -> None:
         metadata = record.get("dining_out_metadata") or {}
         if not metadata:
             return
@@ -323,7 +345,9 @@ class DbIngestionWriter:
             "license_type": metadata.get("license_type"),
             "license_status": metadata.get("license_status"),
             "license_issue_date": self._coerce_date(metadata.get("license_issue_date")),
-            "license_expiration_date": self._coerce_date(metadata.get("license_expiration_date")),
+            "license_expiration_date": self._coerce_date(
+                metadata.get("license_expiration_date")
+            ),
             "location_type": (metadata.get("location_type") or "UNKNOWN").lower()[:20],
             "building_number": metadata.get("building_number"),
             "council_district": metadata.get("council_district"),
@@ -362,9 +386,14 @@ class DbIngestionWriter:
             return value.date()
 
         value_text = str(value).strip()
-        for fmt in ["%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%f", "%m/%d/%Y"]:
+        for fmt in [
+            "%Y-%m-%d",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%dT%H:%M:%S.%f",
+            "%m/%d/%Y",
+        ]:
             try:
-                return datetime.strptime(value_text[:len(fmt)], fmt).date()
+                return datetime.strptime(value_text[: len(fmt)], fmt).date()
             except ValueError:
                 continue
         return None
@@ -399,10 +428,14 @@ class DbIngestionWriter:
         if self.dry_run:
             return
 
-        neighborhood = (restaurant.neighborhood or restaurant.borough or "").strip()[:100]
+        neighborhood = (restaurant.neighborhood or restaurant.borough or "").strip()[
+            :100
+        ]
         cuisine = (restaurant.cuisine or restaurant.cuisine_type or "").strip()
         if not cuisine and restaurant.cuisine_tags:
-            cuisine = ", ".join(str(tag).strip() for tag in restaurant.cuisine_tags if str(tag).strip())
+            cuisine = ", ".join(
+                str(tag).strip() for tag in restaurant.cuisine_tags if str(tag).strip()
+            )
         cuisine = cuisine[:100]
 
         RestaurantSearch.objects.update_or_create(

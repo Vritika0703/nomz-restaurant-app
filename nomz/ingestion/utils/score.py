@@ -55,7 +55,9 @@ def _recency_score(last_inspection: Optional[date]) -> float:
     return 30.0
 
 
-def compute_composite_score_from_records(records, now=None) -> Dict[str, float | int | str | None]:
+def compute_composite_score_from_records(
+    records, now=None
+) -> Dict[str, float | int | str | None]:
     latest = list(records)[0] if records else None
     if not latest:
         return {
@@ -77,7 +79,9 @@ def compute_composite_score_from_records(records, now=None) -> Dict[str, float |
     violation_points = _violation_score(critical, noncritical)
     recency_points = _recency_score(latest.inspection_date)
 
-    composite = (0.50 * grade_points) + (0.35 * violation_points) + (0.15 * recency_points)
+    composite = (
+        (0.50 * grade_points) + (0.35 * violation_points) + (0.15 * recency_points)
+    )
 
     return {
         "composite_score": round(composite, 2),

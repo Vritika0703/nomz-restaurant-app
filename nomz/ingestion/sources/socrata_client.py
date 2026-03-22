@@ -16,7 +16,9 @@ class SocrataResource:
 
 
 class SocrataError(RuntimeError):
-    def __init__(self, message: str, status_code: Optional[int] = None, body: str = "") -> None:
+    def __init__(
+        self, message: str, status_code: Optional[int] = None, body: str = ""
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.body = body
@@ -42,12 +44,16 @@ class SocrataClient:
             f"https://{self.domain}/api/id",
         ]
 
-    def fetch_all(self, resource: SocrataResource, where: Optional[str] = None, limit: int = 1000) -> Iterable[Dict]:
+    def fetch_all(
+        self, resource: SocrataResource, where: Optional[str] = None, limit: int = 1000
+    ) -> Iterable[Dict]:
         offset = 0
         retries = 0
 
         while True:
-            payload = self.fetch_page(resource=resource, where=where, limit=limit, offset=offset)
+            payload = self.fetch_page(
+                resource=resource, where=where, limit=limit, offset=offset
+            )
             if not payload:
                 break
 
@@ -60,7 +66,9 @@ class SocrataClient:
             retries += 1
             # protect against accidental huge loops in bad responses
             if retries > 10000:
-                raise SocrataError("Pagination guard triggered while fetching Socrata data")
+                raise SocrataError(
+                    "Pagination guard triggered while fetching Socrata data"
+                )
 
     def fetch_page(
         self,
@@ -91,13 +99,20 @@ class SocrataClient:
                 request.add_header("X-App-Token", self.app_token)
 
             try:
-                with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                with urllib.request.urlopen(
+                    request, timeout=self.timeout_seconds
+                ) as response:
                     raw = response.read().decode("utf-8")
                     rows = json.loads(raw)
                     if isinstance(rows, dict) and rows.get("error"):
-                        raise SocrataError(f"Socrata API error for {resource.name}: {rows.get('message', 'Unknown error')}", body=str(rows))
+                        raise SocrataError(
+                            f"Socrata API error for {resource.name}: {rows.get('message', 'Unknown error')}",
+                            body=str(rows),
+                        )
                     if not isinstance(rows, list):
-                        raise SocrataError(f"Unexpected response shape for {resource.name}")
+                        raise SocrataError(
+                            f"Unexpected response shape for {resource.name}"
+                        )
                     return rows
             except urllib.error.HTTPError as exc:
                 body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
@@ -107,14 +122,15 @@ class SocrataClient:
                     body=body,
                 )
                 is_non_tabular_forbidden = (
-                    exc.code == 403
-                    and "non-tabular" in body.lower()
+                    exc.code == 403 and "non-tabular" in body.lower()
                 )
                 if base_url == self.base_urls[0] and is_non_tabular_forbidden:
                     continue
                 raise last_error
             except urllib.error.URLError as exc:
-                last_error = SocrataError(f"Network error while loading {resource.name}: {exc.reason}")
+                last_error = SocrataError(
+                    f"Network error while loading {resource.name}: {exc.reason}"
+                )
                 raise last_error
             except Exception as exc:
                 last_error = SocrataError(f"Failed to fetch {resource.name}: {exc}")

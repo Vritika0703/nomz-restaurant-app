@@ -25,6 +25,11 @@
             <!-- Quick Action Buttons -->
             <div class="row mb-4 mt-4">
                 <div class="col-12 mb-3">
+                    <a href="{% url 'restaurant_search' %}" class="btn w-100" style="background-color: #465F6E; color: white; border-color: #465F6E;">
+                        Search restaurants
+                    </a>
+                </div>
+                <div class="col-12 mb-3">
                     <a href="{% url 'restaurant_photos' %}" class="btn w-100" style="background-color: #96A99E; color: white; border: none;">
                         <i class="bi bi-images"></i> Manage Photos
                     </a>
@@ -39,6 +44,28 @@
 
         <!-- Dashboard Main Content -->
         <div class="col-md-8">
+            {% if restaurant.is_flagged or restaurant.owner.userprofile.is_flagged %}
+            <div class="alert alert-danger shadow-sm border-0 mb-4" role="alert" style="border-left: 5px solid #dc3545 !important;">
+                <h4 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>Account Flagged</h4>
+                <p>Your restaurant profile has been flagged for fraudulent activity by an administrator. A public warning is currently displayed on your profile.</p>
+            </div>
+            {% endif %}
+            {% if is_rejected %}
+            <div class="alert alert-danger shadow-sm border-0 mb-4" role="alert" style="border-left: 5px solid #dc3545 !important;">
+                <h4 class="alert-heading"><i class="fas fa-times-circle me-2"></i>Account Status: Restricted</h4>
+                <p>Your restaurant business account has been reviewed and restricted by our administrative team. Your profile is currently hidden from the public map and search results.</p>
+                <hr>
+                <p class="mb-0 small"><i class="fas fa-info-circle me-1"></i> You can still manage your information here, but it will not be visible to diners until your status is restored to Active.</p>
+            </div>
+            {% elif not is_approved %}
+            <div class="alert alert-info shadow-sm border-0 mb-4" role="alert" style="border-left: 5px solid #4ECDC4 !important;">
+                <h4 class="alert-heading"><i class="fas fa-clock me-2"></i>Account Pending Approval</h4>
+                <p>Thank you for joining Nomz! Your restaurant business account is currently undergoing a standard security review by our administrative team.</p>
+                <hr>
+                <p class="mb-0 small"><i class="fas fa-info-circle me-1"></i> Most accounts are verified within 24-48 hours. You will have full access to your business tools once approved.</p>
+            </div>
+            {% endif %}
+
             {% if restaurant %}
             <div class="card mb-4">
                 <div class="card-header" style="background-color: #465F6E; color: white;">
@@ -62,7 +89,14 @@
                             
                             <h6 class="text-muted mb-1">Status</h6>
                             <p class="mb-0">
-                                {% if restaurant.is_temporarily_unavailable %}
+                                {% if is_rejected %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                    <a href="{% url 'edit_restaurant' %}" class="btn btn-sm btn-outline-primary ms-2" style="font-size: 0.75rem; vertical-align: middle;">
+                                        <i class="fas fa-redo me-1"></i> Apply Again
+                                    </a>
+                                {% elif not is_approved %}
+                                    <span class="badge bg-warning text-dark">Pending Approval</span>
+                                {% elif restaurant.is_temporarily_unavailable %}
                                     <span class="badge bg-warning">Temporarily Unavailable</span>
                                 {% elif restaurant.is_active %}
                                     <span class="badge bg-success">Active</span>
@@ -115,7 +149,7 @@
                             <div class="d-flex justify-content-between align-items-start">
                                 <div>
                                     <h6 class="card-title text-muted">Average Rating</h6>
-                                    <h3 class="mb-0">-</h3>
+                                    <h3 class="mb-0">{{ average_rating|default:"-" }}</h3>
                                 </div>
                                 <div style="font-size: 2rem;">⭐</div>
                             </div>
@@ -136,6 +170,52 @@
                     </div>
                 </div>
             </div>
+            </div>
+
+            <!-- Customer Reviews Section -->
+            {% if restaurant %}
+            <div class="card mb-4 shadow-sm border-0">
+                <div class="card-header bg-white py-3 border-bottom-0">
+                    <h5 class="mb-0">Customer Reviews</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for review in reviews %}
+                        <div class="list-group-item p-4 {% if review.is_flagged %}bg-light border-danger border-start border-5 border-top-0 border-end-0 border-bottom-0{% endif %}">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1 fw-bold">
+                                    {{ review.user.username }}
+                                    <span class="ms-2" style="color: #ffc107;">
+                                        {% for i in "12345"|make_list %}
+                                            {% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}
+                                        {% endfor %}
+                                    </span>
+                                </h6>
+                                <small class="text-muted">{{ review.created_at|date:"M d, Y" }}</small>
+                            </div>
+                            <p class="mb-1 mt-2 {% if review.is_deleted %}text-muted fst-italic{% endif %}">
+                                {% if review.is_deleted %}
+                                    [This review was removed by a moderator.]
+                                {% else %}
+                                    {{ review.comment }}
+                                {% endif %}
+                            </p>
+                            {% if review.is_flagged %}
+                                <div class="mt-2 text-danger small">
+                                    <i class="fas fa-flag"></i> This review has been flagged for moderation.
+                                </div>
+                            {% endif %}
+                        </div>
+                        {% empty %}
+                        <div class="p-5 text-center text-muted">
+                            <i class="fas fa-comment-slash fa-3x mb-3 opacity-50"></i>
+                            <p class="lead mb-0">No reviews yet.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

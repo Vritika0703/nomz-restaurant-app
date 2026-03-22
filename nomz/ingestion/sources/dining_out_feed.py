@@ -53,18 +53,24 @@ def normalize_dining_out_row(row: Dict) -> Dict:
         borough = city
 
     lat, lon = _extract_coordinates(row)
-    cuisines = split_list_fields(first_non_empty(row, ["cuisine", "cuisine_type", "cuisine_style"]))
+    cuisines = split_list_fields(
+        first_non_empty(row, ["cuisine", "cuisine_type", "cuisine_style"])
+    )
     raw_lat, raw_lon = lat, lon
     raw_metadata = row.get("raw_payload", row)
 
     license_issue_date = _parse_date(first_non_empty(row, ["license_issue_date"]))
-    license_expiration_date = _parse_date(first_non_empty(row, ["license_expiration_date"]))
+    license_expiration_date = _parse_date(
+        first_non_empty(row, ["license_expiration_date"])
+    )
     capacity = _parse_int(first_non_empty(row, ["seats", "capacity"]))
     location_type = first_non_empty(row, ["location_type", "license_type"])
 
     return {
         "source": "DINING_OUT",
-        "source_external_id": first_non_empty(row, ["id", "camis", "location_name", "business_legal_name"]),
+        "source_external_id": first_non_empty(
+            row, ["id", "camis", "location_name", "business_legal_name"]
+        ),
         "name": name,
         "name_normalized": normalize_text(name),
         "building": building,
@@ -82,7 +88,9 @@ def normalize_dining_out_row(row: Dict) -> Dict:
             "license_issue_date": license_issue_date,
             "license_expiration_date": license_expiration_date,
             "location_type": location_type,
-            "building_number": first_non_empty(row, ["building_number", "building", "house_number"]),
+            "building_number": first_non_empty(
+                row, ["building_number", "building", "house_number"]
+            ),
             "council_district": first_non_empty(row, ["council_district"]),
             "community_board": first_non_empty(row, ["community_board"]),
             "nta2020": first_non_empty(row, ["nta2020"]),

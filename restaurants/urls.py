@@ -14,6 +14,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
 from django.urls import path, include
 from two_factor.urls import urlpatterns as tf_urls
@@ -21,8 +22,8 @@ from two_factor.urls import urlpatterns as tf_urls
 from django.views.generic import RedirectView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('login/', RedirectView.as_view(url='/signin/', permanent=False), name='login'),
-    path('', include(tf_urls)),
-    path('', include('nomz.urls')),
+    path("admin/", admin.site.urls),
+    path("login/", RedirectView.as_view(url="/signin/", permanent=False), name="login"),
+    path("", include(tf_urls)),
+    path("", include("nomz.urls")),
 ]

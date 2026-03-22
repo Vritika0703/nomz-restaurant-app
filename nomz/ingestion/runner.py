@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterable, Optional
+from typing import Callable, Dict, Optional
 
 from nomz.ingestion.sources.eateries_feed import stream_eateries_rows
 from nomz.ingestion.sources.dining_out_feed import stream_dining_out_rows
@@ -74,4 +74,6 @@ def run_ingestion(
             for source_name, message in errors.items()
         }
 
-    return IngestionSummary(counts=dict(counts), total=total, failures=failures, errors=errors)
+    return IngestionSummary(
+        counts=dict(counts), total=total, failures=failures, errors=errors
+    )
