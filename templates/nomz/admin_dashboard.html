@@ -48,6 +48,14 @@
                     <h5 class="mb-0 font-weight-bold">Welcome to Admin Panel, {{ user.username }}!</h5>
                 </div>
                 <div class="card-body p-4">
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <a href="{% url 'restaurant_search' %}" class="btn btn-primary">
+                            Search restaurants
+                        </a>
+                        <a href="{% url 'map' %}" class="btn btn-outline-secondary">
+                            Open map
+                        </a>
+                    </div>
                     <p class="lead text-gray-800">Manage the Nomz platform and moderation.</p>
                     <p class="text-muted">As an administrator, you can:</p>
                     <ul class="list-unstyled">

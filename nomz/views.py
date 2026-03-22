@@ -19,11 +19,11 @@ from django.contrib.auth.models import User
 from .models import (
     Restaurant,
     RestaurantPhoto,
-    RestaurantSearch,
     UserPreference,
     UserProfile,
     LoginLog,
 )
+from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 
 def landing_page(request):
@@ -121,7 +121,7 @@ def map_view(request):
     min_score = request.GET.get("min_score", "").strip()
     max_score = request.GET.get("max_score", "").strip()
     cuisine = request.GET.get("cuisine", "").strip()
-    sort_by = request.GET.get("sort_by", "score_desc").strip()
+    sort_by = normalize_sort_key(request.GET.get("sort_by", "composite_desc"))
 
     if search:
         restaurants = restaurants.filter(
@@ -628,70 +628,57 @@ def set_primary_photo(request, photo_id):
 
 @login_required(login_url="login")
 def restaurant_search(request):
-    query = request.GET.get("q", "")
-    neighborhood = request.GET.get("neighborhood", "")
+    query = request.GET.get("q", "").strip()
+    neighborhood = request.GET.get("neighborhood", "").strip()
+    sort_by = normalize_sort_key(request.GET.get("sort_by", "composite_desc"))
 
-    # Primary search index
-    results = RestaurantSearch.objects.all()
+    base_restaurants = Restaurant.objects.filter(
+        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True), is_active=True
+    )
     if query:
-        results = results.filter(
+        base_restaurants = base_restaurants.filter(
             Q(name__icontains=query)
             | Q(description__icontains=query)
             | Q(cuisine__icontains=query)
+            | Q(cuisine_type__icontains=query)
+            | Q(cuisine_tags__icontains=query)
         )
     if neighborhood:
-        results = results.filter(neighborhood__iexact=neighborhood)
-
-    all_neighborhoods = RestaurantSearch.objects.values_list(
-        "neighborhood", flat=True
-    ).distinct()
-
-    # Fallback path: if the search index is empty, read directly from Restaurant.
-    if not RestaurantSearch.objects.exists():
-        base_restaurants = Restaurant.objects.filter(
-            Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
-            is_active=True,
+        base_restaurants = base_restaurants.filter(
+            Q(neighborhood__iexact=neighborhood) | Q(borough__iexact=neighborhood)
         )
-        if query:
-            base_restaurants = base_restaurants.filter(
-                Q(name__icontains=query)
-                | Q(description__icontains=query)
-                | Q(cuisine__icontains=query)
-                | Q(cuisine_type__icontains=query)
-                | Q(cuisine_tags__icontains=query)
-            )
-        if neighborhood:
-            base_restaurants = base_restaurants.filter(
-                Q(neighborhood__iexact=neighborhood) | Q(borough__iexact=neighborhood)
-            )
 
-        mapped_results = []
-        for restaurant in base_restaurants.order_by("name"):
-            fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
-            if not fallback_cuisine and restaurant.cuisine_tags:
-                fallback_cuisine = ", ".join(
-                    str(tag) for tag in restaurant.cuisine_tags[:3]
-                )
-            mapped_results.append(
-                {
-                    "name": restaurant.name,
-                    "description": restaurant.description or "",
-                    "cuisine": fallback_cuisine,
-                    "neighborhood": restaurant.neighborhood or restaurant.borough or "",
-                }
-            )
+    base_restaurants = sort_restaurant_queryset(base_restaurants, sort_by)
 
-        results = mapped_results
-        all_neighborhoods = sorted(
+    results = []
+    for restaurant in base_restaurants:
+        fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
+        if not fallback_cuisine and restaurant.cuisine_tags:
+            fallback_cuisine = ", ".join(
+                str(tag) for tag in restaurant.cuisine_tags[:3]
+            )
+        results.append(
             {
-                restaurant.neighborhood or restaurant.borough
-                for restaurant in Restaurant.objects.filter(
-                    Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
-                    is_active=True,
-                )
-                if (restaurant.neighborhood or restaurant.borough)
+                "name": restaurant.name,
+                "description": restaurant.description or "",
+                "cuisine": fallback_cuisine,
+                "neighborhood": restaurant.neighborhood or restaurant.borough or "",
+                "composite_score": restaurant.composite_score,
+                "price_label": restaurant.get_price_range_display(),
+                "rating_score": restaurant.grade_score_latest,
             }
         )
+
+    all_neighborhoods = sorted(
+        {
+            r.neighborhood or r.borough
+            for r in Restaurant.objects.filter(
+                Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
+                is_active=True,
+            )
+            if (r.neighborhood or r.borough)
+        }
+    )
 
     return render(
         request,
@@ -700,6 +687,7 @@ def restaurant_search(request):
             "results": results,
             "query": query,
             "neighborhood": neighborhood,
+            "sort_by": sort_by,
             "all_neighborhoods": all_neighborhoods,
         },
     )
