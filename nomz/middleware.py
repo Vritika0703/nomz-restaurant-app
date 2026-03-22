@@ -43,7 +43,11 @@ def get_client_ip(request) -> Optional[str]:
 def should_skip_metrics(request) -> bool:
     # Avoid noisy/static traffic.
     path = request.path or ""
-    return path.startswith("/static/") or path.startswith("/media/") or path.endswith("favicon.ico")
+    return (
+        path.startswith("/static/")
+        or path.startswith("/media/")
+        or path.endswith("favicon.ico")
+    )
 
 
 @dataclass(frozen=True)
@@ -58,8 +62,12 @@ def _load_metrics_config() -> MetricsConfig:
         snapshot_interval_seconds=int(
             getattr(settings, "SYSTEM_METRICS_SNAPSHOT_INTERVAL_SECONDS", 300)
         ),
-        error_rate_threshold=float(getattr(settings, "SYSTEM_ALERT_ERROR_RATE_THRESHOLD", 0.2)),
-        avg_latency_ms_threshold=int(getattr(settings, "SYSTEM_ALERT_AVG_LATENCY_MS_THRESHOLD", 1000)),
+        error_rate_threshold=float(
+            getattr(settings, "SYSTEM_ALERT_ERROR_RATE_THRESHOLD", 0.2)
+        ),
+        avg_latency_ms_threshold=int(
+            getattr(settings, "SYSTEM_ALERT_AVG_LATENCY_MS_THRESHOLD", 1000)
+        ),
     )
 
 
@@ -100,7 +108,9 @@ class SystemMonitoringMiddleware:
 
             # Best-effort: never break the main request.
             try:
-                self._record_and_maybe_alert(request, status_code, duration_ms, exception)
+                self._record_and_maybe_alert(
+                    request, status_code, duration_ms, exception
+                )
             except Exception:
                 # Intentionally swallow to prevent monitoring failures from impacting the app.
                 pass
@@ -143,7 +153,9 @@ class SystemMonitoringMiddleware:
         # 2) Audit logs: admin actions and system exceptions/health failures.
         self._maybe_audit_admin_change(request, now)
         self._maybe_audit_exception(request, now, exception, status_code, duration_ms)
-        self._maybe_audit_server_error_response(request, now, exception, status_code, duration_ms)
+        self._maybe_audit_server_error_response(
+            request, now, exception, status_code, duration_ms
+        )
         self._maybe_handle_health_check_failure(request, now, status_code, duration_ms)
 
         # 3) Snapshot + alert evaluation
@@ -156,7 +168,11 @@ class SystemMonitoringMiddleware:
         if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
             return
         user = getattr(request, "user", None)
-        if user is None or not getattr(user, "is_authenticated", False) or not getattr(user, "is_staff", False):
+        if (
+            user is None
+            or not getattr(user, "is_authenticated", False)
+            or not getattr(user, "is_staff", False)
+        ):
             return
 
         try:
@@ -187,7 +203,9 @@ class SystemMonitoringMiddleware:
             return
         try:
             user = getattr(request, "user", None)
-            actor_user = user if (user and getattr(user, "is_authenticated", False)) else None
+            actor_user = (
+                user if (user and getattr(user, "is_authenticated", False)) else None
+            )
             actor_username = getattr(actor_user, "username", "") if actor_user else ""
 
             SystemAuditLog.objects.create(
@@ -229,7 +247,9 @@ class SystemMonitoringMiddleware:
         # Audit log
         try:
             user = getattr(request, "user", None)
-            actor_user = user if (user and getattr(user, "is_authenticated", False)) else None
+            actor_user = (
+                user if (user and getattr(user, "is_authenticated", False)) else None
+            )
             actor_username = getattr(actor_user, "username", "") if actor_user else ""
 
             SystemAuditLog.objects.create(
@@ -293,7 +313,9 @@ class SystemMonitoringMiddleware:
 
         try:
             user = getattr(request, "user", None)
-            actor_user = user if (user and getattr(user, "is_authenticated", False)) else None
+            actor_user = (
+                user if (user and getattr(user, "is_authenticated", False)) else None
+            )
             actor_username = getattr(actor_user, "username", "") if actor_user else ""
 
             SystemAuditLog.objects.create(
@@ -313,7 +335,9 @@ class SystemMonitoringMiddleware:
 
     def _maybe_evaluate_alerts(self, now) -> None:
         config = _load_metrics_config()
-        interval_start, interval_end = _bucket_bounds(now, config.snapshot_interval_seconds)
+        interval_start, interval_end = _bucket_bounds(
+            now, config.snapshot_interval_seconds
+        )
 
         # Only evaluate when a new snapshot bucket is created.
         try:
@@ -329,7 +353,7 @@ class SystemMonitoringMiddleware:
             )
             total_requests = qs.count()
             if total_requests == 0:
-                snapshot = SystemPerformanceSnapshot.objects.create(
+                SystemPerformanceSnapshot.objects.create(
                     interval_start=interval_start,
                     interval_end=interval_end,
                     total_requests=0,
@@ -373,7 +397,9 @@ class SystemMonitoringMiddleware:
         except Exception:
             pass
 
-    def _evaluate_alerts_from_snapshot(self, now, error_rate: float, avg_latency_ms: float) -> None:
+    def _evaluate_alerts_from_snapshot(
+        self, now, error_rate: float, avg_latency_ms: float
+    ) -> None:
         config = _load_metrics_config()
 
         # HIGH_ERROR_RATE
@@ -424,7 +450,9 @@ class SystemMonitoringMiddleware:
                 alert_type=alert_type,
                 is_active=True,
                 created_at__gte=now
-                - timedelta(seconds=2 * _load_metrics_config().snapshot_interval_seconds),
+                - timedelta(
+                    seconds=2 * _load_metrics_config().snapshot_interval_seconds
+                ),
             ).exists()
             if active_exists:
                 return
@@ -433,9 +461,14 @@ class SystemMonitoringMiddleware:
             if higher_severity_on_extreme and extreme_value is None:
                 # If error rate is far above threshold, bump severity.
                 # (We don't know the exact value here; use a simple heuristic.)
-                if details.get("error_rate", 0) >= max(severity_threshold_error_rate * 2, 0.5):
+                if details.get("error_rate", 0) >= max(
+                    severity_threshold_error_rate * 2, 0.5
+                ):
                     severity = "CRITICAL"
-            elif extreme_value is not None and details.get("avg_latency_ms", 0) >= extreme_value:
+            elif (
+                extreme_value is not None
+                and details.get("avg_latency_ms", 0) >= extreme_value
+            ):
                 severity = "CRITICAL"
 
             SystemAlert.objects.create(
@@ -456,4 +489,3 @@ class SystemMonitoringMiddleware:
             ).update(is_active=False, resolved_at=now)
         except Exception:
             pass
-

@@ -2,11 +2,13 @@ import os
 import django
 
 # 1. Setup Django environment
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'restaurants.settings')
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "restaurants.settings")
 django.setup()
 
-from nomz.models import RestaurantSearch, Restaurant, UserProfile, User
-from django.contrib.auth.models import User
+# Django imports must come after django.setup()
+from django.contrib.auth.models import User  # noqa: E402
+from nomz.models import RestaurantSearch, Restaurant, UserProfile  # noqa: E402
+
 
 def seed_restaurants():
     # 1. Clear existing data
@@ -15,12 +17,12 @@ def seed_restaurants():
     Restaurant.objects.all().delete()
 
     # 2. Ensure we have a Restaurant Owner user
-    owner_user, created = User.objects.get_or_create(username='rest1')
+    owner_user, created = User.objects.get_or_create(username="rest1")
     if created:
-        owner_user.set_password('password123')
+        owner_user.set_password("password123")
         owner_user.save()
-    
-    UserProfile.objects.get_or_create(user=owner_user, role='restaurant')
+
+    UserProfile.objects.get_or_create(user=owner_user, role="restaurant")
 
     # 3. Create a real Restaurant Profile for the dashboard to count
     Restaurant.objects.create(
@@ -30,7 +32,7 @@ def seed_restaurants():
         cuisine="Coffee & Bakery",
         description="Our official profile for artisan coffee.",
         address="123 Coffee Lane, NYC",
-        is_active=True
+        is_active=True,
     )
 
     # 4. Sample data for RestaurantSearch (Legacy/Search compatibility)
@@ -39,45 +41,46 @@ def seed_restaurants():
             "name": "The Daily Grind",
             "neighborhood": "Downtown",
             "cuisine": "Coffee & Bakery",
-            "description": "Artisan coffee and fresh pastries in a cozy, industrial atmosphere."
+            "description": "Artisan coffee and fresh pastries in a cozy, industrial atmosphere.",
         },
         {
             "name": "Campus Pizza",
             "neighborhood": "North Campus",
             "cuisine": "Italian",
-            "description": "Authentic wood-fired pizzas with a student-friendly price tag."
+            "description": "Authentic wood-fired pizzas with a student-friendly price tag.",
         },
         {
             "name": "Sushi Zen",
             "neighborhood": "Downtown",
             "cuisine": "Japanese",
-            "description": "Fresh sashimi and innovative rolls served in a minimalist setting."
+            "description": "Fresh sashimi and innovative rolls served in a minimalist setting.",
         },
         {
             "name": "Burger Haven",
             "neighborhood": "West End",
             "cuisine": "American",
-            "description": "Gourmet burgers with locally sourced beef and hand-cut fries."
+            "description": "Gourmet burgers with locally sourced beef and hand-cut fries.",
         },
         {
             "name": "Taco Fiesta",
             "neighborhood": "North Campus",
             "cuisine": "Mexican",
-            "description": "Vibrant street tacos and the best margaritas in the city."
+            "description": "Vibrant street tacos and the best margaritas in the city.",
         },
         {
             "name": "The Green Leaf",
             "neighborhood": "East Side",
             "cuisine": "Vegan",
-            "description": "Plant-based comfort food that even meat-eaters will love."
-        }
+            "description": "Plant-based comfort food that even meat-eaters will love.",
+        },
     ]
 
     print(f"Seeding {len(restaurants)} restaurants...")
     for r in restaurants:
         RestaurantSearch.objects.create(**r)
-    
+
     print("Done! Your local database is ready for testing.")
+
 
 if __name__ == "__main__":
     seed_restaurants()

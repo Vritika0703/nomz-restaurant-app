@@ -8,22 +8,62 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('nomz', '0007_rebuild_restaurantsearch'),
+        ("nomz", "0007_rebuild_restaurantsearch"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='UserPreference',
+            name="UserPreference",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('favorite_cuisines', models.JSONField(blank=True, default=list, help_text='List of preferred cuisines')),
-                ('dietary_restrictions', models.JSONField(blank=True, default=list, help_text='e.g., Vegan, Gluten-Free')),
-                ('price_preference', models.CharField(choices=[('$', 'Budget-Friendly ($)'), ('$$', 'Moderate ($$)'), ('$$$', 'Upscale ($$$)'), ('$$$$', 'Fine Dining ($$$$)')], default='$$', max_length=10)),
-                ('neighborhood_preference', models.CharField(blank=True, max_length=100)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='preferences', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "favorite_cuisines",
+                    models.JSONField(
+                        blank=True, default=list, help_text="List of preferred cuisines"
+                    ),
+                ),
+                (
+                    "dietary_restrictions",
+                    models.JSONField(
+                        blank=True, default=list, help_text="e.g., Vegan, Gluten-Free"
+                    ),
+                ),
+                (
+                    "price_preference",
+                    models.CharField(
+                        choices=[
+                            ("$", "Budget-Friendly ($)"),
+                            ("$$", "Moderate ($$)"),
+                            ("$$$", "Upscale ($$$)"),
+                            ("$$$$", "Fine Dining ($$$$)"),
+                        ],
+                        default="$$",
+                        max_length=10,
+                    ),
+                ),
+                (
+                    "neighborhood_preference",
+                    models.CharField(blank=True, max_length=100),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "user",
+                    models.OneToOneField(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="preferences",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]
