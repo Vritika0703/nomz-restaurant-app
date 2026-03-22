@@ -3,18 +3,202 @@ from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
 from django.views.decorators.http import require_http_methods, require_POST
+from nomz.ingestion.utils.score import compute_composite_score_from_records
+from .filtering import (
+    DIETARY_OPTIONS,
+    parse_bool,
+    apply_open_now_filter,
+    apply_restaurant_filters,
+    restaurant_ordering,
+)
 from .forms import (
     UserRegisterForm,
     UserLoginForm,
     RestaurantProfileForm,
+    RestaurantOwnershipClaimForm,
     RestaurantAvailabilityForm,
     RestaurantActivationForm,
     RestaurantPhotoForm,
     UserPreferenceForm,
 )
-from .models import Restaurant, RestaurantPhoto, RestaurantSearch, UserPreference
+from .models import Restaurant, RestaurantOwnershipClaim, RestaurantPhoto, RestaurantSearch, UserPreference
+
+
+def _to_float(value):
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_restaurant_score_insights(restaurant):
+    latest_inspection = restaurant.inspections.order_by("-inspection_date", "-id").first()
+    if latest_inspection is not None:
+        latest_score_data = compute_composite_score_from_records([latest_inspection])
+    else:
+        latest_score_data = {
+            "composite_score": None,
+            "grade": "",
+            "grade_score": None,
+            "violation_score": 0.0,
+            "recency_score": 0.0,
+            "last_inspection_date": None,
+            "critical_violations": 0,
+            "noncritical_violations": 0,
+        }
+
+    composite_score_value = (
+        _to_float(restaurant.composite_score)
+        if restaurant.composite_score is not None
+        else _to_float(latest_score_data.get("composite_score"))
+    )
+    grade_score_value = (
+        int(restaurant.grade_score_latest)
+        if restaurant.grade_score_latest is not None
+        else int(latest_score_data.get("grade_score") or 0)
+    )
+    grade_value = (restaurant.grade_latest or latest_score_data.get("grade") or "").strip()
+    last_inspection_date_value = restaurant.last_inspection_date or latest_score_data.get("last_inspection_date")
+
+    violation_score = float(latest_score_data.get("violation_score") or 0.0)
+    recency_score = float(latest_score_data.get("recency_score") or 0.0)
+    critical_violations = int(latest_score_data.get("critical_violations") or 0)
+    noncritical_violations = int(latest_score_data.get("noncritical_violations") or 0)
+
+    score_summary = {
+        "composite_score": composite_score_value,
+        "grade": grade_value or "N/A",
+        "grade_score": grade_score_value,
+        "last_inspection_date": last_inspection_date_value,
+    }
+
+    score_breakdown = [
+        {
+            "label": "Grade Quality",
+            "raw_value": grade_score_value,
+            "weight_percent": 50,
+            "weighted_contribution": round(grade_score_value * 0.50, 2),
+            "description": f"Latest grade: {grade_value or 'Not graded'}",
+        },
+        {
+            "label": "Violation Profile",
+            "raw_value": round(violation_score, 2),
+            "weight_percent": 35,
+            "weighted_contribution": round(violation_score * 0.35, 2),
+            "description": (
+                f"Critical: {critical_violations}, Non-critical: {noncritical_violations}"
+            ),
+        },
+        {
+            "label": "Inspection Recency",
+            "raw_value": round(recency_score, 2),
+            "weight_percent": 15,
+            "weighted_contribution": round(recency_score * 0.15, 2),
+            "description": (
+                f"Last inspected: {last_inspection_date_value}"
+                if last_inspection_date_value
+                else "No inspection date available"
+            ),
+        },
+    ]
+
+    trend_rows = list(restaurant.inspections.order_by("-inspection_date", "-id")[:8])
+    trend_rows.reverse()
+    trend_points = []
+    for inspection in trend_rows:
+        point_score = compute_composite_score_from_records([inspection])
+        trend_points.append(
+            {
+                "date": inspection.inspection_date.isoformat(),
+                "label": inspection.inspection_date.strftime("%b %d, %Y"),
+                "composite_score": _to_float(point_score.get("composite_score")) or 0.0,
+                "grade": (inspection.grade or "").strip().upper() or "N/A",
+                "grade_score": int(point_score.get("grade_score") or 0),
+                "critical_violations": int(inspection.critical_violations or 0),
+                "noncritical_violations": int(inspection.noncritical_violations or 0),
+                "inspection_type": inspection.inspection_type or "",
+            }
+        )
+
+    trend_summary = {
+        "direction": "flat",
+        "delta": 0.0,
+        "has_data": bool(trend_points),
+    }
+    if len(trend_points) >= 2:
+        delta = round(trend_points[-1]["composite_score"] - trend_points[0]["composite_score"], 2)
+        trend_summary["delta"] = delta
+        if delta > 1:
+            trend_summary["direction"] = "up"
+        elif delta < -1:
+            trend_summary["direction"] = "down"
+
+    location_scope = ""
+    peers = Restaurant.objects.filter(is_active=True, composite_score__isnull=False)
+    if restaurant.neighborhood:
+        peers = peers.filter(neighborhood__iexact=restaurant.neighborhood)
+        location_scope = restaurant.neighborhood
+    elif restaurant.borough:
+        peers = peers.filter(borough__iexact=restaurant.borough)
+        location_scope = restaurant.borough
+    elif restaurant.zip_code:
+        peers = peers.filter(zip_code__startswith=(restaurant.zip_code or "")[:5])
+        location_scope = (restaurant.zip_code or "")[:5]
+    else:
+        location_scope = "citywide"
+
+    peer_rows = list(peers.values("id", "composite_score"))
+    peer_count = len(peer_rows)
+    neighborhood_comparison = {
+        "location_scope": location_scope,
+        "peer_count": peer_count,
+        "rank": None,
+        "percentile": None,
+        "average_score": None,
+        "delta_vs_average": None,
+    }
+
+    if composite_score_value is not None and peer_count > 0:
+        sorted_rows = sorted(
+            peer_rows,
+            key=lambda item: float(item["composite_score"]),
+            reverse=True,
+        )
+        restaurant_rank = next(
+            (index + 1 for index, item in enumerate(sorted_rows) if item["id"] == restaurant.id),
+            None,
+        )
+        if restaurant_rank is None:
+            restaurant_rank = sum(
+                1
+                for item in sorted_rows
+                if float(item["composite_score"]) > composite_score_value
+            ) + 1
+
+        average_score = round(
+            sum(float(item["composite_score"]) for item in peer_rows) / peer_count,
+            2,
+        )
+        percentile = round(((peer_count - restaurant_rank + 1) / peer_count) * 100, 1)
+        neighborhood_comparison.update(
+            {
+                "rank": restaurant_rank,
+                "percentile": percentile,
+                "average_score": average_score,
+                "delta_vs_average": round(composite_score_value - average_score, 2),
+            }
+        )
+
+    return {
+        "score_summary": score_summary,
+        "score_breakdown": score_breakdown,
+        "trend_points": trend_points,
+        "trend_summary": trend_summary,
+        "neighborhood_comparison": neighborhood_comparison,
+    }
 
 
 def landing_page(request):
@@ -57,47 +241,37 @@ def map_view(request):
     """
     Render interactive restaurant map page with filters and server-provided options.
     """
-    restaurants = Restaurant.objects.filter(
-        is_active=True,
-        latitude__isnull=False,
-        longitude__isnull=False,
+    restaurants = apply_restaurant_filters(
+        Restaurant.objects.all(),
+        params=request.GET,
+        require_coordinates=True,
     )
     boroughs = sorted(
         {
             borough.strip().title()
-            for borough in restaurants.values_list("borough", flat=True)
+            for borough in Restaurant.objects.filter(
+                is_active=True, latitude__isnull=False, longitude__isnull=False
+            ).values_list("borough", flat=True)
             if borough
         }
     )
 
     search = request.GET.get("search", "").strip()
     borough = request.GET.get("borough", "").strip()
+    cuisine = request.GET.get("cuisine", "").strip()
     min_score = request.GET.get("min_score", "").strip()
     max_score = request.GET.get("max_score", "").strip()
-    cuisine = request.GET.get("cuisine", "").strip()
+    price_range = request.GET.get("price_range", "").strip()
+    min_rating = request.GET.get("min_rating", "").strip()
+    dietary = request.GET.getlist("dietary") if hasattr(request, "GET") else []
     sort_by = request.GET.get("sort_by", "score_desc").strip()
+    open_now = parse_bool(request.GET.get("open_now"))
 
-    if search:
-        restaurants = restaurants.filter(
-            Q(name__icontains=search)
-            | Q(street__icontains=search)
-            | Q(zip_code__icontains=search)
-            | Q(borough__icontains=search)
-        )
-    if borough:
-        restaurants = restaurants.filter(borough__iexact=borough)
-    if cuisine:
-        restaurants = restaurants.filter(cuisine_tags__icontains=cuisine)
-    if min_score:
-        try:
-            restaurants = restaurants.filter(composite_score__gte=float(min_score))
-        except ValueError:
-            min_score = ""
-    if max_score:
-        try:
-            restaurants = restaurants.filter(composite_score__lte=float(max_score))
-        except ValueError:
-            max_score = ""
+    if open_now:
+        ordered = restaurants.order_by(*restaurant_ordering(sort_by))[:2000]
+        restaurant_count = len(apply_open_now_filter(ordered))
+    else:
+        restaurant_count = restaurants.count()
 
     cuisines = set()
     for row in restaurants.values_list("cuisine_tags", flat=True):
@@ -111,10 +285,16 @@ def map_view(request):
         "min_score": min_score,
         "max_score": max_score,
         "cuisine": cuisine,
+        "price_range": price_range,
+        "min_rating": min_rating,
+        "dietary": [item.lower() for item in dietary if item],
+        "open_now": open_now,
         "sort_by": sort_by,
         "boroughs": boroughs,
         "cuisines": sorted(filter(None, (item.title() for item in cuisines))),
-        "restaurant_count": restaurants.count(),
+        "price_ranges": Restaurant.PRICE_CHOICES,
+        "dietary_options": DIETARY_OPTIONS,
+        "restaurant_count": restaurant_count,
     }
     return render(request, "nomz/map.html", context)
 
@@ -129,8 +309,15 @@ def register(request):
         if form.is_valid():
             user = form.save()
             username = form.cleaned_data.get('username')
+            role = form.cleaned_data.get('role')
             messages.success(request, f'Account created successfully for {username}!')
             login(request, user)
+            if role == 'restaurant':
+                messages.info(
+                    request,
+                    'Claim your restaurant listing to unlock owner controls.',
+                )
+                return redirect('claim_restaurant')
             return redirect('profile')
     else:
         form = UserRegisterForm()
@@ -170,7 +357,18 @@ def dashboard(request):
     if role == 'restaurant':
         # Get the restaurant profile for the restaurant owner
         restaurant = Restaurant.objects.filter(owner=request.user).first()
+        active_claim = RestaurantOwnershipClaim.objects.filter(
+            claimant=request.user,
+            status=RestaurantOwnershipClaim.STATUS_PENDING,
+        ).select_related('restaurant').first()
+        recent_claims = RestaurantOwnershipClaim.objects.filter(
+            claimant=request.user,
+        ).select_related('restaurant')[:5]
         context['restaurant'] = restaurant
+        context['active_claim'] = active_claim
+        context['recent_claims'] = recent_claims
+        if restaurant is not None:
+            context.update(_build_restaurant_score_insights(restaurant))
         return render(request, 'nomz/restaurant_dashboard.html', context)
     elif role == 'admin':
         return render(request, 'nomz/admin_dashboard.html', context)
@@ -199,6 +397,62 @@ def user_logout(request):
 def is_restaurant_owner(user):
     """Helper function to check if user is a restaurant owner"""
     return hasattr(user, 'userprofile') and user.userprofile.role == 'restaurant'
+
+
+@login_required(login_url='landing')
+@require_http_methods(["GET", "POST"])
+def claim_restaurant(request):
+    """
+    Allow a restaurant-role user to claim ownership of an existing restaurant row.
+    Claims are reviewed before assignment.
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(request, 'Only restaurant owner accounts can submit ownership claims.')
+        return redirect('profile')
+
+    if Restaurant.objects.filter(owner=request.user).exists():
+        messages.info(request, 'You already have a restaurant assigned to your account.')
+        return redirect('profile')
+
+    active_claim = RestaurantOwnershipClaim.objects.filter(
+        claimant=request.user,
+        status=RestaurantOwnershipClaim.STATUS_PENDING,
+    ).select_related('restaurant').first()
+
+    search_query = request.POST.get('search', '') if request.method == 'POST' else request.GET.get('search', '')
+    form = RestaurantOwnershipClaimForm(
+        request.POST or None,
+        user=request.user,
+        search_query=search_query,
+    )
+
+    if request.method == 'POST' and active_claim:
+        messages.warning(
+            request,
+            f'You already have a pending claim for "{active_claim.restaurant.name}". Please wait for review.',
+        )
+        return redirect('claim_restaurant')
+
+    if request.method == 'POST' and form.is_valid():
+        claim = form.save()
+        messages.success(
+            request,
+            f'Claim submitted for "{claim.restaurant.name}". We will review your verification details shortly.',
+        )
+        return redirect('profile')
+
+    recent_claims = RestaurantOwnershipClaim.objects.filter(
+        claimant=request.user,
+    ).select_related('restaurant')[:5]
+
+    context = {
+        'title': 'Claim Restaurant',
+        'form': form,
+        'search_query': search_query,
+        'active_claim': active_claim,
+        'recent_claims': recent_claims,
+    }
+    return render(request, 'nomz/claim_restaurant.html', context)
 
 
 @login_required(login_url='landing')
@@ -420,68 +674,62 @@ def set_primary_photo(request, photo_id):
     photo.save()
     messages.success(request, 'Primary photo updated!')
     return redirect('restaurant_photos')
-@login_required(login_url='login')
 def restaurant_search(request):
     query = request.GET.get('q', '')
     neighborhood = request.GET.get('neighborhood', '')
+    cuisine = request.GET.get('cuisine', '')
+    price_range = request.GET.get('price_range', '')
+    min_rating = request.GET.get('min_rating', '')
+    min_composite = request.GET.get('min_composite_score', '')
+    max_composite = request.GET.get('max_composite_score', '')
+    dietary = request.GET.getlist('dietary') if hasattr(request, 'GET') else []
+    open_now = parse_bool(request.GET.get('open_now'))
+    sort_by = request.GET.get('sort_by', 'score_desc')
 
-    # Primary search index
-    results = RestaurantSearch.objects.all()
-    if query:
-        results = results.filter(
-            Q(name__icontains=query)
-            | Q(description__icontains=query)
-            | Q(cuisine__icontains=query)
-        )
-    if neighborhood:
-        results = results.filter(neighborhood__iexact=neighborhood)
+    results = apply_restaurant_filters(
+        Restaurant.objects.filter(is_active=True),
+        params=request.GET,
+        require_coordinates=False,
+    ).order_by(*restaurant_ordering(sort_by))
 
-    all_neighborhoods = RestaurantSearch.objects.values_list('neighborhood', flat=True).distinct()
+    if open_now:
+        results = apply_open_now_filter(results)
+    else:
+        results = list(results)
 
-    # Fallback path: if the search index is empty, read directly from Restaurant.
-    if not RestaurantSearch.objects.exists():
-        base_restaurants = Restaurant.objects.filter(is_active=True)
-        if query:
-            base_restaurants = base_restaurants.filter(
-                Q(name__icontains=query)
-                | Q(description__icontains=query)
-                | Q(cuisine__icontains=query)
-                | Q(cuisine_type__icontains=query)
-                | Q(cuisine_tags__icontains=query)
-            )
-        if neighborhood:
-            base_restaurants = base_restaurants.filter(
-                Q(neighborhood__iexact=neighborhood) | Q(borough__iexact=neighborhood)
-            )
+    all_neighborhoods = sorted(
+        {
+            restaurant.neighborhood or restaurant.borough
+            for restaurant in Restaurant.objects.filter(is_active=True)
+            if (restaurant.neighborhood or restaurant.borough)
+        }
+    )
 
-        mapped_results = []
-        for restaurant in base_restaurants.order_by('name'):
-            fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ''
-            if not fallback_cuisine and restaurant.cuisine_tags:
-                fallback_cuisine = ', '.join(str(tag) for tag in restaurant.cuisine_tags[:3])
-            mapped_results.append(
-                {
-                    'name': restaurant.name,
-                    'description': restaurant.description or '',
-                    'cuisine': fallback_cuisine,
-                    'neighborhood': restaurant.neighborhood or restaurant.borough or '',
-                }
-            )
-
-        results = mapped_results
-        all_neighborhoods = sorted(
-            {
-                restaurant.neighborhood or restaurant.borough
-                for restaurant in Restaurant.objects.filter(is_active=True)
-                if (restaurant.neighborhood or restaurant.borough)
-            }
-        )
+    cuisines = sorted(
+        {
+            (item or '').strip().title()
+            for item in Restaurant.objects.values_list('cuisine', flat=True).filter(is_active=True)
+            if item
+        }
+    )
 
     return render(request, 'nomz/search_results.html', {
         'results': results,
         'query': query,
         'neighborhood': neighborhood,
-        'all_neighborhoods': all_neighborhoods
+        'all_neighborhoods': all_neighborhoods,
+        'cuisines': cuisines,
+        'all_price_ranges': Restaurant.PRICE_CHOICES,
+        'dietary_values': [item.lower() for item in dietary if item],
+        'dietary_options': DIETARY_OPTIONS,
+        'min_rating': min_rating,
+        'min_composite': min_composite,
+        'max_composite': max_composite,
+        'price_range': price_range,
+        'cuisine_filter': cuisine,
+        'open_now': open_now,
+        'sort_by': sort_by,
+        'count': len(results),
     })
 
 # Add this to views.py

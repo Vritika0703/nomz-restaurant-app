@@ -12,12 +12,15 @@ urlpatterns = [
     path('api/restaurants/map-data/', api_views.map_restaurant_data, name='api_restaurants_map'),
     path('register/', views.register, name='register'), # Removed <str:role>
     path('logout/', views.user_logout, name='logout'),
+    # Backward-compatible alias kept for legacy links/tests.
+    path('restaurant-profile/', views.dashboard, name='restaurant_profile'),
     path('profile/', views.dashboard, name='profile'),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('search/', views.restaurant_search, name='restaurant_search'),
     path('preferences/', views.manage_preferences, name='manage_preferences'),
     
     # Restaurant Profile Management
+    path('restaurant/claim/', views.claim_restaurant, name='claim_restaurant'),
     path('restaurant/create/', views.create_restaurant_profile, name='create_restaurant'),
     path('restaurant/edit/', views.edit_restaurant_profile, name='edit_restaurant'),
     path('restaurant/availability/', views.manage_availability, name='manage_availability'),
