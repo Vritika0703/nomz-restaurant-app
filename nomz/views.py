@@ -18,12 +18,12 @@ from .forms import (
 )
 from django.contrib.auth.models import User
 from .models import (
-    Restaurant, 
-    RestaurantPhoto, 
-    RestaurantSearch, 
-    UserPreference, 
-    UserProfile, 
-    LoginLog
+    Restaurant,
+    RestaurantPhoto,
+    RestaurantSearch,
+    UserPreference,
+    UserProfile,
+    LoginLog,
 )
 
 
@@ -34,9 +34,9 @@ def landing_page(request):
     Always shows splash screen regardless of authentication status
     """
     if request.user.is_authenticated:
-        return redirect('dashboard')
-    
-    return render(request, 'nomz/splash.html')
+        return redirect("dashboard")
+
+    return render(request, "nomz/splash.html")
 
 
 def signin_page(request):
@@ -44,10 +44,10 @@ def signin_page(request):
     Sign In page - displays login form
     """
     context = {
-        'is_authenticated': request.user.is_authenticated,
-        'title': 'Sign In',
+        "is_authenticated": request.user.is_authenticated,
+        "title": "Sign In",
     }
-    return render(request, 'nomz/splash.html', context)
+    return render(request, "nomz/splash.html", context)
 
 
 def home(request):
@@ -59,17 +59,17 @@ def home(request):
     if request.user.is_authenticated:
         # Redirect staff/admins to dashboard
         if request.user.is_staff or request.user.is_superuser:
-            return redirect('dashboard')
-            
+            return redirect("dashboard")
+
         # Redirect restaurants to profile
-        if hasattr(request.user, 'userprofile'):
-            if request.user.userprofile.role == 'restaurant':
-                return redirect('profile')
-    
+        if hasattr(request.user, "userprofile"):
+            if request.user.userprofile.role == "restaurant":
+                return redirect("profile")
+
     context = {
-        'title': 'Home',
+        "title": "Home",
     }
-    return render(request, 'nomz/home.html', context)
+    return render(request, "nomz/home.html", context)
 
 
 def perform_dependency_health_checks() -> None:
@@ -168,21 +168,21 @@ def map_view(request):
 @require_http_methods(["GET", "POST"])
 def register(request):
     if request.user.is_authenticated:
-        return redirect('profile')
-    
-    if request.method == 'POST':
+        return redirect("profile")
+
+    if request.method == "POST":
         form = UserRegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
-            username = form.cleaned_data.get('username')
-            messages.success(request, f'Account created successfully for {username}!')
+            username = form.cleaned_data.get("username")
+            messages.success(request, f"Account created successfully for {username}!")
             login(request, user)
-            return redirect('profile')
+            return redirect("profile")
     else:
         form = UserRegisterForm()
-    
-    context = {'form': form, 'title': 'Register'}
-    return render(request, 'nomz/register.html', context)
+
+    context = {"form": form, "title": "Register"}
+    return render(request, "nomz/register.html", context)
 
 
 @require_http_methods(["GET", "POST"])
@@ -193,56 +193,50 @@ def admin_login(request):
     """
     if request.user.is_authenticated:
         if request.user.is_staff or request.user.is_superuser:
-            return redirect('dashboard')
+            return redirect("dashboard")
         else:
-            logout(request) # Logout if non-admin somehow got here
-    
-    if request.method == 'POST':
+            logout(request)  # Logout if non-admin somehow got here
+
+    if request.method == "POST":
         form = AdminLoginForm(request, data=request.POST)
-        username = request.POST.get('username')
+        username = request.POST.get("username")
 
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            messages.success(request, f'Admin session established for {username}.')
-            return redirect('dashboard')
+            messages.success(request, f"Admin session established for {username}.")
+            return redirect("dashboard")
         else:
             # Login failures are logged by signals
             pass
     else:
         form = AdminLoginForm()
-    
-    context = {'form': form, 'title': 'Secure Admin Login'}
-    return render(request, 'nomz/admin_login.html', context)
+
+    context = {"form": form, "title": "Secure Admin Login"}
+    return render(request, "nomz/admin_login.html", context)
 
 
 @staff_member_required
 def admin_login_logs(request):
-    logs = LoginLog.objects.all().order_by('-timestamp')
-    context = {
-        'title': 'Login Activity Monitoring',
-        'logs': logs
-    }
-    return render(request, 'nomz/admin_logs.html', context)
+    logs = LoginLog.objects.all().order_by("-timestamp")
+    context = {"title": "Login Activity Monitoring", "logs": logs}
+    return render(request, "nomz/admin_logs.html", context)
 
 
 @staff_member_required
 def admin_manage_users(request):
-    users = User.objects.all().exclude(pk=request.user.pk).order_by('-date_joined')
-    
+    users = User.objects.all().exclude(pk=request.user.pk).order_by("-date_joined")
+
     # Identify users with suspicious login activity
     from django.db.models import Exists, OuterRef
+
     suspicious_logs = LoginLog.objects.filter(
-        username=OuterRef('username'),
-        is_user_suspicious=True
+        username=OuterRef("username"), is_user_suspicious=True
     )
     users = users.annotate(has_suspicious_activity=Exists(suspicious_logs))
-    
-    context = {
-        'title': 'User Management',
-        'users': users
-    }
-    return render(request, 'nomz/admin_manage_users.html', context)
+
+    context = {"title": "User Management", "users": users}
+    return render(request, "nomz/admin_manage_users.html", context)
 
 
 @staff_member_required
@@ -255,24 +249,26 @@ def toggle_user_status(request, user_id):
         user_to_toggle.is_active = not user_to_toggle.is_active
         user_to_toggle.save()
         status_msg = "restored" if user_to_toggle.is_active else "revoked"
-        messages.success(request, f"Access for {user_to_toggle.username} has been {status_msg}.")
-    
-    return redirect('admin_manage_users')
+        messages.success(
+            request, f"Access for {user_to_toggle.username} has been {status_msg}."
+        )
+
+    return redirect("admin_manage_users")
 
 
 @require_http_methods(["GET", "POST"])
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 def dashboard(request):
     """
     Dashboard dynamically routes based on the database profile and includes user preferences.
     """
     # 1. Determine User Role
     if request.user.is_superuser or request.user.is_staff:
-        role = 'admin'
-    elif hasattr(request.user, 'userprofile'):
+        role = "admin"
+    elif hasattr(request.user, "userprofile"):
         role = request.user.userprofile.role
     else:
-        role = 'diner'
+        role = "diner"
 
     # 2. Safely Fetch Preferences
     # This ensures the dashboard doesn't crash if preferences aren't set yet
@@ -282,69 +278,73 @@ def dashboard(request):
         preferences = None
 
     context = {
-        'title': 'Dashboard',
-        'user': request.user,
-        'role': role,
-        'preferences': preferences,  # Add this to context
+        "title": "Dashboard",
+        "user": request.user,
+        "role": role,
+        "preferences": preferences,  # Add this to context
     }
-    
-    if role == 'restaurant':
+
+    if role == "restaurant":
         # Get the restaurant profile for the restaurant owner
         restaurant = Restaurant.objects.filter(owner=request.user).first()
-        context['restaurant'] = restaurant
-        return render(request, 'nomz/restaurant_dashboard.html', context)
-    elif role == 'admin':
+        context["restaurant"] = restaurant
+        return render(request, "nomz/restaurant_dashboard.html", context)
+    elif role == "admin":
         # Enhanced metrics for Issue #45 and #46
         # Fetch all user profiles for management
-        all_users = User.objects.all().select_related('userprofile').order_by('-date_joined')
-        diner_count = UserProfile.objects.filter(role='diner').count()
+        all_users = (
+            User.objects.all().select_related("userprofile").order_by("-date_joined")
+        )
+        diner_count = UserProfile.objects.filter(role="diner").count()
         restaurant_count = Restaurant.objects.count()
-        
+
         # Recent activities (Logins)
-        recent_logins = LoginLog.objects.all().order_by('-timestamp')[:10]
-        
+        recent_logins = LoginLog.objects.all().order_by("-timestamp")[:10]
+
         # Security stats
         suspicious_count = LoginLog.objects.filter(is_suspicious=True).count()
-        
-        context.update({
-            'all_users': all_users,
-            'diner_count': diner_count,
-            'restaurant_count': restaurant_count,
-            'recent_logins': recent_logins,
-            'suspicious_count': suspicious_count,
-            'total_users': User.objects.count(),
-        })
-        return render(request, 'nomz/admin_dashboard.html', context)
+
+        context.update(
+            {
+                "all_users": all_users,
+                "diner_count": diner_count,
+                "restaurant_count": restaurant_count,
+                "recent_logins": recent_logins,
+                "suspicious_count": suspicious_count,
+                "total_users": User.objects.count(),
+            }
+        )
+        return render(request, "nomz/admin_dashboard.html", context)
     else:
         # This matches the user_dashboard.html where your taste profile code is
-        return render(request, 'nomz/user_dashboard.html', context)
+        return render(request, "nomz/user_dashboard.html", context)
 
 
 def is_restaurant_owner(user):
     """Helper function to check if user is a restaurant owner"""
-    return hasattr(user, 'userprofile') and user.userprofile.role == 'restaurant'
+    return hasattr(user, "userprofile") and user.userprofile.role == "restaurant"
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 def restaurant_profile(request):
     """
     View restaurant owner's profile page
     Shows restaurant details, photos, and status
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to access this page.')
-        return redirect('dashboard')
-        
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
+
     restaurant = Restaurant.objects.filter(owner=request.user).first()
     context = {
-        'title': 'Restaurant Profile',
-        'restaurant': restaurant,
-        'user': request.user,
+        "title": "Restaurant Profile",
+        "restaurant": restaurant,
+        "user": request.user,
     }
-    return render(request, 'nomz/restaurant_dashboard.html', context)
+    return render(request, "nomz/restaurant_dashboard.html", context)
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_http_methods(["POST"])
 def user_logout(request):
     """
@@ -352,8 +352,8 @@ def user_logout(request):
     Logs out the user and redirects to login page
     """
     logout(request)
-    messages.success(request, 'You have been logged out successfully.')
-    return redirect('signin')
+    messages.success(request, "You have been logged out successfully.")
+    return redirect("signin")
 
 
 # ============================================================================
@@ -363,10 +363,10 @@ def user_logout(request):
 
 def is_restaurant_owner(user):
     """Helper function to check if user is a restaurant owner"""
-    return hasattr(user, 'userprofile') and user.userprofile.role == 'restaurant'
+    return hasattr(user, "userprofile") and user.userprofile.role == "restaurant"
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_http_methods(["GET"])
 def restaurant_profile(request):
     """
@@ -375,12 +375,12 @@ def restaurant_profile(request):
     For restaurant owners, renders the same UI as the dashboard restaurant view.
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to access this page.')
-        return redirect('profile')
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("profile")
     return dashboard(request)
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_http_methods(["GET", "POST"])
 def create_restaurant_profile(request):
     """
@@ -388,34 +388,36 @@ def create_restaurant_profile(request):
     Only for restaurant owners without a profile yet
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to create a restaurant profile.')
-        return redirect('profile')
-    
+        messages.error(
+            request, "You do not have permission to create a restaurant profile."
+        )
+        return redirect("profile")
+
     # Check if user already has a restaurant
     if Restaurant.objects.filter(owner=request.user).exists():
-        messages.info(request, 'You already have a restaurant profile.')
-        return redirect('profile')
-    
-    if request.method == 'POST':
+        messages.info(request, "You already have a restaurant profile.")
+        return redirect("profile")
+
+    if request.method == "POST":
         form = RestaurantProfileForm(request.POST)
         if form.is_valid():
             restaurant = form.save(commit=False)
             restaurant.owner = request.user
             restaurant.save()
-            messages.success(request, 'Restaurant profile created successfully!')
-            return redirect('profile')
+            messages.success(request, "Restaurant profile created successfully!")
+            return redirect("profile")
     else:
         form = RestaurantProfileForm()
-    
+
     context = {
-        'title': 'Create Restaurant Profile',
-        'form': form,
-        'is_create': True,
+        "title": "Create Restaurant Profile",
+        "form": form,
+        "is_create": True,
     }
-    return render(request, 'nomz/restaurant_form.html', context)
+    return render(request, "nomz/restaurant_form.html", context)
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_http_methods(["GET", "POST"])
 def edit_restaurant_profile(request):
     """
@@ -423,186 +425,197 @@ def edit_restaurant_profile(request):
     Handles updates to description, hours, cuisine, and price range
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to edit a restaurant profile.')
-        return redirect('profile')
-    
+        messages.error(
+            request, "You do not have permission to edit a restaurant profile."
+        )
+        return redirect("profile")
+
     restaurant = get_object_or_404(Restaurant, owner=request.user)
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = RestaurantProfileForm(request.POST, instance=restaurant)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Restaurant profile updated successfully!')
-            return redirect('profile')
+            messages.success(request, "Restaurant profile updated successfully!")
+            return redirect("profile")
     else:
         form = RestaurantProfileForm(instance=restaurant)
-    
+
     context = {
-        'title': 'Edit Restaurant Profile',
-        'form': form,
-        'restaurant': restaurant,
-        'is_create': False,
+        "title": "Edit Restaurant Profile",
+        "form": form,
+        "restaurant": restaurant,
+        "is_create": False,
     }
-    return render(request, 'nomz/restaurant_form.html', context)
+    return render(request, "nomz/restaurant_form.html", context)
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_http_methods(["GET", "POST"])
 def manage_availability(request):
     """
     Manage restaurant availability (temporary closure)
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to manage availability.')
-        return redirect('profile')
-    
+        messages.error(request, "You do not have permission to manage availability.")
+        return redirect("profile")
+
     restaurant = get_object_or_404(Restaurant, owner=request.user)
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = RestaurantAvailabilityForm(request.POST, instance=restaurant)
         if form.is_valid():
             form.save()
             if restaurant.is_temporarily_unavailable:
-                messages.success(request, 'Restaurant marked as temporarily unavailable.')
+                messages.success(
+                    request, "Restaurant marked as temporarily unavailable."
+                )
             else:
-                messages.success(request, 'Restaurant availability updated.')
-            return redirect('profile')
+                messages.success(request, "Restaurant availability updated.")
+            return redirect("profile")
     else:
         form = RestaurantAvailabilityForm(instance=restaurant)
-    
+
     context = {
-        'title': 'Manage Availability',
-        'form': form,
-        'restaurant': restaurant,
+        "title": "Manage Availability",
+        "form": form,
+        "restaurant": restaurant,
     }
-    return render(request, 'nomz/manage_availability.html', context)
+    return render(request, "nomz/manage_availability.html", context)
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_http_methods(["GET", "POST"])
 def manage_activation(request):
     """
     Activate or deactivate restaurant profile
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to manage activation.')
-        return redirect('profile')
-    
+        messages.error(request, "You do not have permission to manage activation.")
+        return redirect("profile")
+
     restaurant = get_object_or_404(Restaurant, owner=request.user)
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = RestaurantActivationForm(request.POST, instance=restaurant)
         if form.is_valid():
             form.save()
             if restaurant.is_active:
-                messages.success(request, 'Restaurant profile is now visible to customers.')
+                messages.success(
+                    request, "Restaurant profile is now visible to customers."
+                )
             else:
-                messages.warning(request, 'Restaurant profile has been deactivated. It is no longer visible to customers.')
-            return redirect('profile')
+                messages.warning(
+                    request,
+                    "Restaurant profile has been deactivated. It is no longer visible to customers.",
+                )
+            return redirect("profile")
     else:
         form = RestaurantActivationForm(instance=restaurant)
-    
+
     context = {
-        'title': 'Manage Profile Status',
-        'form': form,
-        'restaurant': restaurant,
+        "title": "Manage Profile Status",
+        "form": form,
+        "restaurant": restaurant,
     }
-    return render(request, 'nomz/manage_activation.html', context)
+    return render(request, "nomz/manage_activation.html", context)
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_http_methods(["GET", "POST"])
 def upload_photo(request):
     """
     Upload a new restaurant photo
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to upload photos.')
-        return redirect('profile')
-    
+        messages.error(request, "You do not have permission to upload photos.")
+        return redirect("profile")
+
     restaurant = get_object_or_404(Restaurant, owner=request.user)
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = RestaurantPhotoForm(request.POST, request.FILES)
         if form.is_valid():
             photo = form.save(commit=False)
             photo.restaurant = restaurant
             photo.save()
-            messages.success(request, 'Photo uploaded successfully!')
-            return redirect('restaurant_photos')
+            messages.success(request, "Photo uploaded successfully!")
+            return redirect("restaurant_photos")
     else:
         form = RestaurantPhotoForm()
-    
+
     context = {
-        'title': 'Upload Photo',
-        'form': form,
-        'restaurant': restaurant,
+        "title": "Upload Photo",
+        "form": form,
+        "restaurant": restaurant,
     }
-    return render(request, 'nomz/upload_photo.html', context)
+    return render(request, "nomz/upload_photo.html", context)
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 def restaurant_photos(request):
     """
     View and manage all restaurant photos
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, 'You do not have permission to access this page.')
-        return redirect('profile')
-    
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("profile")
+
     restaurant = get_object_or_404(Restaurant, owner=request.user)
     photos = restaurant.photos.all()
-    
+
     context = {
-        'title': 'Manage Photos',
-        'restaurant': restaurant,
-        'photos': photos,
+        "title": "Manage Photos",
+        "restaurant": restaurant,
+        "photos": photos,
     }
-    return render(request, 'nomz/restaurant_photos.html', context)
+    return render(request, "nomz/restaurant_photos.html", context)
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_POST
 def delete_photo(request, photo_id):
     """
     Delete a restaurant photo
     """
     if not is_restaurant_owner(request.user):
-        return HttpResponseForbidden('Permission denied')
-    
+        return HttpResponseForbidden("Permission denied")
+
     photo = get_object_or_404(RestaurantPhoto, id=photo_id)
-    
+
     if photo.restaurant.owner != request.user:
-        return HttpResponseForbidden('Permission denied')
-    
+        return HttpResponseForbidden("Permission denied")
+
     photo.delete()
-    messages.success(request, 'Photo deleted successfully!')
-    return redirect('restaurant_photos')
+    messages.success(request, "Photo deleted successfully!")
+    return redirect("restaurant_photos")
 
 
-@login_required(login_url='landing')
+@login_required(login_url="landing")
 @require_POST
 def set_primary_photo(request, photo_id):
     """
     Set a photo as the primary (main) photo for the restaurant
     """
     if not is_restaurant_owner(request.user):
-        return HttpResponseForbidden('Permission denied')
-    
+        return HttpResponseForbidden("Permission denied")
+
     photo = get_object_or_404(RestaurantPhoto, id=photo_id)
-    
+
     if photo.restaurant.owner != request.user:
-        return HttpResponseForbidden('Permission denied')
-    
+        return HttpResponseForbidden("Permission denied")
+
     # Set this as primary (the save method will handle unsetting others)
     photo.is_primary = True
     photo.save()
-    messages.success(request, 'Primary photo updated!')
-    return redirect('restaurant_photos')
-@login_required(login_url='login')
+    messages.success(request, "Primary photo updated!")
+    return redirect("restaurant_photos")
+
+
+@login_required(login_url="login")
 def restaurant_search(request):
-    query = request.GET.get('q', '')
-    neighborhood = request.GET.get('neighborhood', '')
+    query = request.GET.get("q", "")
+    neighborhood = request.GET.get("neighborhood", "")
 
     # Primary search index
     results = RestaurantSearch.objects.all()
@@ -615,7 +628,9 @@ def restaurant_search(request):
     if neighborhood:
         results = results.filter(neighborhood__iexact=neighborhood)
 
-    all_neighborhoods = RestaurantSearch.objects.values_list('neighborhood', flat=True).distinct()
+    all_neighborhoods = RestaurantSearch.objects.values_list(
+        "neighborhood", flat=True
+    ).distinct()
 
     # Fallback path: if the search index is empty, read directly from Restaurant.
     if not RestaurantSearch.objects.exists():
@@ -634,16 +649,18 @@ def restaurant_search(request):
             )
 
         mapped_results = []
-        for restaurant in base_restaurants.order_by('name'):
-            fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ''
+        for restaurant in base_restaurants.order_by("name"):
+            fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
             if not fallback_cuisine and restaurant.cuisine_tags:
-                fallback_cuisine = ', '.join(str(tag) for tag in restaurant.cuisine_tags[:3])
+                fallback_cuisine = ", ".join(
+                    str(tag) for tag in restaurant.cuisine_tags[:3]
+                )
             mapped_results.append(
                 {
-                    'name': restaurant.name,
-                    'description': restaurant.description or '',
-                    'cuisine': fallback_cuisine,
-                    'neighborhood': restaurant.neighborhood or restaurant.borough or '',
+                    "name": restaurant.name,
+                    "description": restaurant.description or "",
+                    "cuisine": fallback_cuisine,
+                    "neighborhood": restaurant.neighborhood or restaurant.borough or "",
                 }
             )
 
@@ -656,63 +673,79 @@ def restaurant_search(request):
             }
         )
 
-    return render(request, 'nomz/search_results.html', {
-        'results': results,
-        'query': query,
-        'neighborhood': neighborhood,
-        'all_neighborhoods': all_neighborhoods
-    })
+    return render(
+        request,
+        "nomz/search_results.html",
+        {
+            "results": results,
+            "query": query,
+            "neighborhood": neighborhood,
+            "all_neighborhoods": all_neighborhoods,
+        },
+    )
+
 
 # Add this to views.py
 
-@login_required(login_url='landing')
+
+@login_required(login_url="landing")
 def manage_preferences(request):
     """
     Create or Update user taste preferences
     """
     # Get or create the preference object for the current user
     preferences, created = UserPreference.objects.get_or_create(user=request.user)
-    
-    if request.method == 'POST':
+
+    if request.method == "POST":
         form = UserPreferenceForm(request.POST, instance=preferences)
         if form.is_valid():
             form.save()
-            messages.success(request, 'Your dining preferences have been updated!')
-            return redirect('dashboard')
+            messages.success(request, "Your dining preferences have been updated!")
+            return redirect("dashboard")
     else:
         form = UserPreferenceForm(instance=preferences)
-    
-    return render(request, 'nomz/manage_preferences.html', {
-        'form': form,
-        'title': 'My Preferences'
-    })
 
-@login_required(login_url='landing')
+    return render(
+        request,
+        "nomz/manage_preferences.html",
+        {"form": form, "title": "My Preferences"},
+    )
+
+
+@login_required(login_url="landing")
 @require_POST
 def admin_toggle_user_status(request, user_id):
     """
     Directly toggle user active status from the admin dashboard.
     """
     if not (request.user.is_staff or request.user.is_superuser):
-        return HttpResponseForbidden('You do not have permission to perform this action.')
-    
+        return HttpResponseForbidden(
+            "You do not have permission to perform this action."
+        )
+
     user_to_change = get_object_or_404(User, id=user_id)
-    action = request.POST.get('action')
-    
+    action = request.POST.get("action")
+
     if user_to_change == request.user:
-        messages.error(request, 'You cannot change your own status!')
+        messages.error(request, "You cannot change your own status!")
     elif user_to_change.is_superuser and not request.user.is_superuser:
-        messages.error(request, 'You do not have permission to change a superuser status.')
+        messages.error(
+            request, "You do not have permission to change a superuser status."
+        )
     else:
-        if action == 'activate':
+        if action == "activate":
             user_to_change.is_active = True
-            messages.success(request, f'Access ALLOWED for user: {user_to_change.username}')
-        elif action == 'deactivate':
+            messages.success(
+                request, f"Access ALLOWED for user: {user_to_change.username}"
+            )
+        elif action == "deactivate":
             user_to_change.is_active = False
-            messages.success(request, f'Access REVOKED for user: {user_to_change.username}')
+            messages.success(
+                request, f"Access REVOKED for user: {user_to_change.username}"
+            )
         else:
-            messages.error(request, 'Invalid action.')
-            
+            messages.error(request, "Invalid action.")
+
         user_to_change.save()
-    
-    return redirect('dashboard')
+
+    return redirect("dashboard")
