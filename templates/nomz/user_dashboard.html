@@ -41,6 +41,14 @@
                 <h5 class="mb-0">Welcome, {{ user.username }}!</h5>
             </div>
             <div class="card-body">
+                <div class="d-flex flex-wrap gap-2 mb-4">
+                    <a href="{% url 'restaurant_search' %}" class="btn btn-primary px-4" style="background-color: #465F6E; border-color: #465F6E;">
+                        Search restaurants
+                    </a>
+                    <a href="{% url 'map' %}" class="btn btn-outline-secondary px-4">
+                        Open map
+                    </a>
+                </div>
                 <p class="lead">You're all set! Your account is active and ready to use.</p>
                 <p>As a diner, you can:</p>
                 <ul>

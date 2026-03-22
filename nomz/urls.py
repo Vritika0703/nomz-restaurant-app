@@ -22,6 +22,11 @@ urlpatterns = [
     path("logout/", views.user_logout, name="logout"),
     path("profile/", views.dashboard, name="profile"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path(
+        "dashboard/search/",
+        RedirectView.as_view(url="/search/", permanent=False),
+        name="restaurant_search_dashboard_alias",
+    ),
     path("restaurant-profile/", views.restaurant_profile, name="restaurant_profile"),
     path("search/", views.restaurant_search, name="restaurant_search"),
     path("preferences/", views.manage_preferences, name="manage_preferences"),

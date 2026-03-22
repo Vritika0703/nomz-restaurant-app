@@ -1,3 +1,6 @@
+from datetime import date
+from decimal import Decimal
+
 from django.test import TestCase, Client, TransactionTestCase
 from django.http import HttpResponseServerError
 from django.contrib.auth.models import User
@@ -10,6 +13,7 @@ from unittest.mock import patch
 from django.test.utils import override_settings
 
 from .models import (
+    InspectionRecord,
     Restaurant,
     RestaurantPhoto,
     SystemAlert,
@@ -17,6 +21,7 @@ from .models import (
     SystemPerformanceMetric,
     UserProfile,
 )
+from .restaurant_sorting import normalize_sort_key
 
 
 class RestaurantModelTests(TestCase):
@@ -512,4 +517,103 @@ class SystemMonitoringTests(TransactionTestCase):
             SystemPerformanceMetric.objects.filter(
                 status_code=500, is_error=True
             ).exists()
+        )
+
+
+class RestaurantSortingTests(TestCase):
+    """Map API and search list ordering (composite, rating, price, popularity)."""
+
+    def setUp(self):
+        self.client = Client()
+        self.r_a = Restaurant.objects.create(
+            name="Sort Test A",
+            is_active=True,
+            latitude=Decimal("40.700000"),
+            longitude=Decimal("-74.000000"),
+            composite_score=Decimal("20.00"),
+            grade_score_latest=40,
+            price_range="$",
+        )
+        self.r_b = Restaurant.objects.create(
+            name="Sort Test B",
+            is_active=True,
+            latitude=Decimal("40.710000"),
+            longitude=Decimal("-74.010000"),
+            composite_score=Decimal("90.00"),
+            grade_score_latest=95,
+            price_range="$$$",
+        )
+        self.r_c = Restaurant.objects.create(
+            name="Sort Test C",
+            is_active=True,
+            latitude=Decimal("40.720000"),
+            longitude=Decimal("-74.020000"),
+            composite_score=Decimal("55.00"),
+            grade_score_latest=70,
+            price_range="$$",
+        )
+        for i in range(3):
+            InspectionRecord.objects.create(
+                restaurant=self.r_c,
+                inspection_date=date(2024, 1, 10 + i),
+                inspection_key=f"sort-test-c-{i}",
+            )
+
+    def _subset_order(self, payload_ids):
+        wanted = {self.r_a.id, self.r_b.id, self.r_c.id}
+        return [pk for pk in payload_ids if pk in wanted]
+
+    def test_normalize_sort_key_aliases_score_to_composite(self):
+        self.assertEqual(normalize_sort_key("score_desc"), "composite_desc")
+        self.assertEqual(normalize_sort_key("score_asc"), "composite_asc")
+
+    def test_map_api_sort_composite_desc(self):
+        response = self.client.get(
+            reverse("api_restaurants_map"),
+            {"sort_by": "composite_desc", "limit": "50"},
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = self._subset_order([r["id"] for r in response.json()["results"]])
+        self.assertEqual(ids, [self.r_b.id, self.r_c.id, self.r_a.id])
+
+    def test_map_api_sort_rating_desc(self):
+        response = self.client.get(
+            reverse("api_restaurants_map"),
+            {"sort_by": "rating_desc", "limit": "50"},
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = self._subset_order([r["id"] for r in response.json()["results"]])
+        self.assertEqual(ids, [self.r_b.id, self.r_c.id, self.r_a.id])
+
+    def test_map_api_sort_price_asc(self):
+        response = self.client.get(
+            reverse("api_restaurants_map"),
+            {"sort_by": "price_asc", "limit": "50"},
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = self._subset_order([r["id"] for r in response.json()["results"]])
+        self.assertEqual(ids, [self.r_a.id, self.r_c.id, self.r_b.id])
+
+    def test_map_api_sort_popularity_desc(self):
+        response = self.client.get(
+            reverse("api_restaurants_map"),
+            {"sort_by": "popularity_desc", "limit": "50"},
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = self._subset_order([r["id"] for r in response.json()["results"]])
+        self.assertEqual(ids[0], self.r_c.id)
+
+    def test_restaurant_search_sort_with_query(self):
+        user = User.objects.create_user(username="sort_diner", password="pass12345")
+        UserProfile.objects.create(user=user, role="diner")
+        self.client.login(username="sort_diner", password="pass12345")
+        response = self.client.get(
+            reverse("restaurant_search"),
+            {"q": "Sort Test", "sort_by": "price_asc"},
+        )
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.context["results"]]
+        self.assertEqual(
+            names,
+            ["Sort Test A", "Sort Test C", "Sort Test B"],
         )

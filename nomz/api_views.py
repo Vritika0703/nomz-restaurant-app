@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from .models import Restaurant
+from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 
 def _safe_decimal_to_float(value: Decimal | None) -> float | None:
@@ -94,15 +95,8 @@ def map_restaurant_data(request):
     except (TypeError, ValueError):
         limit = 1000
 
-    sort_by = request.GET.get("sort_by", "score_desc").strip()
-    ordering = {
-        "score_desc": ("-composite_score", "name"),
-        "score_asc": ("composite_score", "name"),
-        "name_asc": ("name",),
-        "name_desc": ("-name",),
-    }.get(sort_by, ("-composite_score", "name"))
-
-    queryset = queryset.order_by(*ordering)[:limit]
+    sort_by = normalize_sort_key(request.GET.get("sort_by", "composite_desc"))
+    queryset = sort_restaurant_queryset(queryset, sort_by)[:limit]
 
     points = []
     for restaurant in queryset:
