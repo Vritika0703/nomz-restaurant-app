@@ -2,15 +2,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from django.db.models import Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
-from .filtering import (
-    apply_open_now_filter,
-    apply_restaurant_filters,
-    parse_bool,
-    restaurant_ordering,
-)
 from .models import Restaurant
 
 
@@ -45,11 +40,41 @@ def map_restaurant_data(request):
     """
     Return restaurant marker-ready JSON for the map UI.
     """
-    queryset = apply_restaurant_filters(
-        Restaurant.objects.all(),
-        params=request.GET,
-        require_coordinates=True,
+    queryset = Restaurant.objects.filter(
+        is_active=True,
+        latitude__isnull=False,
+        longitude__isnull=False,
     )
+
+    search = request.GET.get("search", "").strip()
+    if search:
+        queryset = queryset.filter(
+            Q(name__icontains=search)
+            | Q(street__icontains=search)
+            | Q(zip_code__icontains=search)
+            | Q(borough__iexact=search)
+            | Q(cuisine_tags__icontains=search)
+        )
+
+    borough = request.GET.get("borough", "").strip()
+    if borough:
+        queryset = queryset.filter(borough__iexact=borough)
+
+    cuisine = request.GET.get("cuisine", "").strip()
+    if cuisine:
+        queryset = queryset.filter(cuisine_tags__icontains=cuisine)
+
+    min_score_raw = request.GET.get("min_score", "").strip()
+    if min_score_raw:
+        min_score = _coerce_float(min_score_raw)
+        if min_score is not None:
+            queryset = queryset.filter(composite_score__gte=min_score)
+
+    max_score_raw = request.GET.get("max_score", "").strip()
+    if max_score_raw:
+        max_score = _coerce_float(max_score_raw)
+        if max_score is not None:
+            queryset = queryset.filter(composite_score__lte=max_score)
 
     sw_lat = _coerce_float(request.GET.get("sw_lat", "").strip())
     ne_lat = _coerce_float(request.GET.get("ne_lat", "").strip())
@@ -70,14 +95,17 @@ def map_restaurant_data(request):
         limit = 1000
 
     sort_by = request.GET.get("sort_by", "score_desc").strip()
-    ordered_queryset = queryset.order_by(*restaurant_ordering(sort_by))[:limit]
-    if parse_bool(request.GET.get("open_now")):
-        queryset_rows = apply_open_now_filter(ordered_queryset)
-    else:
-        queryset_rows = list(ordered_queryset)
+    ordering = {
+        "score_desc": ("-composite_score", "name"),
+        "score_asc": ("composite_score", "name"),
+        "name_asc": ("name",),
+        "name_desc": ("-name",),
+    }.get(sort_by, ("-composite_score", "name"))
+
+    queryset = queryset.order_by(*ordering)[:limit]
 
     points = []
-    for restaurant in queryset_rows:
+    for restaurant in queryset:
         lat = _safe_decimal_to_float(restaurant.latitude)
         lon = _safe_decimal_to_float(restaurant.longitude)
         if lat is None or lon is None:

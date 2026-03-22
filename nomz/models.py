@@ -1,7 +1,6 @@
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
-from django.db import models, transaction
 from django.utils import timezone
+from django.db import models
 
 
 class UserProfile(models.Model):
@@ -175,163 +174,6 @@ class Restaurant(models.Model):
     def can_be_managed_by(self, user):
         """Check if a user can manage this restaurant"""
         return self.owner == user
-
-
-class RestaurantOwnershipClaim(models.Model):
-    STATUS_PENDING = "pending"
-    STATUS_APPROVED = "approved"
-    STATUS_REJECTED = "rejected"
-
-    STATUS_CHOICES = [
-        (STATUS_PENDING, "Pending Review"),
-        (STATUS_APPROVED, "Approved"),
-        (STATUS_REJECTED, "Rejected"),
-    ]
-
-    claimant = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="restaurant_claims",
-    )
-    restaurant = models.ForeignKey(
-        Restaurant,
-        on_delete=models.CASCADE,
-        related_name="ownership_claims",
-    )
-    status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING
-    )
-    business_email = models.EmailField(blank=True, null=True)
-    contact_phone = models.CharField(max_length=32, blank=True, null=True)
-    proof_details = models.TextField(
-        blank=True,
-        help_text="Share links or details proving you manage this restaurant.",
-    )
-    review_notes = models.TextField(blank=True)
-    reviewed_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="reviewed_restaurant_claims",
-    )
-    reviewed_at = models.DateTimeField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        indexes = [
-            models.Index(fields=["status", "created_at"]),
-            models.Index(fields=["claimant", "status"]),
-            models.Index(fields=["restaurant", "status"]),
-        ]
-        ordering = ["-created_at"]
-
-    def __str__(self):
-        return f"{self.claimant.username} -> {self.restaurant.name} ({self.status})"
-
-    def clean(self):
-        if (
-            self.restaurant_id
-            and self.restaurant.owner_id
-            and self.restaurant.owner_id != self.claimant_id
-        ):
-            raise ValidationError(
-                "This restaurant is already claimed by another owner."
-            )
-
-        if not self.claimant_id:
-            return
-
-        if self.status == self.STATUS_PENDING:
-            pending_claim = (
-                RestaurantOwnershipClaim.objects.filter(
-                    claimant=self.claimant,
-                    status=self.STATUS_PENDING,
-                )
-                .exclude(pk=self.pk)
-                .first()
-            )
-            if pending_claim:
-                raise ValidationError("You already have a pending ownership claim.")
-
-            existing_for_restaurant = (
-                RestaurantOwnershipClaim.objects.filter(
-                    restaurant=self.restaurant,
-                    status=self.STATUS_PENDING,
-                )
-                .exclude(pk=self.pk)
-                .first()
-            )
-            if existing_for_restaurant:
-                raise ValidationError(
-                    "There is already a pending claim for this restaurant."
-                )
-
-    def approve(self, reviewer=None, notes=""):
-        with transaction.atomic():
-            claim = (
-                RestaurantOwnershipClaim.objects.select_for_update()
-                .select_related("restaurant")
-                .get(pk=self.pk)
-            )
-            if claim.status != self.STATUS_PENDING:
-                raise ValidationError("Only pending claims can be approved.")
-            existing_restaurant = (
-                Restaurant.objects.filter(owner=claim.claimant)
-                .exclude(pk=claim.restaurant_id)
-                .first()
-            )
-            if existing_restaurant:
-                raise ValidationError(
-                    "Claimant already owns another restaurant profile."
-                )
-            if (
-                claim.restaurant.owner_id
-                and claim.restaurant.owner_id != claim.claimant_id
-            ):
-                raise ValidationError(
-                    "Restaurant is already assigned to another owner."
-                )
-
-            claim.restaurant.owner = claim.claimant
-            claim.restaurant.save(update_fields=["owner", "updated_at"])
-
-            claim.status = self.STATUS_APPROVED
-            claim.reviewed_by = reviewer
-            claim.reviewed_at = timezone.now()
-            if notes:
-                claim.review_notes = notes
-            claim.save(
-                update_fields=[
-                    "status",
-                    "reviewed_by",
-                    "reviewed_at",
-                    "review_notes",
-                    "updated_at",
-                ]
-            )
-
-            return claim
-
-    def reject(self, reviewer=None, notes=""):
-        if self.status != self.STATUS_PENDING:
-            raise ValidationError("Only pending claims can be rejected.")
-        self.status = self.STATUS_REJECTED
-        self.reviewed_by = reviewer
-        self.reviewed_at = timezone.now()
-        if notes:
-            self.review_notes = notes
-        self.save(
-            update_fields=[
-                "status",
-                "reviewed_by",
-                "reviewed_at",
-                "review_notes",
-                "updated_at",
-            ]
-        )
-        return self
 
 
 class RestaurantPhoto(models.Model):
@@ -588,6 +430,7 @@ class SystemAuditLog(models.Model):
     request_path = models.CharField(max_length=2048, null=True, blank=True)
     http_method = models.CharField(max_length=10, null=True, blank=True)
 
+    # Free-form event details (avoid huge stack traces; keep structured info).
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -606,11 +449,16 @@ class SystemPerformanceMetric(models.Model):
     """
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # request identification
     method = models.CharField(max_length=10, db_index=True)
     path = models.CharField(max_length=2048, db_index=True)
+
+    # performance/error details
     duration_ms = models.PositiveIntegerField()
     status_code = models.PositiveIntegerField(db_index=True)
     is_error = models.BooleanField(default=False, db_index=True)
+
     exception_class = models.CharField(max_length=255, blank=True, default="")
     exception_message = models.CharField(max_length=500, blank=True, default="")
 
@@ -690,5 +538,4 @@ class SystemAlert(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        state = "active" if self.is_active else "resolved"
-        return f"{self.alert_type} ({self.severity}) - {state}"
+        return f"{self.alert_type} ({self.severity}) - {'active' if self.is_active else 'resolved'}"
