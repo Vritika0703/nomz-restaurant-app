@@ -18,14 +18,16 @@ urlpatterns = [
         api_views.map_restaurant_data,
         name="api_restaurants_map",
     ),
-    path("register/", views.register, name="register"),  # Removed <str:role>
+    path("register/", views.register, name="register"),
     path("logout/", views.user_logout, name="logout"),
+    # Backward-compatible alias kept for legacy links/tests.
+    path("restaurant-profile/", views.restaurant_profile, name="restaurant_profile"),
     path("profile/", views.dashboard, name="profile"),
     path("dashboard/", views.dashboard, name="dashboard"),
-    path("restaurant-profile/", views.restaurant_profile, name="restaurant_profile"),
     path("search/", views.restaurant_search, name="restaurant_search"),
     path("preferences/", views.manage_preferences, name="manage_preferences"),
     # Restaurant Profile Management
+    path("restaurant/claim/", views.claim_restaurant, name="claim_restaurant"),
     path(
         "restaurant/create/", views.create_restaurant_profile, name="create_restaurant"
     ),
@@ -81,27 +83,5 @@ urlpatterns = [
             template_name="registration/password_reset_complete.html",
         ),
         name="password_reset_complete",
-    ),
-    # Admin Quick Actions & Redirects (Fix for Issue #46 relative link 404)
-    path("admin-login/", views.admin_login, name="admin_login"),
-    path(
-        "dashboard/Admin-login/",
-        RedirectView.as_view(url="/admin-login/", permanent=False),
-    ),
-    path(
-        "dashboard/admin-login/",
-        RedirectView.as_view(url="/admin-login/", permanent=False),
-    ),
-    path("nomz-admin/logs/", views.admin_login_logs, name="admin_login_logs"),
-    path("nomz-admin/users/", views.admin_manage_users, name="admin_manage_users"),
-    path(
-        "nomz-admin/users/<int:user_id>/toggle/",
-        views.toggle_user_status,
-        name="toggle_user_status",
-    ),
-    path(
-        "dashboard-action/users/<int:user_id>/toggle/",
-        views.admin_toggle_user_status,
-        name="admin_toggle_user_status",
     ),
 ]

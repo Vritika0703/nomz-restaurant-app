@@ -23,6 +23,7 @@ def log_user_login(sender, request, user, **kwargs):
         ip_address=get_client_ip(request),
         status="Success",
         user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        is_user_suspicious=False,
     )
 
 
