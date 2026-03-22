@@ -103,6 +103,7 @@ def map_view(request):
     Render interactive restaurant map page with filters and server-provided options.
     """
     restaurants = Restaurant.objects.filter(
+        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
         is_active=True,
         latitude__isnull=False,
         longitude__isnull=False,
@@ -281,6 +282,16 @@ def dashboard(request):
         "user": request.user,
         "role": role,
         "preferences": preferences,  # Add this to context
+        "is_approved": (
+            getattr(request.user.userprofile, "is_approved", True)
+            if hasattr(request.user, "userprofile")
+            else True
+        ),
+        "is_rejected": (
+            getattr(request.user.userprofile, "is_rejected", False)
+            if hasattr(request.user, "userprofile")
+            else False
+        ),
     }
 
     if role == "restaurant":
@@ -303,6 +314,18 @@ def dashboard(request):
         # Security stats
         suspicious_count = LoginLog.objects.filter(is_suspicious=True).count()
 
+        # Business account approvals metrics (Issue #53)
+        pending_approval_count = UserProfile.objects.filter(
+            role="restaurant", is_approved=False, is_rejected=False
+        ).count()
+
+        approved_business_count = UserProfile.objects.filter(
+            role="restaurant", is_approved=True
+        ).count()
+
+        rejected_business_count = UserProfile.objects.filter(
+            role="restaurant", is_rejected=True
+        ).count()
         context.update(
             {
                 "all_users": all_users,
@@ -311,6 +334,9 @@ def dashboard(request):
                 "recent_logins": recent_logins,
                 "suspicious_count": suspicious_count,
                 "total_users": User.objects.count(),
+                "approved_business_count": approved_business_count,
+                "pending_approval_count": pending_approval_count,
+                "rejected_business_count": rejected_business_count,
             }
         )
         return render(request, "nomz/admin_dashboard.html", context)
@@ -339,6 +365,8 @@ def restaurant_profile(request):
         "title": "Restaurant Profile",
         "restaurant": restaurant,
         "user": request.user,
+        "is_approved": request.user.userprofile.is_approved,
+        "is_rejected": request.user.userprofile.is_rejected,
     }
     return render(request, "nomz/restaurant_dashboard.html", context)
 
@@ -415,8 +443,14 @@ def edit_restaurant_profile(request):
     if request.method == "POST":
         form = RestaurantProfileForm(request.POST, instance=restaurant)
         if form.is_valid():
+            profile = request.user.userprofile
+            profile.is_approved = False
+            profile.is_rejected = False
+            profile.save()
             form.save()
-            messages.success(request, "Restaurant profile updated successfully!")
+            messages.success(
+                request, "Restaurant profile updated and re-submitted for approval!"
+            )
             return redirect("profile")
     else:
         form = RestaurantProfileForm(instance=restaurant)
@@ -598,7 +632,9 @@ def restaurant_search(request):
     neighborhood = request.GET.get("neighborhood", "").strip()
     sort_by = normalize_sort_key(request.GET.get("sort_by", "composite_desc"))
 
-    base_restaurants = Restaurant.objects.filter(is_active=True)
+    base_restaurants = Restaurant.objects.filter(
+        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True), is_active=True
+    )
     if query:
         base_restaurants = base_restaurants.filter(
             Q(name__icontains=query)
@@ -636,7 +672,10 @@ def restaurant_search(request):
     all_neighborhoods = sorted(
         {
             r.neighborhood or r.borough
-            for r in Restaurant.objects.filter(is_active=True)
+            for r in Restaurant.objects.filter(
+                Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
+                is_active=True,
+            )
             if (r.neighborhood or r.borough)
         }
     )
@@ -717,4 +756,105 @@ def admin_toggle_user_status(request, user_id):
 
         user_to_change.save()
 
+    return redirect("dashboard")
+
+
+@staff_member_required
+def admin_pending_approvals(request):
+    """
+    Dedicated view to manage pending restaurant registrations.
+    """
+    pending_approvals = (
+        User.objects.filter(
+            userprofile__role="restaurant",
+            userprofile__is_approved=False,
+            userprofile__is_rejected=False,
+        )
+        .select_related("userprofile")
+        .order_by("-date_joined")
+    )
+
+    context = {
+        "title": "Pending Approvals",
+        "pending_approvals": pending_approvals,
+    }
+    return render(request, "nomz/admin_pending_approvals.html", context)
+
+
+@staff_member_required
+@require_POST
+def admin_approve_restaurant(request, user_id):
+    """
+    Approve a pending restaurant owner account.
+    """
+    user_to_approve = get_object_or_404(User, id=user_id)
+    if hasattr(user_to_approve, "userprofile"):
+        profile = user_to_approve.userprofile
+        profile.is_approved = True
+        profile.is_rejected = False
+        profile.save()
+        messages.success(
+            request, f"Restaurant account for {user_to_approve.username} approved!"
+        )
+    return redirect("dashboard")
+
+
+@staff_member_required
+def admin_approved_accounts(request):
+    """
+    Dedicated view to manage already approved restaurant accounts.
+    """
+    approved_accounts = (
+        User.objects.filter(
+            userprofile__role="restaurant", userprofile__is_approved=True
+        )
+        .select_related("userprofile")
+        .order_by("-date_joined")
+    )
+
+    context = {
+        "title": "Approved Accounts",
+        "approved_accounts": approved_accounts,
+    }
+    return render(request, "nomz/admin_approved_list.html", context)
+
+
+@staff_member_required
+def admin_rejected_accounts(request):
+    """
+    Dedicated view to manage rejected restaurant accounts.
+    """
+    rejected_accounts = (
+        User.objects.filter(
+            userprofile__role="restaurant", userprofile__is_rejected=True
+        )
+        .select_related("userprofile")
+        .order_by("-date_joined")
+    )
+
+    context = {
+        "title": "Rejected Accounts",
+        "rejected_accounts": rejected_accounts,
+    }
+    return render(request, "nomz/admin_rejected_list.html", context)
+
+
+@staff_member_required
+@require_POST
+def admin_reject_restaurant(request, user_id):
+    """
+    Reject a restaurant owner account (works for pending and approved).
+    """
+    user_to_reject = get_object_or_404(User, id=user_id)
+    # We NO LONGER set is_active=False to allow login as requested.
+
+    if hasattr(user_to_reject, "userprofile"):
+        profile = user_to_reject.userprofile
+        profile.is_approved = False
+        profile.is_rejected = True
+        profile.save()
+
+    messages.warning(
+        request, f"Restaurant account for {user_to_reject.username} has been REJECTED."
+    )
     return redirect("dashboard")

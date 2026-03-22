@@ -16,6 +16,14 @@ class UserProfile(models.Model):
     # Links this profile to the built-in Django User
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="diner")
+    is_approved = models.BooleanField(
+        default=True,
+        help_text="Designates whether this business account has been approved by an administrator.",
+    )
+    is_rejected = models.BooleanField(
+        default=False,
+        help_text="Designates whether this business account has been rejected by an administrator.",
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"

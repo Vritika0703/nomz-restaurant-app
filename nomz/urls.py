@@ -109,4 +109,29 @@ urlpatterns = [
         views.admin_toggle_user_status,
         name="admin_toggle_user_status",
     ),
+    path(
+        "nomz-admin/approved-accounts/",
+        views.admin_approved_accounts,
+        name="admin_approved_accounts",
+    ),
+    path(
+        "nomz-admin/rejected-accounts/",
+        views.admin_rejected_accounts,
+        name="admin_rejected_accounts",
+    ),
+    path(
+        "nomz-admin/pending-approvals/",
+        views.admin_pending_approvals,
+        name="admin_pending_approvals",
+    ),
+    path(
+        "nomz-admin/approve/<int:user_id>/",
+        views.admin_approve_restaurant,
+        name="admin_approve_restaurant",
+    ),
+    path(
+        "nomz-admin/reject/<int:user_id>/",
+        views.admin_reject_restaurant,
+        name="admin_reject_restaurant",
+    ),
 ]

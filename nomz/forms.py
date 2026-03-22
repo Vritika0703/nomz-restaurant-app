@@ -61,7 +61,11 @@ class UserRegisterForm(UserCreationForm):
         if commit:
             user.save()
             # This is where the backend permanently stores the role!
-            UserProfile.objects.create(user=user, role=self.cleaned_data["role"])
+            # Restaurant accounts start as NOT approved pending admin review (Issue #53)
+            is_approved = self.cleaned_data["role"] != "restaurant"
+            UserProfile.objects.create(
+                user=user, role=self.cleaned_data["role"], is_approved=is_approved
+            )
         return user
 
 

@@ -42,10 +42,11 @@ def map_restaurant_data(request):
     Return restaurant marker-ready JSON for the map UI.
     """
     queryset = Restaurant.objects.filter(
+        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
         is_active=True,
         latitude__isnull=False,
         longitude__isnull=False,
-    )
+    ).select_related("owner")
 
     search = request.GET.get("search", "").strip()
     if search:
