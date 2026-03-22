@@ -2,6 +2,8 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.admin.views.decorators import staff_member_required
+from django.contrib.auth.models import User
 from django.contrib import messages
 from django.views.decorators.http import require_http_methods, require_POST
 from nomz.ingestion.utils.score import compute_composite_score_from_records
@@ -13,6 +15,7 @@ from .filtering import (
     restaurant_ordering,
 )
 from .forms import (
+    AdminLoginForm,
     UserRegisterForm,
     RestaurantProfileForm,
     RestaurantOwnershipClaimForm,
@@ -22,10 +25,12 @@ from .forms import (
     UserPreferenceForm,
 )
 from .models import (
+    LoginLog,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
     UserPreference,
+    UserProfile,
 )
 
 
@@ -248,12 +253,29 @@ def home(request):
     return render(request, "nomz/home.html", context)
 
 
+def perform_dependency_health_checks() -> None:
+    """
+    Dependency checks for /health/.
+
+    Kept as a function so tests can patch failure scenarios easily.
+    """
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT 1;")
+        cursor.fetchone()
+
+
 def health_check(request):
     """
     Lightweight health endpoint for ELB/EB health checks.
     Must return HTTP 200 quickly and without auth redirects.
     """
-    return JsonResponse({"status": "ok"}, status=200)
+    try:
+        perform_dependency_health_checks()
+        return JsonResponse({"status": "ok"}, status=200)
+    except Exception as exc:
+        return JsonResponse({"status": "degraded", "error": str(exc)[:200]}, status=503)
 
 
 def map_view(request):
@@ -346,6 +368,72 @@ def register(request):
 
 
 @require_http_methods(["GET", "POST"])
+def admin_login(request):
+    """
+    Secure login for administrators only.
+    Requires a specialized form with a security code.
+    """
+    if request.user.is_authenticated:
+        if request.user.is_staff or request.user.is_superuser:
+            return redirect("dashboard")
+        logout(request)
+
+    if request.method == "POST":
+        form = AdminLoginForm(request, data=request.POST)
+        username = request.POST.get("username")
+
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            messages.success(request, f"Admin session established for {username}.")
+            return redirect("dashboard")
+    else:
+        form = AdminLoginForm()
+
+    context = {"form": form, "title": "Secure Admin Login"}
+    return render(request, "nomz/admin_login.html", context)
+
+
+@staff_member_required
+def admin_login_logs(request):
+    logs = LoginLog.objects.all().order_by("-timestamp")
+    context = {"title": "Login Activity Monitoring", "logs": logs}
+    return render(request, "nomz/admin_logs.html", context)
+
+
+@staff_member_required
+def admin_manage_users(request):
+    users = User.objects.all().exclude(pk=request.user.pk).order_by("-date_joined")
+
+    from django.db.models import Exists, OuterRef
+
+    suspicious_logs = LoginLog.objects.filter(
+        username=OuterRef("username"), is_user_suspicious=True
+    )
+    users = users.annotate(has_suspicious_activity=Exists(suspicious_logs))
+
+    context = {"title": "User Management", "users": users}
+    return render(request, "nomz/admin_manage_users.html", context)
+
+
+@staff_member_required
+@require_POST
+def toggle_user_status(request, user_id):
+    user_to_toggle = get_object_or_404(User, id=user_id)
+    if user_to_toggle.is_superuser:
+        messages.error(request, "Cannot toggle status of superusers.")
+    else:
+        user_to_toggle.is_active = not user_to_toggle.is_active
+        user_to_toggle.save()
+        status_msg = "restored" if user_to_toggle.is_active else "revoked"
+        messages.success(
+            request, f"Access for {user_to_toggle.username} has been {status_msg}."
+        )
+
+    return redirect("admin_manage_users")
+
+
+@require_http_methods(["GET", "POST"])
 @login_required(login_url="landing")
 def dashboard(request):
     """
@@ -394,6 +482,24 @@ def dashboard(request):
             context.update(_build_restaurant_score_insights(restaurant))
         return render(request, "nomz/restaurant_dashboard.html", context)
     elif role == "admin":
+        all_users = (
+            User.objects.all().select_related("userprofile").order_by("-date_joined")
+        )
+        diner_count = UserProfile.objects.filter(role="diner").count()
+        restaurant_count = Restaurant.objects.count()
+        recent_logins = LoginLog.objects.all().order_by("-timestamp")[:10]
+        suspicious_count = LoginLog.objects.filter(is_suspicious=True).count()
+
+        context.update(
+            {
+                "all_users": all_users,
+                "diner_count": diner_count,
+                "restaurant_count": restaurant_count,
+                "recent_logins": recent_logins,
+                "suspicious_count": suspicious_count,
+                "total_users": User.objects.count(),
+            }
+        )
         return render(request, "nomz/admin_dashboard.html", context)
     else:
         # This matches the user_dashboard.html where your taste profile code is
@@ -810,9 +916,6 @@ def restaurant_search(request):
     )
 
 
-# Add this to views.py
-
-
 @login_required(login_url="landing")
 def manage_preferences(request):
     """
@@ -835,3 +938,40 @@ def manage_preferences(request):
         "nomz/manage_preferences.html",
         {"form": form, "title": "My Preferences"},
     )
+
+
+def admin_toggle_user_status(request, user_id):
+    """
+    Directly toggle user active status from the admin dashboard.
+    """
+    if not (request.user.is_staff or request.user.is_superuser):
+        return HttpResponseForbidden(
+            "You do not have permission to perform this action."
+        )
+
+    user_to_change = get_object_or_404(User, id=user_id)
+    action = request.POST.get("action")
+
+    if user_to_change == request.user:
+        messages.error(request, "You cannot change your own status!")
+    elif user_to_change.is_superuser and not request.user.is_superuser:
+        messages.error(
+            request, "You do not have permission to change a superuser status."
+        )
+    else:
+        if action == "activate":
+            user_to_change.is_active = True
+            messages.success(
+                request, f"Access ALLOWED for user: {user_to_change.username}"
+            )
+        elif action == "deactivate":
+            user_to_change.is_active = False
+            messages.success(
+                request, f"Access REVOKED for user: {user_to_change.username}"
+            )
+        else:
+            messages.error(request, "Invalid action.")
+
+        user_to_change.save()
+
+    return redirect("dashboard")

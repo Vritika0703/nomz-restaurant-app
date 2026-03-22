@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.db.models import Q
+from decouple import config
 from .models import (
     UserProfile,
     Restaurant,
@@ -89,6 +90,34 @@ class UserLoginForm(AuthenticationForm):
             attrs={"class": "form-control", "placeholder": "Password"}
         )
     )
+
+
+class AdminLoginForm(UserLoginForm):
+    """
+    Login form for administrators with an extra security code field.
+    """
+
+    security_code = forms.CharField(
+        max_length=20,
+        widget=forms.PasswordInput(
+            attrs={"class": "form-control", "placeholder": "Security Code"}
+        ),
+        help_text="Enter the administrative security code.",
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        security_code = cleaned_data.get("security_code")
+        expected_code = config("ADMIN_SECURITY_CODE", default="ADM123")
+
+        if security_code != expected_code:
+            raise forms.ValidationError("Invalid security code.")
+
+        user = self.get_user()
+        if user and not (user.is_staff or user.is_superuser):
+            raise forms.ValidationError("This login is restricted to administrators.")
+
+        return cleaned_data
 
 
 class RestaurantProfileForm(forms.ModelForm):
