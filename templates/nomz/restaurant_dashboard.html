@@ -5,6 +5,7 @@
 {% block content %}
 <div class="container mt-4">
     <div class="row">
+        <!-- Restaurant Profile Card -->
         <div class="col-md-4 mb-4">
             <div class="card">
                 <div class="card-body text-center p-4">
@@ -20,7 +21,8 @@
                     {% endif %}
                 </div>
             </div>
-
+            
+            <!-- Quick Action Buttons -->
             <div class="row mb-4 mt-4">
                 <div class="col-12 mb-3">
                     <a href="{% url 'restaurant_photos' %}" class="btn w-100" style="background-color: #96A99E; color: white; border: none;">
@@ -35,6 +37,7 @@
             </div>
         </div>
 
+        <!-- Dashboard Main Content -->
         <div class="col-md-8">
             {% if restaurant %}
             <div class="card mb-4">
@@ -49,14 +52,14 @@
                         <div class="col-md-6">
                             <h6 class="text-muted mb-1">Cuisine Type</h6>
                             <p class="mb-3"><strong>{{ restaurant.get_cuisine_type_display }}</strong></p>
-
+                            
                             <h6 class="text-muted mb-1">Price Range</h6>
                             <p class="mb-3"><strong>{{ restaurant.get_price_range_display }}</strong></p>
                         </div>
                         <div class="col-md-6">
                             <h6 class="text-muted mb-1">Hours</h6>
                             <p class="mb-3"><strong>{{ restaurant.hours_open|time:"g:i A" }} - {{ restaurant.hours_close|time:"g:i A" }}</strong></p>
-
+                            
                             <h6 class="text-muted mb-1">Status</h6>
                             <p class="mb-0">
                                 {% if restaurant.is_temporarily_unavailable %}
@@ -69,150 +72,27 @@
                             </p>
                         </div>
                     </div>
-
+                    
                     <hr>
-
+                    
                     <div class="row">
                         <div class="col-md-6">
                             <h6 class="text-muted mb-1">Phone</h6>
                             <p class="mb-3">{{ restaurant.phone|default:"Not provided" }}</p>
-
+                            
                             <h6 class="text-muted mb-1">Email</h6>
                             <p class="mb-3">{{ restaurant.email|default:"Not provided" }}</p>
                         </div>
                         <div class="col-md-6">
                             <h6 class="text-muted mb-1">Address</h6>
                             <p class="mb-3">{{ restaurant.address|default:"Not provided" }}</p>
-
+                            
                             {% if restaurant.website %}
                             <h6 class="text-muted mb-1">Website</h6>
                             <p class="mb-3"><a href="{{ restaurant.website }}" target="_blank" class="text-decoration-none">{{ restaurant.website }}</a></p>
                             {% endif %}
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h6 class="card-title text-muted mb-2">Composite Score</h6>
-                            {% if score_summary.composite_score is not None %}
-                            <h2 class="mb-1">{{ score_summary.composite_score|floatformat:1 }}/100</h2>
-                            {% else %}
-                            <h2 class="mb-1">N/A</h2>
-                            {% endif %}
-                            <p class="mb-1 small text-muted">Latest grade: {{ score_summary.grade }}</p>
-                            <p class="mb-0 small text-muted">
-                                Last inspection:
-                                {% if score_summary.last_inspection_date %}
-                                {{ score_summary.last_inspection_date }}
-                                {% else %}
-                                Not available
-                                {% endif %}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h6 class="card-title text-muted mb-2">Neighborhood Comparison</h6>
-                            <p class="small text-muted mb-2">Scope: {{ neighborhood_comparison.location_scope|default:"citywide" }}</p>
-                            {% if neighborhood_comparison.rank %}
-                            <h5 class="mb-2">Rank #{{ neighborhood_comparison.rank }} / {{ neighborhood_comparison.peer_count }}</h5>
-                            <p class="mb-1 small">Percentile: <strong>{{ neighborhood_comparison.percentile }}%</strong></p>
-                            <p class="mb-1 small">Neighborhood average: <strong>{{ neighborhood_comparison.average_score }}</strong></p>
-                            <p class="mb-0 small">
-                                Delta vs average:
-                                <strong class="{% if neighborhood_comparison.delta_vs_average >= 0 %}text-success{% else %}text-danger{% endif %}">
-                                    {{ neighborhood_comparison.delta_vs_average }}
-                                </strong>
-                            </p>
-                            {% else %}
-                            <p class="mb-0 small text-muted">Not enough scored peers yet for comparison.</p>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-header" style="background-color: #96A99E; color: white;">
-                    <h5 class="mb-0">Composite Factor Breakdown</h5>
-                </div>
-                <div class="card-body">
-                    {% for factor in score_breakdown %}
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between">
-                            <span><strong>{{ factor.label }}</strong> ({{ factor.weight_percent }}%)</span>
-                            <span>{{ factor.raw_value|floatformat:1 }}</span>
-                        </div>
-                        <div class="progress" role="progressbar" aria-label="{{ factor.label }}" style="height: 10px;">
-                            <div class="progress-bar" style="width: {{ factor.raw_value|floatformat:0 }}%; background-color: #465F6E;"></div>
-                        </div>
-                        <p class="small text-muted mb-0 mt-1">{{ factor.description }} | Weighted contribution: {{ factor.weighted_contribution|floatformat:2 }}</p>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-header" style="background-color: #465F6E; color: white;">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">Historical Trend</h5>
-                        {% if trend_summary.has_data %}
-                        <small>
-                            Trend:
-                            {% if trend_summary.direction == 'up' %}
-                            <span class="text-success">Improving (+{{ trend_summary.delta|floatformat:1 }})</span>
-                            {% elif trend_summary.direction == 'down' %}
-                            <span class="text-warning">Declining ({{ trend_summary.delta|floatformat:1 }})</span>
-                            {% else %}
-                            <span class="text-light">Stable ({{ trend_summary.delta|floatformat:1 }})</span>
-                            {% endif %}
-                        </small>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="card-body">
-                    {% if trend_points %}
-                    <div class="mb-3">
-                        <svg id="trend-svg" viewBox="0 0 640 170" width="100%" height="170" role="img" aria-label="Composite score trend">
-                            <rect x="0" y="0" width="640" height="170" fill="#f8fafc"></rect>
-                            <polyline id="trend-line" fill="none" stroke="#465F6E" stroke-width="3" points=""></polyline>
-                            <g id="trend-points"></g>
-                        </svg>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Composite</th>
-                                    <th>Grade</th>
-                                    <th>Critical</th>
-                                    <th>Non-Critical</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for point in trend_points %}
-                                <tr>
-                                    <td>{{ point.label }}</td>
-                                    <td>{{ point.composite_score|floatformat:1 }}</td>
-                                    <td>{{ point.grade }}</td>
-                                    <td>{{ point.critical_violations }}</td>
-                                    <td>{{ point.noncritical_violations }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <p class="mb-0 text-muted">No historical inspection data available yet.</p>
-                    {% endif %}
                 </div>
             </div>
             {% else %}
@@ -222,98 +102,43 @@
                 </div>
                 <div class="card-body">
                     <p class="lead">No restaurant profile found.</p>
-                    {% if active_claim %}
-                    <div class="alert alert-warning d-block">
-                        Ownership claim pending for <strong>{{ active_claim.restaurant.name }}</strong>.
-                    </div>
-                    {% endif %}
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{% url 'claim_restaurant' %}" class="btn" style="background-color: #465F6E; border-color: #465F6E; color: white;">Claim Existing Listing</a>
-                        <a href="{% url 'create_restaurant' %}" class="btn btn-outline-secondary">Create New Profile Manually</a>
-                    </div>
-                    {% if recent_claims %}
-                    <hr>
-                    <h6 class="text-muted">Recent Claim History</h6>
-                    <ul class="mb-0">
-                        {% for claim in recent_claims %}
-                        <li>
-                            {{ claim.restaurant.name }}:
-                            {% if claim.status == 'approved' %}
-                            <span class="text-success">Approved</span>
-                            {% elif claim.status == 'rejected' %}
-                            <span class="text-danger">Rejected</span>
-                            {% else %}
-                            <span class="text-warning">Pending</span>
-                            {% endif %}
-                        </li>
-                        {% endfor %}
-                    </ul>
-                    {% endif %}
+                    <a href="{% url 'create_restaurant' %}" class="btn" style="background-color: #465F6E; border-color: #465F6E; color: white;">Create Restaurant Profile</a>
                 </div>
             </div>
             {% endif %}
+
+            <!-- Quick Stats -->
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title text-muted">Average Rating</h6>
+                                    <h3 class="mb-0">-</h3>
+                                </div>
+                                <div style="font-size: 2rem;">⭐</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title text-muted">Pending Reservations</h6>
+                                    <h3 class="mb-0">0</h3>
+                                </div>
+                                <div style="font-size: 2rem;">📅</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-
-{% if trend_points %}
-{{ trend_points|json_script:"trend-data" }}
-<script>
-    (function () {
-        const trendScript = document.getElementById("trend-data");
-        const line = document.getElementById("trend-line");
-        const pointGroup = document.getElementById("trend-points");
-        if (!trendScript || !line || !pointGroup) {
-            return;
-        }
-
-        const points = JSON.parse(trendScript.textContent || "[]");
-        if (!Array.isArray(points) || points.length === 0) {
-            return;
-        }
-
-        const width = 640;
-        const height = 170;
-        const paddingX = 36;
-        const paddingY = 18;
-        const usableWidth = width - (paddingX * 2);
-        const usableHeight = height - (paddingY * 2);
-
-        const values = points.map((item) => Number(item.composite_score) || 0);
-        const maxValue = Math.max(...values, 100);
-        const minValue = Math.min(...values, 0);
-        const spread = Math.max(1, maxValue - minValue);
-
-        const toX = (index) => {
-            if (points.length === 1) {
-                return width / 2;
-            }
-            return paddingX + (usableWidth * index) / (points.length - 1);
-        };
-        const toY = (value) => paddingY + usableHeight - ((value - minValue) / spread) * usableHeight;
-
-        const polylinePoints = points.map((item, index) => `${toX(index)},${toY(Number(item.composite_score) || 0)}`);
-        line.setAttribute("points", polylinePoints.join(" "));
-
-        points.forEach((item, index) => {
-            const cx = toX(index);
-            const cy = toY(Number(item.composite_score) || 0);
-            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-            circle.setAttribute("cx", cx);
-            circle.setAttribute("cy", cy);
-            circle.setAttribute("r", "4");
-            circle.setAttribute("fill", "#96A99E");
-            circle.setAttribute("stroke", "#465F6E");
-            circle.setAttribute("stroke-width", "1.5");
-
-            const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
-            title.textContent = `${item.label}: ${Number(item.composite_score).toFixed(1)}`;
-            circle.appendChild(title);
-            pointGroup.appendChild(circle);
-        });
-    })();
-</script>
-{% endif %}
 
 <style>
     .btn-outline-primary:hover, .btn-outline-info:hover, .btn-outline-warning:hover, .btn-outline-secondary:hover {
