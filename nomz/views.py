@@ -1,10 +1,11 @@
 from django.http import HttpResponseForbidden, JsonResponse
+from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, Avg
 from django.views.decorators.http import require_http_methods, require_POST
 from .forms import (
     UserRegisterForm,
@@ -14,6 +15,8 @@ from .forms import (
     RestaurantActivationForm,
     RestaurantPhotoForm,
     UserPreferenceForm,
+    ReviewForm,
+    ModerationReportForm,
 )
 from django.contrib.auth.models import User
 from .models import (
@@ -22,6 +25,9 @@ from .models import (
     UserPreference,
     UserProfile,
     LoginLog,
+    Review,
+    ModerationReport,
+    SystemAuditLog,
 )
 from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
@@ -292,12 +298,21 @@ def dashboard(request):
             if hasattr(request.user, "userprofile")
             else False
         ),
+        "reviews_written": Review.objects.filter(user=request.user).count(),
     }
 
     if role == "restaurant":
         # Get the restaurant profile for the restaurant owner
         restaurant = Restaurant.objects.filter(owner=request.user).first()
         context["restaurant"] = restaurant
+        if restaurant:
+            # Fetch reviews
+            reviews = restaurant.reviews.all().order_by("-created_at")
+            context["reviews"] = reviews
+            
+            # Calculate average rating
+            avg_rating = reviews.filter(is_deleted=False).aggregate(Avg('rating'))['rating__avg']
+            context["average_rating"] = round(avg_rating, 1) if avg_rating else None
         return render(request, "nomz/restaurant_dashboard.html", context)
     elif role == "admin":
         # Enhanced metrics for Issue #45 and #46
@@ -326,6 +341,8 @@ def dashboard(request):
         rejected_business_count = UserProfile.objects.filter(
             role="restaurant", is_rejected=True
         ).count()
+        # Moderation metrics
+        pending_report_count = ModerationReport.objects.filter(status="PENDING").count()
         context.update(
             {
                 "all_users": all_users,
@@ -337,6 +354,7 @@ def dashboard(request):
                 "approved_business_count": approved_business_count,
                 "pending_approval_count": pending_approval_count,
                 "rejected_business_count": rejected_business_count,
+                "pending_report_count": pending_report_count,
             }
         )
         return render(request, "nomz/admin_dashboard.html", context)
@@ -659,6 +677,7 @@ def restaurant_search(request):
             )
         results.append(
             {
+                "id": restaurant.id,
                 "name": restaurant.name,
                 "description": restaurant.description or "",
                 "cuisine": fallback_cuisine,
@@ -666,6 +685,7 @@ def restaurant_search(request):
                 "composite_score": restaurant.composite_score,
                 "price_label": restaurant.get_price_range_display(),
                 "rating_score": restaurant.grade_score_latest,
+                "is_flagged": restaurant.is_flagged,
             }
         )
 
@@ -854,7 +874,193 @@ def admin_reject_restaurant(request, user_id):
         profile.is_rejected = True
         profile.save()
 
+
     messages.warning(
         request, f"Restaurant account for {user_to_reject.username} has been REJECTED."
     )
     return redirect("dashboard")
+
+
+
+# ============================================================================
+# MODERATION & REVIEW VIEWS
+# ============================================================================
+
+
+@login_required(login_url="landing")
+def add_review(request, restaurant_id):
+    """
+    Allow users to submit a review for a restaurant.
+    """
+    restaurant = get_object_or_404(Restaurant, id=restaurant_id)
+    if request.method == "POST":
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.restaurant = restaurant
+            review.user = request.user
+            review.save()
+            messages.success(request, "Your review has been posted!")
+            return redirect("restaurant_search")
+    else:
+        form = ReviewForm()
+
+    context = {
+        "title": f"Review {restaurant.name}",
+        "form": form,
+        "restaurant": restaurant,
+    }
+    return render(request, "nomz/add_review.html", context)
+
+
+@login_required(login_url="landing")
+def report_content(request, content_type, content_id):
+    """
+    Allow users to report a review or another user.
+    """
+    review = None
+    reported_user = None
+
+    if content_type == "review":
+        review = get_object_or_404(Review, id=content_id)
+    elif content_type == "user":
+        reported_user = get_object_or_404(User, id=content_id)
+    else:
+        messages.error(request, "Invalid report target.")
+        return redirect("dashboard")
+
+    if request.method == "POST":
+        form = ModerationReportForm(request.POST)
+        if form.is_valid():
+            report = form.save(commit=False)
+            report.reporter = request.user
+            report.review = review
+            report.reported_user = reported_user
+            report.save()
+            messages.success(request, "Thank you. Your report has been submitted for review.")
+            return redirect("dashboard")
+    else:
+        form = ModerationReportForm()
+
+    context = {
+        "title": "Report Content",
+        "form": form,
+        "content_type": content_type,
+        "target": review or reported_user,
+    }
+    return render(request, "nomz/report_content.html", context)
+
+
+@staff_member_required
+def admin_moderation_dashboard(request):
+    """
+    Dashboard for admins to manage pending reports.
+    """
+    pending_reports = ModerationReport.objects.filter(status="PENDING").order_by("-created_at")
+    resolved_reports = ModerationReport.objects.exclude(status="PENDING").order_by("-created_at")[:20]
+
+    context = {
+        "title": "Moderation Dashboard",
+        "pending_reports": pending_reports,
+        "resolved_reports": resolved_reports,
+    }
+    return render(request, "nomz/admin_moderation.html", context)
+
+
+@staff_member_required
+@require_POST
+def admin_resolve_report(request, report_id):
+    """
+    Admins can take action on a report.
+    """
+    report = get_object_or_404(ModerationReport, id=report_id)
+    action = request.POST.get("action")
+    moderator_note = request.POST.get("moderator_note", "")
+
+    if action == "dismiss":
+        report.status = "DISMISSED"
+        report.action_taken = "No action taken"
+    elif action == "flag_fraud":
+        if report.review:
+            report.review.is_flagged = True
+            report.review.save()
+            report.action_taken = "Review flagged as fraudulent"
+        elif report.reported_user:
+            # Set flag on UserProfile
+            if hasattr(report.reported_user, "userprofile"):
+                report.reported_user.userprofile.is_flagged = True
+                report.reported_user.userprofile.save()
+
+            # Set flag on all Restaurants owned by this user
+            Restaurant.objects.filter(owner=report.reported_user).update(
+                is_flagged=True
+            )
+
+            report.action_taken = "User and associated restaurant(s) flagged for fraud"
+        report.status = "RESOLVED"
+    elif action == "unflag":
+        if report.review:
+            report.review.is_flagged = False
+            report.review.save()
+            report.action_taken = "Review un-flagged"
+        elif report.reported_user:
+            # Remove flag on UserProfile
+            if hasattr(report.reported_user, "userprofile"):
+                report.reported_user.userprofile.is_flagged = False
+                report.reported_user.userprofile.save()
+
+            # Remove flag on all Restaurants owned by this user
+            Restaurant.objects.filter(owner=report.reported_user).update(
+                is_flagged=False
+            )
+
+            report.action_taken = "User and associated restaurant(s) un-flagged"
+        report.status = "PENDING"
+    elif action == "delete":
+        if report.review:
+            report.review.is_deleted = True
+            report.review.save()
+            report.action_taken = "Review soft-deleted"
+        report.status = "RESOLVED"
+    elif action == "reevaluate":
+        report.status = "PENDING"
+        report.action_taken = "Moved back to pending for re-evaluation"
+
+
+    report.moderator_note = moderator_note
+    report.resolved_at = timezone.now()
+    report.save()
+
+    # Audit logging
+    SystemAuditLog.objects.create(
+        actor_user=request.user,
+        actor_username=request.user.username,
+        level="WARNING" if action != "dismiss" else "INFO",
+        action=f"moderation_{action}",
+        request_path=request.path,
+        http_method=request.method,
+        ip_address=request.META.get("REMOTE_ADDR"),
+        metadata={
+            "report_id": report.id,
+            "action": action,
+            "target": str(report),
+        }
+    )
+
+    messages.success(request, f"Report {report_id} has been {report.status.lower()}.")
+    return redirect("admin_moderation_dashboard")
+
+
+@login_required(login_url="landing")
+def restaurant_detail(request, restaurant_id):
+    """
+    Public detail page for a restaurant to view info and reviews.
+    """
+    restaurant = get_object_or_404(Restaurant, id=restaurant_id)
+    reviews = restaurant.reviews.filter(is_deleted=False).order_by("-created_at")
+    return render(
+        request,
+        "nomz/restaurant_detail.html",
+        {"restaurant": restaurant, "reviews": reviews},
+    )
+

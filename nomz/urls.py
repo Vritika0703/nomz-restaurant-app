@@ -134,4 +134,30 @@ urlpatterns = [
         views.admin_reject_restaurant,
         name="admin_reject_restaurant",
     ),
+    # Moderation & Reviews
+    path(
+        "restaurant/<int:restaurant_id>/",
+        views.restaurant_detail,
+        name="restaurant_detail",
+    ),
+    path(
+        "restaurant/<int:restaurant_id>/review/",
+        views.add_review,
+        name="add_review",
+    ),
+    path(
+        "report/<str:content_type>/<int:content_id>/",
+        views.report_content,
+        name="report_content",
+    ),
+    path(
+        "nomz-admin/moderation/",
+        views.admin_moderation_dashboard,
+        name="admin_moderation_dashboard",
+    ),
+    path(
+        "nomz-admin/moderation/resolve/<int:report_id>/",
+        views.admin_resolve_report,
+        name="admin_resolve_report",
+    ),
 ]

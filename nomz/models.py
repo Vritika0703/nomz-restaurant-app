@@ -24,6 +24,10 @@ class UserProfile(models.Model):
         default=False,
         help_text="Designates whether this business account has been rejected by an administrator.",
     )
+    is_flagged = models.BooleanField(
+        default=False,
+        help_text="Publicly flagged for fraudulent activity",
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"
@@ -117,7 +121,10 @@ class Restaurant(models.Model):
 
     # Status and availability
     is_active = models.BooleanField(
-        default=True, help_text="Profile is visible to customers"
+        default=True, db_index=True, help_text="Profile is visible to users"
+    )
+    is_flagged = models.BooleanField(
+        default=False, help_text="Publicly flagged for fraudulent activity"
     )
     is_temporarily_unavailable = models.BooleanField(
         default=False, help_text="Temporarily mark as unavailable"
@@ -547,3 +554,81 @@ class SystemAlert(models.Model):
 
     def __str__(self):
         return f"{self.alert_type} ({self.severity}) - {'active' if self.is_active else 'resolved'}"
+class Review(models.Model):
+    """
+    Model for users to leave reviews for restaurants.
+    """
+
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.CASCADE, related_name="reviews"
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
+    rating = models.PositiveSmallIntegerField(
+        help_text="Rating from 1 to 5", default=5
+    )
+    comment = models.TextField(blank=True, null=True)
+    is_flagged = models.BooleanField(
+        default=False, help_text="Flagged for moderation/fraud"
+    )
+    is_deleted = models.BooleanField(default=False, help_text="Soft delete for reviews")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Review by {self.user.username} for {self.restaurant.name} ({self.rating}/5)"
+
+
+class ModerationReport(models.Model):
+    """
+    Tracks reports made by users against reviews or other user accounts.
+    """
+
+    REASON_CHOICES = [
+        ("SPAM", "Spam or misleading"),
+        ("FRAUD", "Fraudulent activity"),
+        ("HARASSMENT", "Harassment or hate speech"),
+        ("INAPPROPRIATE", "Inappropriate content"),
+        ("OTHER", "Other"),
+    ]
+
+    STATUS_CHOICES = [
+        ("PENDING", "Pending Review"),
+        ("RESOLVED", "Resolved (Action Taken)"),
+        ("DISMISSED", "Dismissed (No Action)"),
+    ]
+
+    reporter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="reports_made"
+    )
+    # A report can be against a specific review OR a user profile
+    review = models.ForeignKey(
+        Review, on_delete=models.SET_NULL, null=True, blank=True, related_name="reports"
+    )
+    reported_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reports_received",
+    )
+
+    reason = models.CharField(max_length=50, choices=REASON_CHOICES, default="other")
+    details = models.TextField(help_text="Additional information about the report")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+
+    # Tracking moderation actions
+    moderator_note = models.TextField(blank=True, null=True)
+    action_taken = models.CharField(max_length=100, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        target = f"Review {self.review_id}" if self.review else f"User {self.reported_user}"
+        return f"Report by {self.reporter.username} on {target} ({self.status})"
