@@ -31,9 +31,7 @@ def landing_page(request):
     """
     Landing page - splash screen entry point for the application
     Shows "Nomz" with "Click to start" message
-<<<<<<< HEAD
     Always shows splash screen regardless of authentication status
-=======
     """
     if request.user.is_authenticated:
         return redirect('dashboard')
@@ -44,14 +42,10 @@ def landing_page(request):
 def signin_page(request):
     """
     Sign In page - displays login form
->>>>>>> b0ff232 (changed ui)
     """
     context = {
-<<<<<<< HEAD
         'is_authenticated': request.user.is_authenticated,
-=======
         'title': 'Sign In',
->>>>>>> b0ff232 (changed ui)
     }
     return render(request, 'nomz/splash.html', context)
 
