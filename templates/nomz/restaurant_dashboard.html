@@ -1,0 +1,172 @@
+{% extends 'nomz/base.html' %}
+
+{% block title %}Restaurant Dashboard - Nomz{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Restaurant Profile Card -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-body text-center p-4">
+                    <h3 class="card-title">{% if restaurant %}{{ restaurant.name }}{% else %}Restaurant{% endif %}</h3>
+                    <p class="text-muted mb-3">{{ user.email }}</p>
+                    <p class="text-muted small">Member since {{ user.date_joined|date:'F d, Y' }}</p>
+                    <hr>
+                    <p class="text-muted small">Restaurant Account</p>
+                    {% if restaurant and restaurant.description %}
+                    <hr>
+                    <h6 class="text-muted mb-2">About</h6>
+                    <p class="text-center" style="font-size: 0.9rem; line-height: 1.4;">{{ restaurant.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Quick Action Buttons -->
+            <div class="row mb-4 mt-4">
+                <div class="col-12 mb-3">
+                    <a href="{% url 'restaurant_photos' %}" class="btn w-100" style="background-color: #96A99E; color: white; border: none;">
+                        <i class="bi bi-images"></i> Manage Photos
+                    </a>
+                </div>
+                <div class="col-12 mb-3">
+                    <a href="{% url 'manage_availability' %}" class="btn w-100" style="background-color: #96A99E; color: white; border: none;">
+                        <i class="bi bi-calendar-x"></i> Availability Status
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Main Content -->
+        <div class="col-md-8">
+            {% if is_rejected %}
+            <div class="alert alert-danger shadow-sm border-0 mb-4" role="alert" style="border-left: 5px solid #dc3545 !important;">
+                <h4 class="alert-heading"><i class="fas fa-times-circle me-2"></i>Account Status: Restricted</h4>
+                <p>Your restaurant business account has been reviewed and restricted by our administrative team. Your profile is currently hidden from the public map and search results.</p>
+                <hr>
+                <p class="mb-0 small"><i class="fas fa-info-circle me-1"></i> You can still manage your information here, but it will not be visible to diners until your status is restored to Active.</p>
+            </div>
+            {% elif not is_approved %}
+            <div class="alert alert-info shadow-sm border-0 mb-4" role="alert" style="border-left: 5px solid #4ECDC4 !important;">
+                <h4 class="alert-heading"><i class="fas fa-clock me-2"></i>Account Pending Approval</h4>
+                <p>Thank you for joining Nomz! Your restaurant business account is currently undergoing a standard security review by our administrative team.</p>
+                <hr>
+                <p class="mb-0 small"><i class="fas fa-info-circle me-1"></i> Most accounts are verified within 24-48 hours. You will have full access to your business tools once approved.</p>
+            </div>
+            {% endif %}
+
+            {% if restaurant %}
+            <div class="card mb-4">
+                <div class="card-header" style="background-color: #465F6E; color: white;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ user.username }}</h5>
+                        <a href="{% url 'edit_restaurant' %}" class="btn btn-sm btn-light">Edit Profile</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-1">Cuisine Type</h6>
+                            <p class="mb-3"><strong>{{ restaurant.get_cuisine_type_display }}</strong></p>
+                            
+                            <h6 class="text-muted mb-1">Price Range</h6>
+                            <p class="mb-3"><strong>{{ restaurant.get_price_range_display }}</strong></p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-1">Hours</h6>
+                            <p class="mb-3"><strong>{{ restaurant.hours_open|time:"g:i A" }} - {{ restaurant.hours_close|time:"g:i A" }}</strong></p>
+                            
+                            <h6 class="text-muted mb-1">Status</h6>
+                            <p class="mb-0">
+                                {% if is_rejected %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                    <a href="{% url 'edit_restaurant' %}" class="btn btn-sm btn-outline-primary ms-2" style="font-size: 0.75rem; vertical-align: middle;">
+                                        <i class="fas fa-redo me-1"></i> Apply Again
+                                    </a>
+                                {% elif not is_approved %}
+                                    <span class="badge bg-warning text-dark">Pending Approval</span>
+                                {% elif restaurant.is_temporarily_unavailable %}
+                                    <span class="badge bg-warning">Temporarily Unavailable</span>
+                                {% elif restaurant.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-1">Phone</h6>
+                            <p class="mb-3">{{ restaurant.phone|default:"Not provided" }}</p>
+                            
+                            <h6 class="text-muted mb-1">Email</h6>
+                            <p class="mb-3">{{ restaurant.email|default:"Not provided" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-1">Address</h6>
+                            <p class="mb-3">{{ restaurant.address|default:"Not provided" }}</p>
+                            
+                            {% if restaurant.website %}
+                            <h6 class="text-muted mb-1">Website</h6>
+                            <p class="mb-3"><a href="{{ restaurant.website }}" target="_blank" class="text-decoration-none">{{ restaurant.website }}</a></p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card mb-4">
+                <div class="card-header" style="background-color: #465F6E; color: white;">
+                    <h5 class="mb-0">{{ user.username }}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="lead">No restaurant profile found.</p>
+                    <a href="{% url 'create_restaurant' %}" class="btn" style="background-color: #465F6E; border-color: #465F6E; color: white;">Create Restaurant Profile</a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Stats -->
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title text-muted">Average Rating</h6>
+                                    <h3 class="mb-0">-</h3>
+                                </div>
+                                <div style="font-size: 2rem;">⭐</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title text-muted">Pending Reservations</h6>
+                                    <h3 class="mb-0">0</h3>
+                                </div>
+                                <div style="font-size: 2rem;">📅</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .btn-outline-primary:hover, .btn-outline-info:hover, .btn-outline-warning:hover, .btn-outline-secondary:hover {
+        transition: all 0.3s ease;
+        opacity: 1 !important;
+    }
+</style>
+{% endblock %}
