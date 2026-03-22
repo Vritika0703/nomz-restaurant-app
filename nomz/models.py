@@ -554,6 +554,8 @@ class SystemAlert(models.Model):
 
     def __str__(self):
         return f"{self.alert_type} ({self.severity}) - {'active' if self.is_active else 'resolved'}"
+
+
 class Review(models.Model):
     """
     Model for users to leave reviews for restaurants.
@@ -563,9 +565,7 @@ class Review(models.Model):
         Restaurant, on_delete=models.CASCADE, related_name="reviews"
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
-    rating = models.PositiveSmallIntegerField(
-        help_text="Rating from 1 to 5", default=5
-    )
+    rating = models.PositiveSmallIntegerField(help_text="Rating from 1 to 5", default=5)
     comment = models.TextField(blank=True, null=True)
     is_flagged = models.BooleanField(
         default=False, help_text="Flagged for moderation/fraud"
@@ -630,5 +630,7 @@ class ModerationReport(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        target = f"Review {self.review_id}" if self.review else f"User {self.reported_user}"
+        target = (
+            f"Review {self.review_id}" if self.review else f"User {self.reported_user}"
+        )
         return f"Report by {self.reporter.username} on {target} ({self.status})"

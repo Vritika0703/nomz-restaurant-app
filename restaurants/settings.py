@@ -13,17 +13,21 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import socket
 import string
+
 try:
     from decouple import config, Csv
 except ImportError:
     from decouple import config
+
     class Csv(object):
-        def __init__(self, cast=str, delimiter=',', strip=string.whitespace):
+        def __init__(self, cast=str, delimiter=",", strip=string.whitespace):
             self.cast = cast
             self.delimiter = delimiter
             self.strip = strip
+
         def __call__(self, value):
             return [self.cast(s.strip(self.strip)) for s in value.split(self.delimiter)]
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

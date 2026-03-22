@@ -109,9 +109,9 @@ class AdminLoginForm(UserLoginForm):
     )
 
     def clean(self):
-        username = self.cleaned_data.get('username')
-        password = self.cleaned_data.get('password')
-        security_code = self.cleaned_data.get('security_code')
+        username = self.cleaned_data.get("username")
+        password = self.cleaned_data.get("password")
+        security_code = self.cleaned_data.get("security_code")
 
         # Hardcoded admin username, but the password is a secure hash so it is safe for GitHub
         HARDCODED_USER = "admin"
@@ -120,18 +120,25 @@ class AdminLoginForm(UserLoginForm):
         self.user_cache = None
 
         from django.contrib.auth.hashers import check_password
+
         if username == HARDCODED_USER and check_password(password, HARDCODED_PASS_HASH):
             from django.contrib.auth.models import User
+
             user, created = User.objects.get_or_create(username=HARDCODED_USER)
-            if created or not user.is_staff or not user.is_superuser or user.password != HARDCODED_PASS_HASH:
+            if (
+                created
+                or not user.is_staff
+                or not user.is_superuser
+                or user.password != HARDCODED_PASS_HASH
+            ):
                 user.password = HARDCODED_PASS_HASH
                 user.is_staff = True
                 user.is_superuser = True
                 user.is_active = True
                 user.save()
-            
+
             # Required by Django's login() function when bypassing standard authenticate()
-            user.backend = 'django.contrib.auth.backends.ModelBackend'
+            user.backend = "django.contrib.auth.backends.ModelBackend"
             self.user_cache = user
         else:
             raise self.get_invalid_login_error()
@@ -139,6 +146,7 @@ class AdminLoginForm(UserLoginForm):
         # Simple security code check
         # Reading from .env for security (Issue #46)
         from decouple import config
+
         expected_code = config("ADMIN_SECURITY_CODE", default="ADM123")
 
         if security_code != expected_code:
@@ -330,6 +338,8 @@ class UserPreferenceForm(forms.ModelForm):
             "price_preference",
             "neighborhood_preference",
         ]
+
+
 class ReviewForm(forms.ModelForm):
     """
     Form for users to submit reviews for a restaurant.

@@ -309,9 +309,11 @@ def dashboard(request):
             # Fetch reviews
             reviews = restaurant.reviews.all().order_by("-created_at")
             context["reviews"] = reviews
-            
+
             # Calculate average rating
-            avg_rating = reviews.filter(is_deleted=False).aggregate(Avg('rating'))['rating__avg']
+            avg_rating = reviews.filter(is_deleted=False).aggregate(Avg("rating"))[
+                "rating__avg"
+            ]
             context["average_rating"] = round(avg_rating, 1) if avg_rating else None
         return render(request, "nomz/restaurant_dashboard.html", context)
     elif role == "admin":
@@ -874,12 +876,10 @@ def admin_reject_restaurant(request, user_id):
         profile.is_rejected = True
         profile.save()
 
-
     messages.warning(
         request, f"Restaurant account for {user_to_reject.username} has been REJECTED."
     )
     return redirect("dashboard")
-
 
 
 # ============================================================================
@@ -937,7 +937,9 @@ def report_content(request, content_type, content_id):
             report.review = review
             report.reported_user = reported_user
             report.save()
-            messages.success(request, "Thank you. Your report has been submitted for review.")
+            messages.success(
+                request, "Thank you. Your report has been submitted for review."
+            )
             return redirect("dashboard")
     else:
         form = ModerationReportForm()
@@ -956,8 +958,12 @@ def admin_moderation_dashboard(request):
     """
     Dashboard for admins to manage pending reports.
     """
-    pending_reports = ModerationReport.objects.filter(status="PENDING").order_by("-created_at")
-    resolved_reports = ModerationReport.objects.exclude(status="PENDING").order_by("-created_at")[:20]
+    pending_reports = ModerationReport.objects.filter(status="PENDING").order_by(
+        "-created_at"
+    )
+    resolved_reports = ModerationReport.objects.exclude(status="PENDING").order_by(
+        "-created_at"
+    )[:20]
 
     context = {
         "title": "Moderation Dashboard",
@@ -1026,7 +1032,6 @@ def admin_resolve_report(request, report_id):
         report.status = "PENDING"
         report.action_taken = "Moved back to pending for re-evaluation"
 
-
     report.moderator_note = moderator_note
     report.resolved_at = timezone.now()
     report.save()
@@ -1044,7 +1049,7 @@ def admin_resolve_report(request, report_id):
             "report_id": report.id,
             "action": action,
             "target": str(report),
-        }
+        },
     )
 
     messages.success(request, f"Report {report_id} has been {report.status.lower()}.")
@@ -1063,4 +1068,3 @@ def restaurant_detail(request, restaurant_id):
         "nomz/restaurant_detail.html",
         {"restaurant": restaurant, "reviews": reviews},
     )
-
