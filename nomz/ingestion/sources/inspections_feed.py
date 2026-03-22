@@ -44,7 +44,7 @@ def _parse_date(raw: object) -> str:
         return ""
     for fmt in ("%Y-%m-%dT%H:%M:%S.%f", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
         try:
-            return datetime.strptime(raw_value[:len(fmt)], fmt).date().isoformat()
+            return datetime.strptime(raw_value[: len(fmt)], fmt).date().isoformat()
         except ValueError:
             continue
     return raw_value[:10] if len(raw_value) >= 10 else ""
@@ -62,18 +62,35 @@ def normalize_inspection_row(row: Dict) -> Dict:
     zip_code = first_non_empty(row, ["zipcode", "zip"])
     borough = first_non_empty(row, ["boro", "borough"])
 
-    inspection_date = _parse_date(first_non_empty(row, ["inspection_date", "record_date"]))
+    inspection_date = _parse_date(
+        first_non_empty(row, ["inspection_date", "record_date"])
+    )
     grade = _normalize_grade(first_non_empty(row, ["grade", "inspection_grade"]))
     score = _parse_score(first_non_empty(row, ["score"]))
-    critical_count = _critical_flag_to_int(first_non_empty(row, ["critical_flag", "critical"]))
+    critical_count = _critical_flag_to_int(
+        first_non_empty(row, ["critical_flag", "critical"])
+    )
     violation_text = first_non_empty(row, ["violation_description", "violation"])
 
     camis = first_non_empty(row, ["camis", "camis_id"])
-    inspection_key = "|".join([x for x in [camis, inspection_date, grade, score.__str__() if score is not None else ""] if x])
+    inspection_key = "|".join(
+        [
+            x
+            for x in [
+                camis,
+                inspection_date,
+                grade,
+                score.__str__() if score is not None else "",
+            ]
+            if x
+        ]
+    )
 
     return {
         "source": "DOHMH",
-        "source_external_id": camis or inspection_key or first_non_empty(row, ["violation_code", "restaurant_id"]),
+        "source_external_id": camis
+        or inspection_key
+        or first_non_empty(row, ["violation_code", "restaurant_id"]),
         "name": name,
         "name_normalized": normalize_text(name),
         "building": "",

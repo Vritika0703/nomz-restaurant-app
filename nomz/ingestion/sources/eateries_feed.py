@@ -3,7 +3,14 @@ from __future__ import annotations
 from typing import Dict, Iterable
 
 from nomz.ingestion.sources.nyc_endpoints import EATERIES
-from nomz.ingestion.utils.normalization import first_non_empty, normalize_text, to_decimal_str, to_str, split_list_fields
+from nomz.ingestion.utils.normalization import (
+    first_non_empty,
+    normalize_text,
+    to_decimal_str,
+    to_str,
+    split_list_fields,
+)
+
 
 def normalize_eateries_row(row: Dict) -> Dict:
     name = to_str(row.get("dba"))

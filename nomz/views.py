@@ -1,6 +1,6 @@
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
@@ -8,7 +8,6 @@ from django.db.models import Q
 from django.views.decorators.http import require_http_methods, require_POST
 from .forms import (
     UserRegisterForm,
-    UserLoginForm,
     AdminLoginForm,
     RestaurantProfileForm,
     RestaurantAvailabilityForm,
@@ -359,25 +358,6 @@ def user_logout(request):
 # ============================================================================
 # RESTAURANT PROFILE MANAGEMENT VIEWS
 # ============================================================================
-
-
-def is_restaurant_owner(user):
-    """Helper function to check if user is a restaurant owner"""
-    return hasattr(user, "userprofile") and user.userprofile.role == "restaurant"
-
-
-@login_required(login_url="landing")
-@require_http_methods(["GET"])
-def restaurant_profile(request):
-    """
-    Restaurant-only profile page used by tests and for convenience navigation.
-
-    For restaurant owners, renders the same UI as the dashboard restaurant view.
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(request, "You do not have permission to access this page.")
-        return redirect("profile")
-    return dashboard(request)
 
 
 @login_required(login_url="landing")

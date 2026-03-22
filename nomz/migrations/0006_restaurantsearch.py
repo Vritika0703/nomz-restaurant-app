@@ -4,17 +4,17 @@ from django.db import migrations, models
 
 
 def backfill_restaurant_search(apps, schema_editor):
-    restaurant_model = apps.get_model('nomz', 'Restaurant')
-    search_model = apps.get_model('nomz', 'RestaurantSearch')
+    restaurant_model = apps.get_model("nomz", "Restaurant")
+    search_model = apps.get_model("nomz", "RestaurantSearch")
 
     rows = []
     for restaurant in restaurant_model.objects.all().iterator():
-        neighborhood = (restaurant.neighborhood or restaurant.borough or '')[:100]
-        cuisine = (restaurant.cuisine or restaurant.cuisine_type or '')[:100]
-        description = restaurant.description or ''
+        neighborhood = (restaurant.neighborhood or restaurant.borough or "")[:100]
+        cuisine = (restaurant.cuisine or restaurant.cuisine_type or "")[:100]
+        description = restaurant.description or ""
         rows.append(
             search_model(
-                name=(restaurant.name or '')[:200],
+                name=(restaurant.name or "")[:200],
                 neighborhood=neighborhood,
                 description=description,
                 cuisine=cuisine,
@@ -26,25 +26,33 @@ def backfill_restaurant_search(apps, schema_editor):
 
 
 def reverse_backfill_restaurant_search(apps, schema_editor):
-    search_model = apps.get_model('nomz', 'RestaurantSearch')
+    search_model = apps.get_model("nomz", "RestaurantSearch")
     search_model.objects.all().delete()
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('nomz', '0005_merge_20260308_2231'),
+        ("nomz", "0005_merge_20260308_2231"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='RestaurantSearch',
+            name="RestaurantSearch",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=200)),
-                ('neighborhood', models.CharField(max_length=100)),
-                ('description', models.TextField()),
-                ('cuisine', models.CharField(max_length=100)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=200)),
+                ("neighborhood", models.CharField(max_length=100)),
+                ("description", models.TextField()),
+                ("cuisine", models.CharField(max_length=100)),
             ],
         ),
         migrations.RunPython(

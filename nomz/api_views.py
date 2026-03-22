@@ -134,11 +134,12 @@ def map_restaurant_data(request):
                 "composite_score": _safe_decimal_to_float(restaurant.composite_score),
                 "composite_score_label": _safe_score_text(restaurant.composite_score),
                 "grade": restaurant.grade_latest or "",
-                "inspected_on": restaurant.last_inspection_date.isoformat()
-                if restaurant.last_inspection_date
-                else "",
+                "inspected_on": (
+                    restaurant.last_inspection_date.isoformat()
+                    if restaurant.last_inspection_date
+                    else ""
+                ),
             }
         )
 
     return JsonResponse({"count": len(points), "results": points})
-
