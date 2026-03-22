@@ -35,7 +35,7 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 # Build ALLOWED_HOSTS list from config
 ALLOWED_HOSTS = list(config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv()))
 
-# Allow EC2 instance's own IP so EB health checks pass (required when DEBUG=False)
+# Ensure common production domains/IPs from EB are included
 try:
     local_ip = socket.gethostbyname(socket.gethostname())
     if local_ip not in ALLOWED_HOSTS:
@@ -77,7 +77,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django_otp.middleware.OTPMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "nomz.middleware.SystemMonitoringMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
