@@ -107,15 +107,23 @@ def apply_restaurant_filters(
     if price_range and price_range in valid_price_ranges:
         queryset = queryset.filter(price_range=price_range)
 
-    min_composite = coerce_float(params.get("min_composite_score") or params.get("min_score"))
+    min_composite = coerce_float(
+        params.get("min_composite_score") or params.get("min_score")
+    )
     if min_composite is not None and min_composite > 0:
         queryset = queryset.filter(composite_score__gte=min_composite)
 
-    max_composite = coerce_float(params.get("max_composite_score") or params.get("max_score"))
+    max_composite = coerce_float(
+        params.get("max_composite_score") or params.get("max_score")
+    )
     if max_composite is not None and max_composite < 100:
         queryset = queryset.filter(composite_score__lte=max_composite)
 
-    if min_composite is not None and max_composite is not None and min_composite > max_composite:
+    if (
+        min_composite is not None
+        and max_composite is not None
+        and min_composite > max_composite
+    ):
         return queryset.none()
 
     min_rating = coerce_float(params.get("min_rating"))
@@ -123,7 +131,9 @@ def apply_restaurant_filters(
         queryset = queryset.filter(grade_score_latest__gte=int(min_rating))
 
     dietary_values = parse_multi_values(
-        params.getlist("dietary") if hasattr(params, "getlist") else params.get("dietary")
+        params.getlist("dietary")
+        if hasattr(params, "getlist")
+        else params.get("dietary")
     )
     for dietary in dietary_values:
         queryset = queryset.filter(

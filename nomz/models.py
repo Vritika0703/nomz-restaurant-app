@@ -1,24 +1,26 @@
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.core.validators import MinValueValidator, MaxValueValidator
-from django.utils import timezone
 from django.db import models, transaction
+from django.utils import timezone
 
 
 class UserProfile(models.Model):
-    id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')
+    id = models.AutoField(
+        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+    )
 
     ROLE_CHOICES = [
-        ('diner', 'Diner'),
-        ('restaurant', 'Restaurant'),
+        ("diner", "Diner"),
+        ("restaurant", "Restaurant"),
     ]
 
     # Links this profile to the built-in Django User
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='diner')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="diner")
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"
+
 
 class RestaurantSearch(models.Model):
     name = models.CharField(max_length=200)
@@ -26,101 +28,121 @@ class RestaurantSearch(models.Model):
     description = models.TextField()
     cuisine = models.CharField(max_length=100)
     # We use a simple CharField for neighborhood to keep it easy for now
-    
+
     def __str__(self):
         return self.name
+
 
 class Restaurant(models.Model):
     """
     Restaurant profile model for restaurant owners to manage their business information.
     """
+
     CUISINE_CHOICES = [
-        ('american', 'American'),
-        ('asian', 'Asian'),
-        ('italian', 'Italian'),
-        ('mexican', 'Mexican'),
-        ('indian', 'Indian'),
-        ('french', 'French'),
-        ('japanese', 'Japanese'),
-        ('chinese', 'Chinese'),
-        ('thai', 'Thai'),
-        ('mediterranean', 'Mediterranean'),
-        ('fusion', 'Fusion'),
-        ('vegetarian', 'Vegetarian'),
-        ('vegan', 'Vegan'),
-        ('other', 'Other'),
+        ("american", "American"),
+        ("asian", "Asian"),
+        ("italian", "Italian"),
+        ("mexican", "Mexican"),
+        ("indian", "Indian"),
+        ("french", "French"),
+        ("japanese", "Japanese"),
+        ("chinese", "Chinese"),
+        ("thai", "Thai"),
+        ("mediterranean", "Mediterranean"),
+        ("fusion", "Fusion"),
+        ("vegetarian", "Vegetarian"),
+        ("vegan", "Vegan"),
+        ("other", "Other"),
     ]
 
     PRICE_CHOICES = [
-        ('$', 'Budget-Friendly ($)'),
-        ('$$', 'Moderate ($$)'),
-        ('$$$', 'Upscale ($$$)'),
-        ('$$$$', 'Fine Dining ($$$$)'),
+        ("$", "Budget-Friendly ($)"),
+        ("$$", "Moderate ($$)"),
+        ("$$$", "Upscale ($$$)"),
+        ("$$$$", "Fine Dining ($$$$)"),
     ]
 
     LOCATION_TYPE_CHOICES = [
-        ('indoor', 'Indoor'),
-        ('outdoor', 'Outdoor'),
-        ('sidewalk', 'Sidewalk'),
-        ('mixed', 'Mixed'),
-        ('unknown', 'Unknown'),
+        ("indoor", "Indoor"),
+        ("outdoor", "Outdoor"),
+        ("sidewalk", "Sidewalk"),
+        ("mixed", "Mixed"),
+        ("unknown", "Unknown"),
     ]
 
     # Owner and basic owner-editable info
     owner = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name='restaurant_profile',
+        related_name="restaurant_profile",
         null=True,
         blank=True,
     )
     name = models.CharField(max_length=255, unique=True)
-    description = models.TextField(blank=True, null=True, help_text='Describe your restaurant, cuisine style, and ambiance')
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Describe your restaurant, cuisine style, and ambiance",
+    )
     address = models.CharField(max_length=500, blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
     website = models.URLField(blank=True, null=True)
     email = models.EmailField(max_length=254, blank=True, null=True)
-    cuisine_type = models.CharField(max_length=50, choices=CUISINE_CHOICES, default='other')
-    price_range = models.CharField(max_length=10, choices=PRICE_CHOICES, default='$$')
+    cuisine_type = models.CharField(
+        max_length=50, choices=CUISINE_CHOICES, default="other"
+    )
+    price_range = models.CharField(max_length=10, choices=PRICE_CHOICES, default="$$")
 
     # Operating hours
     days_of_week = [
-        ('MON', 'Monday'),
-        ('TUE', 'Tuesday'),
-        ('WED', 'Wednesday'),
-        ('THU', 'Thursday'),
-        ('FRI', 'Friday'),
-        ('SAT', 'Saturday'),
-        ('SUN', 'Sunday'),
+        ("MON", "Monday"),
+        ("TUE", "Tuesday"),
+        ("WED", "Wednesday"),
+        ("THU", "Thursday"),
+        ("FRI", "Friday"),
+        ("SAT", "Saturday"),
+        ("SUN", "Sunday"),
     ]
 
     # Hours stored as JSONField for flexibility (optional: can use TimeField pairs)
-    hours_open = models.TimeField(default='09:00', help_text='Opening time')
-    hours_close = models.TimeField(default='21:00', help_text='Closing time')
+    hours_open = models.TimeField(default="09:00", help_text="Opening time")
+    hours_close = models.TimeField(default="21:00", help_text="Closing time")
 
     # Status and availability
-    is_active = models.BooleanField(default=True, help_text='Profile is visible to customers')
-    is_temporarily_unavailable = models.BooleanField(default=False, help_text='Temporarily mark as unavailable')
+    is_active = models.BooleanField(
+        default=True, help_text="Profile is visible to customers"
+    )
+    is_temporarily_unavailable = models.BooleanField(
+        default=False, help_text="Temporarily mark as unavailable"
+    )
     unavailable_reason = models.CharField(max_length=500, blank=True, null=True)
     unavailable_until = models.DateTimeField(blank=True, null=True)
 
     # Legacy compatibility fields expected by existing views/admin/forms
-    neighborhood = models.CharField(max_length=100, blank=True, default='')
-    cuisine = models.CharField(max_length=100, blank=True, default='')
+    neighborhood = models.CharField(max_length=100, blank=True, default="")
+    cuisine = models.CharField(max_length=100, blank=True, default="")
 
     # Ingestion-friendly normalized profile fields
-    display_name = models.CharField(max_length=255, blank=True, default='')
-    name_normalized = models.CharField(max_length=255, db_index=True, blank=True, default='')
+    display_name = models.CharField(max_length=255, blank=True, default="")
+    name_normalized = models.CharField(
+        max_length=255, db_index=True, blank=True, default=""
+    )
     building = models.CharField(max_length=64, blank=True, null=True)
     street = models.CharField(max_length=255, blank=True, null=True)
     borough = models.CharField(max_length=80, blank=True, null=True)
     zip_code = models.CharField(max_length=10, db_index=True, blank=True, null=True)
     cuisine_tags = models.JSONField(default=list, blank=True)
 
-    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    longitude = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    latitude = models.DecimalField(
+        max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    longitude = models.DecimalField(
+        max_digits=10, decimal_places=6, null=True, blank=True
+    )
 
-    composite_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    composite_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
     grade_latest = models.CharField(max_length=16, blank=True, null=True)
     grade_score_latest = models.IntegerField(blank=True, null=True)
     last_inspection_date = models.DateField(blank=True, null=True)
@@ -176,7 +198,9 @@ class RestaurantOwnershipClaim(models.Model):
         on_delete=models.CASCADE,
         related_name="ownership_claims",
     )
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING
+    )
     business_email = models.EmailField(blank=True, null=True)
     contact_phone = models.CharField(max_length=32, blank=True, null=True)
     proof_details = models.TextField(
@@ -207,8 +231,14 @@ class RestaurantOwnershipClaim(models.Model):
         return f"{self.claimant.username} -> {self.restaurant.name} ({self.status})"
 
     def clean(self):
-        if self.restaurant_id and self.restaurant.owner_id and self.restaurant.owner_id != self.claimant_id:
-            raise ValidationError("This restaurant is already claimed by another owner.")
+        if (
+            self.restaurant_id
+            and self.restaurant.owner_id
+            and self.restaurant.owner_id != self.claimant_id
+        ):
+            raise ValidationError(
+                "This restaurant is already claimed by another owner."
+            )
 
         if not self.claimant_id:
             return
@@ -234,18 +264,35 @@ class RestaurantOwnershipClaim(models.Model):
                 .first()
             )
             if existing_for_restaurant:
-                raise ValidationError("There is already a pending claim for this restaurant.")
+                raise ValidationError(
+                    "There is already a pending claim for this restaurant."
+                )
 
     def approve(self, reviewer=None, notes=""):
         with transaction.atomic():
-            claim = RestaurantOwnershipClaim.objects.select_for_update().select_related("restaurant").get(pk=self.pk)
+            claim = (
+                RestaurantOwnershipClaim.objects.select_for_update()
+                .select_related("restaurant")
+                .get(pk=self.pk)
+            )
             if claim.status != self.STATUS_PENDING:
                 raise ValidationError("Only pending claims can be approved.")
-            existing_restaurant = Restaurant.objects.filter(owner=claim.claimant).exclude(pk=claim.restaurant_id).first()
+            existing_restaurant = (
+                Restaurant.objects.filter(owner=claim.claimant)
+                .exclude(pk=claim.restaurant_id)
+                .first()
+            )
             if existing_restaurant:
-                raise ValidationError("Claimant already owns another restaurant profile.")
-            if claim.restaurant.owner_id and claim.restaurant.owner_id != claim.claimant_id:
-                raise ValidationError("Restaurant is already assigned to another owner.")
+                raise ValidationError(
+                    "Claimant already owns another restaurant profile."
+                )
+            if (
+                claim.restaurant.owner_id
+                and claim.restaurant.owner_id != claim.claimant_id
+            ):
+                raise ValidationError(
+                    "Restaurant is already assigned to another owner."
+                )
 
             claim.restaurant.owner = claim.claimant
             claim.restaurant.save(update_fields=["owner", "updated_at"])
@@ -255,7 +302,15 @@ class RestaurantOwnershipClaim(models.Model):
             claim.reviewed_at = timezone.now()
             if notes:
                 claim.review_notes = notes
-            claim.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes", "updated_at"])
+            claim.save(
+                update_fields=[
+                    "status",
+                    "reviewed_by",
+                    "reviewed_at",
+                    "review_notes",
+                    "updated_at",
+                ]
+            )
 
             return claim
 
@@ -267,7 +322,15 @@ class RestaurantOwnershipClaim(models.Model):
         self.reviewed_at = timezone.now()
         if notes:
             self.review_notes = notes
-        self.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_notes", "updated_at"])
+        self.save(
+            update_fields=[
+                "status",
+                "reviewed_by",
+                "reviewed_at",
+                "review_notes",
+                "updated_at",
+            ]
+        )
         return self
 
 
@@ -275,14 +338,19 @@ class RestaurantPhoto(models.Model):
     """
     Model to handle multiple photos for a restaurant.
     """
-    restaurant = models.ForeignKey(Restaurant, on_delete=models.CASCADE, related_name='photos')
-    photo = models.ImageField(upload_to='restaurant_photos/')
+
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.CASCADE, related_name="photos"
+    )
+    photo = models.ImageField(upload_to="restaurant_photos/")
     caption = models.CharField(max_length=255, blank=True, null=True)
-    is_primary = models.BooleanField(default=False, help_text='Set as main photo for the restaurant')
+    is_primary = models.BooleanField(
+        default=False, help_text="Set as main photo for the restaurant"
+    )
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-is_primary', '-uploaded_at']
+        ordering = ["-is_primary", "-uploaded_at"]
 
     def __str__(self):
         return f"{self.restaurant.name} - {self.caption or 'Photo'}"
@@ -291,7 +359,9 @@ class RestaurantPhoto(models.Model):
         """Ensure only one primary photo"""
         if self.is_primary:
             # Remove primary status from other photos
-            RestaurantPhoto.objects.filter(restaurant=self.restaurant, is_primary=True).update(is_primary=False)
+            RestaurantPhoto.objects.filter(
+                restaurant=self.restaurant, is_primary=True
+            ).update(is_primary=False)
         super().save(*args, **kwargs)
 
 
@@ -299,6 +369,7 @@ class LoginLog(models.Model):
     """
     Tracks authentication events for simple login analytics and anti-abuse checks.
     """
+
     STATUS_CHOICES = [
         ("Success", "Success"),
         ("Failure", "Failure"),
@@ -423,7 +494,9 @@ class InspectionRecord(models.Model):
     class Meta:
         unique_together = [["restaurant", "inspection_key"]]
         indexes = [
-            models.Index(fields=["restaurant", "inspection_date"], name="nomz_insp_rest_1"),
+            models.Index(
+                fields=["restaurant", "inspection_date"], name="nomz_insp_rest_1"
+            ),
             models.Index(fields=["grade"], name="nomz_insp_grade_1"),
         ]
         ordering = ["-inspection_date"]
@@ -457,16 +530,21 @@ class DataIngestionRun(models.Model):
 
     def __str__(self):
         return f"{self.dataset} | {self.status} | {self.started_at:%Y-%m-%d %H:%M}"
-    
-#User preferences model to store diner preferences for personalized recommendations and search filtering
+
+
+# User preferences model to store diner preferences for personalized recommendations and search filtering
 class UserPreference(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='preferences')
-    favorite_cuisines = models.JSONField(default=list, blank=True, help_text="List of preferred cuisines")
-    dietary_restrictions = models.JSONField(default=list, blank=True, help_text="e.g., Vegan, Gluten-Free")
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="preferences"
+    )
+    favorite_cuisines = models.JSONField(
+        default=list, blank=True, help_text="List of preferred cuisines"
+    )
+    dietary_restrictions = models.JSONField(
+        default=list, blank=True, help_text="e.g., Vegan, Gluten-Free"
+    )
     price_preference = models.CharField(
-        max_length=10, 
-        choices=Restaurant.PRICE_CHOICES, 
-        default='$$'
+        max_length=10, choices=Restaurant.PRICE_CHOICES, default="$$"
     )
     neighborhood_preference = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -538,8 +616,12 @@ class SystemPerformanceMetric(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=["created_at", "is_error"], name="nomz_sysperf_err_idx"),
-            models.Index(fields=["created_at", "duration_ms"], name="nomz_sysperf_lat_idx"),
+            models.Index(
+                fields=["created_at", "is_error"], name="nomz_sysperf_err_idx"
+            ),
+            models.Index(
+                fields=["created_at", "duration_ms"], name="nomz_sysperf_lat_idx"
+            ),
         ]
         ordering = ["-created_at"]
 
@@ -592,7 +674,9 @@ class SystemAlert(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
 
-    alert_type = models.CharField(max_length=64, choices=ALERT_TYPE_CHOICES, db_index=True)
+    alert_type = models.CharField(
+        max_length=64, choices=ALERT_TYPE_CHOICES, db_index=True
+    )
     severity = models.CharField(
         max_length=16, choices=SEVERITY_CHOICES, default="HIGH", db_index=True
     )
