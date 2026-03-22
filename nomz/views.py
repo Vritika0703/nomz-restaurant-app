@@ -322,7 +322,6 @@ def dashboard(request):
         rejected_business_count = UserProfile.objects.filter(
             role="restaurant", is_rejected=True
         ).count()
-
         context.update(
             {
                 "all_users": all_users,
@@ -764,8 +763,6 @@ def admin_toggle_user_status(request, user_id):
         user_to_change.save()
 
     return redirect("dashboard")
-
-
 @staff_member_required
 def admin_pending_approvals(request):
     """
