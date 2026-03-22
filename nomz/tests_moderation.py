@@ -109,9 +109,7 @@ class ModerationTests(TestCase):
 
         self.client.login(username="admin", password="password")
         url = reverse("admin_resolve_report", args=[report.id])
-        self.client.post(
-            url, {"action": "dismiss", "moderator_note": "Valid review"}
-        )
+        self.client.post(url, {"action": "dismiss", "moderator_note": "Valid review"})
 
         report.refresh_from_db()
         self.assertEqual(report.status, "DISMISSED")
