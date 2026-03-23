@@ -38,8 +38,7 @@ env:
 # Test script
 script:
   - python manage.py migrate --no-input
-  - python manage.py test --no-input --verbosity=2
-  - coverage run --source='.' manage.py test nomz --no-input
+  - coverage run --source='.' manage.py test --no-input --verbosity=2
   - black --check .
   - flake8 .
   - python manage.py check
@@ -48,8 +47,7 @@ script:
 after_success:
   - coverage report
   - coverage xml
-  - pip install --upgrade coveralls
-  - coveralls --service=github --repo-token=$COVERALLS_REPO_TOKEN
+  - coveralls --service=github --repo-token=$COVERALLS_REPO_TOKEN --branch=$TRAVIS_BRANCH
 
 # Deploy to AWS Elastic Beanstalk on production branch
 deploy:
