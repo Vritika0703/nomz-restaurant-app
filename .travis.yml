@@ -38,7 +38,7 @@ env:
 # Test script
 script:
   - python manage.py migrate --no-input
-  - coverage run --source='nomz' manage.py test --no-input --verbosity=2
+  - pytest --cov=nomz --cov-report=xml
   - black --check .
   - flake8 .
   - python manage.py check
@@ -47,7 +47,7 @@ script:
 after_success:
   - coverage report
   - coverage xml
-  - coveralls --branch=$TRAVIS_BRANCH
+  - coveralls 
 
 # Deploy to AWS Elastic Beanstalk on production branch
 deploy:
