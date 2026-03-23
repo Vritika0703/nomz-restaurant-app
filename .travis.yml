@@ -57,7 +57,7 @@ deploy:
   access_key_id: $AWS_ACCESS_KEY_ID
   secret_access_key: $AWS_SECRET_ACCESS_KEY
   region: us-east-1
-  app: nomz-production
+  app: nomz-prod
   env: nomz-prod
   bucket_name: nomz-static-files
   bucket_path: deployments
