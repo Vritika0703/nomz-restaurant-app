@@ -38,16 +38,15 @@ env:
 # Test script
 script:
   - python manage.py migrate --no-input
-  - coverage run --source='.' manage.py test --no-input --verbosity=2
+  - coverage run --source='nomz' manage.py test --no-input --verbosity=2
   - black --check .
   - flake8 .
   - python manage.py check
 
 # Send coverage to Coveralls
 after_success:
-  - coverage report
   - coverage xml
-  - coveralls --service=github --repo-token=$COVERALLS_REPO_TOKEN --branch=$TRAVIS_BRANCH
+  - coveralls 
 
 # Deploy to AWS Elastic Beanstalk on production branch
 deploy:
