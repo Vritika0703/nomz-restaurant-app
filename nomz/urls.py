@@ -18,12 +18,16 @@ urlpatterns = [
         api_views.map_restaurant_data,
         name="api_restaurants_map",
     ),
-    path("register/", views.register, name="register"),
+    path("register/", views.register, name="register"),  # Removed <str:role>
     path("logout/", views.user_logout, name="logout"),
-    # Backward-compatible alias kept for legacy links/tests.
-    path("restaurant-profile/", views.restaurant_profile, name="restaurant_profile"),
     path("profile/", views.dashboard, name="profile"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path(
+        "dashboard/search/",
+        RedirectView.as_view(url="/search/", permanent=False),
+        name="restaurant_search_dashboard_alias",
+    ),
+    path("restaurant-profile/", views.restaurant_profile, name="restaurant_profile"),
     path("search/", views.restaurant_search, name="restaurant_search"),
     path("preferences/", views.manage_preferences, name="manage_preferences"),
     # Restaurant Profile Management
@@ -84,7 +88,7 @@ urlpatterns = [
         ),
         name="password_reset_complete",
     ),
-    # Admin Quick Actions & Redirects
+    # Admin Quick Actions & Redirects (Fix for Issue #46 relative link 404)
     path("admin-login/", views.admin_login, name="admin_login"),
     path(
         "dashboard/Admin-login/",
@@ -105,5 +109,56 @@ urlpatterns = [
         "dashboard-action/users/<int:user_id>/toggle/",
         views.admin_toggle_user_status,
         name="admin_toggle_user_status",
+    ),
+    path(
+        "nomz-admin/approved-accounts/",
+        views.admin_approved_accounts,
+        name="admin_approved_accounts",
+    ),
+    path(
+        "nomz-admin/rejected-accounts/",
+        views.admin_rejected_accounts,
+        name="admin_rejected_accounts",
+    ),
+    path(
+        "nomz-admin/pending-approvals/",
+        views.admin_pending_approvals,
+        name="admin_pending_approvals",
+    ),
+    path(
+        "nomz-admin/approve/<int:user_id>/",
+        views.admin_approve_restaurant,
+        name="admin_approve_restaurant",
+    ),
+    path(
+        "nomz-admin/reject/<int:user_id>/",
+        views.admin_reject_restaurant,
+        name="admin_reject_restaurant",
+    ),
+    # Moderation & Reviews
+    path(
+        "restaurant/<int:restaurant_id>/",
+        views.restaurant_detail,
+        name="restaurant_detail",
+    ),
+    path(
+        "restaurant/<int:restaurant_id>/review/",
+        views.add_review,
+        name="add_review",
+    ),
+    path(
+        "report/<str:content_type>/<int:content_id>/",
+        views.report_content,
+        name="report_content",
+    ),
+    path(
+        "nomz-admin/moderation/",
+        views.admin_moderation_dashboard,
+        name="admin_moderation_dashboard",
+    ),
+    path(
+        "nomz-admin/moderation/resolve/<int:report_id>/",
+        views.admin_resolve_report,
+        name="admin_resolve_report",
     ),
 ]

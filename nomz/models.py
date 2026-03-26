@@ -1,7 +1,7 @@
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
-from django.db import models, transaction
 from django.utils import timezone
+from django.db import models, transaction
 
 
 class UserProfile(models.Model):
@@ -17,6 +17,18 @@ class UserProfile(models.Model):
     # Links this profile to the built-in Django User
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="diner")
+    is_approved = models.BooleanField(
+        default=True,
+        help_text="Designates whether this business account has been approved by an administrator.",
+    )
+    is_rejected = models.BooleanField(
+        default=False,
+        help_text="Designates whether this business account has been rejected by an administrator.",
+    )
+    is_flagged = models.BooleanField(
+        default=False,
+        help_text="Publicly flagged for fraudulent activity",
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"
@@ -110,7 +122,10 @@ class Restaurant(models.Model):
 
     # Status and availability
     is_active = models.BooleanField(
-        default=True, help_text="Profile is visible to customers"
+        default=True, db_index=True, help_text="Profile is visible to users"
+    )
+    is_flagged = models.BooleanField(
+        default=False, help_text="Publicly flagged for fraudulent activity"
     )
     is_temporarily_unavailable = models.BooleanField(
         default=False, help_text="Temporarily mark as unavailable"
@@ -272,11 +287,12 @@ class RestaurantOwnershipClaim(models.Model):
         with transaction.atomic():
             claim = (
                 RestaurantOwnershipClaim.objects.select_for_update()
-                .select_related("restaurant")
+                .select_related("restaurant", "claimant")
                 .get(pk=self.pk)
             )
             if claim.status != self.STATUS_PENDING:
                 raise ValidationError("Only pending claims can be approved.")
+
             existing_restaurant = (
                 Restaurant.objects.filter(owner=claim.claimant)
                 .exclude(pk=claim.restaurant_id)
@@ -296,6 +312,12 @@ class RestaurantOwnershipClaim(models.Model):
 
             claim.restaurant.owner = claim.claimant
             claim.restaurant.save(update_fields=["owner", "updated_at"])
+
+            if hasattr(claim.claimant, "userprofile"):
+                profile = claim.claimant.userprofile
+                profile.is_approved = True
+                profile.is_rejected = False
+                profile.save(update_fields=["is_approved", "is_rejected"])
 
             claim.status = self.STATUS_APPROVED
             claim.reviewed_by = reviewer
@@ -588,6 +610,7 @@ class SystemAuditLog(models.Model):
     request_path = models.CharField(max_length=2048, null=True, blank=True)
     http_method = models.CharField(max_length=10, null=True, blank=True)
 
+    # Free-form event details (avoid huge stack traces; keep structured info).
     metadata = models.JSONField(default=dict, blank=True)
 
     class Meta:
@@ -606,11 +629,16 @@ class SystemPerformanceMetric(models.Model):
     """
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # request identification
     method = models.CharField(max_length=10, db_index=True)
     path = models.CharField(max_length=2048, db_index=True)
+
+    # performance/error details
     duration_ms = models.PositiveIntegerField()
     status_code = models.PositiveIntegerField(db_index=True)
     is_error = models.BooleanField(default=False, db_index=True)
+
     exception_class = models.CharField(max_length=255, blank=True, default="")
     exception_message = models.CharField(max_length=500, blank=True, default="")
 
@@ -690,5 +718,84 @@ class SystemAlert(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        state = "active" if self.is_active else "resolved"
-        return f"{self.alert_type} ({self.severity}) - {state}"
+        return f"{self.alert_type} ({self.severity}) - {'active' if self.is_active else 'resolved'}"
+
+
+class Review(models.Model):
+    """
+    Model for users to leave reviews for restaurants.
+    """
+
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.CASCADE, related_name="reviews"
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
+    rating = models.PositiveSmallIntegerField(help_text="Rating from 1 to 5", default=5)
+    comment = models.TextField(blank=True, null=True)
+    is_flagged = models.BooleanField(
+        default=False, help_text="Flagged for moderation/fraud"
+    )
+    is_deleted = models.BooleanField(default=False, help_text="Soft delete for reviews")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Review by {self.user.username} for {self.restaurant.name} ({self.rating}/5)"
+
+
+class ModerationReport(models.Model):
+    """
+    Tracks reports made by users against reviews or other user accounts.
+    """
+
+    REASON_CHOICES = [
+        ("SPAM", "Spam or misleading"),
+        ("FRAUD", "Fraudulent activity"),
+        ("HARASSMENT", "Harassment or hate speech"),
+        ("INAPPROPRIATE", "Inappropriate content"),
+        ("OTHER", "Other"),
+    ]
+
+    STATUS_CHOICES = [
+        ("PENDING", "Pending Review"),
+        ("RESOLVED", "Resolved (Action Taken)"),
+        ("DISMISSED", "Dismissed (No Action)"),
+    ]
+
+    reporter = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="reports_made"
+    )
+    # A report can be against a specific review OR a user profile
+    review = models.ForeignKey(
+        Review, on_delete=models.SET_NULL, null=True, blank=True, related_name="reports"
+    )
+    reported_user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reports_received",
+    )
+
+    reason = models.CharField(max_length=50, choices=REASON_CHOICES, default="other")
+    details = models.TextField(help_text="Additional information about the report")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="PENDING")
+
+    # Tracking moderation actions
+    moderator_note = models.TextField(blank=True, null=True)
+    action_taken = models.CharField(max_length=100, blank=True, null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        target = (
+            f"Review {self.review_id}" if self.review else f"User {self.reported_user}"
+        )
+        return f"Report by {self.reporter.username} on {target} ({self.status})"

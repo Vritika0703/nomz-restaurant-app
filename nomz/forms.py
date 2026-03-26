@@ -2,13 +2,14 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.db.models import Q
-from decouple import config
 from .models import (
     UserProfile,
     Restaurant,
-    RestaurantPhoto,
     RestaurantOwnershipClaim,
+    RestaurantPhoto,
     UserPreference,
+    Review,
+    ModerationReport,
 )
 
 
@@ -69,7 +70,11 @@ class UserRegisterForm(UserCreationForm):
         if commit:
             user.save()
             # This is where the backend permanently stores the role!
-            UserProfile.objects.create(user=user, role=self.cleaned_data["role"])
+            # Restaurant accounts start as NOT approved pending admin review (Issue #53)
+            is_approved = self.cleaned_data["role"] != "restaurant"
+            UserProfile.objects.create(
+                user=user, role=self.cleaned_data["role"], is_approved=is_approved
+            )
         return user
 
 
@@ -106,18 +111,54 @@ class AdminLoginForm(UserLoginForm):
     )
 
     def clean(self):
-        cleaned_data = super().clean()
-        security_code = cleaned_data.get("security_code")
+        username = self.cleaned_data.get("username")
+        password = self.cleaned_data.get("password")
+        security_code = self.cleaned_data.get("security_code")
+
+        # Hardcoded admin username, but the password is a secure hash so it is safe for GitHub
+        HARDCODED_USER = "admin"
+        HARDCODED_PASS_HASH = "pbkdf2_sha256$600000$NvKgdMfTjHfGXwLuieCtCo$r3maZLapzui28vRpgClLYsUaBjSjBsyyBunVvCEoVNc="
+
+        self.user_cache = None
+
+        from django.contrib.auth.hashers import check_password
+
+        if username == HARDCODED_USER and check_password(password, HARDCODED_PASS_HASH):
+            from django.contrib.auth.models import User
+
+            user, created = User.objects.get_or_create(username=HARDCODED_USER)
+            if (
+                created
+                or not user.is_staff
+                or not user.is_superuser
+                or user.password != HARDCODED_PASS_HASH
+            ):
+                user.password = HARDCODED_PASS_HASH
+                user.is_staff = True
+                user.is_superuser = True
+                user.is_active = True
+                user.save()
+
+            # Required by Django's login() function when bypassing standard authenticate()
+            user.backend = "django.contrib.auth.backends.ModelBackend"
+            self.user_cache = user
+        else:
+            raise self.get_invalid_login_error()
+
+        # Simple security code check
+        # Reading from .env for security (Issue #46)
+        from decouple import config
+
         expected_code = config("ADMIN_SECURITY_CODE", default="ADM123")
 
         if security_code != expected_code:
             raise forms.ValidationError("Invalid security code.")
 
-        user = self.get_user()
-        if user and not (user.is_staff or user.is_superuser):
-            raise forms.ValidationError("This login is restricted to administrators.")
+        # Final verification that the user's status allows them to log in
+        if self.user_cache is not None:
+            self.confirm_login_allowed(self.user_cache)
 
-        return cleaned_data
+        return self.cleaned_data
 
 
 class RestaurantProfileForm(forms.ModelForm):
@@ -405,3 +446,46 @@ class RestaurantOwnershipClaimForm(forms.ModelForm):
         if commit:
             claim.save()
         return claim
+
+
+class ReviewForm(forms.ModelForm):
+    """
+    Form for users to submit reviews for a restaurant.
+    """
+
+    class Meta:
+        model = Review
+        fields = ["rating", "comment"]
+        widgets = {
+            "rating": forms.Select(
+                choices=[(i, f"{i} Star{'s' if i > 1 else ''}") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "comment": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Write your review here...",
+                }
+            ),
+        }
+
+
+class ModerationReportForm(forms.ModelForm):
+    """
+    Form for users to report content or other users.
+    """
+
+    class Meta:
+        model = ModerationReport
+        fields = ["reason", "details"]
+        widgets = {
+            "reason": forms.Select(attrs={"class": "form-control"}),
+            "details": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Provide more details about why you are reporting this...",
+                }
+            ),
+        }

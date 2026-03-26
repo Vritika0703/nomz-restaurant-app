@@ -1,228 +1,37 @@
 from django.http import HttpResponseForbidden, JsonResponse
+from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.models import User
 from django.contrib import messages
+from django.db.models import Q, Avg
 from django.views.decorators.http import require_http_methods, require_POST
-from nomz.ingestion.utils.score import compute_composite_score_from_records
-from .filtering import (
-    DIETARY_OPTIONS,
-    parse_bool,
-    apply_open_now_filter,
-    apply_restaurant_filters,
-    restaurant_ordering,
-)
 from .forms import (
-    AdminLoginForm,
     UserRegisterForm,
+    AdminLoginForm,
     RestaurantProfileForm,
     RestaurantOwnershipClaimForm,
     RestaurantAvailabilityForm,
     RestaurantActivationForm,
     RestaurantPhotoForm,
     UserPreferenceForm,
+    ReviewForm,
+    ModerationReportForm,
 )
+from django.contrib.auth.models import User
 from .models import (
-    LoginLog,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
     UserPreference,
     UserProfile,
+    LoginLog,
+    Review,
+    ModerationReport,
+    SystemAuditLog,
 )
-
-
-def _to_float(value):
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
-def _build_restaurant_score_insights(restaurant):
-    latest_inspection = restaurant.inspections.order_by(
-        "-inspection_date", "-id"
-    ).first()
-    if latest_inspection is not None:
-        latest_score_data = compute_composite_score_from_records([latest_inspection])
-    else:
-        latest_score_data = {
-            "composite_score": None,
-            "grade": "",
-            "grade_score": None,
-            "violation_score": 0.0,
-            "recency_score": 0.0,
-            "last_inspection_date": None,
-            "critical_violations": 0,
-            "noncritical_violations": 0,
-        }
-
-    composite_score_value = (
-        _to_float(restaurant.composite_score)
-        if restaurant.composite_score is not None
-        else _to_float(latest_score_data.get("composite_score"))
-    )
-    grade_score_value = (
-        int(restaurant.grade_score_latest)
-        if restaurant.grade_score_latest is not None
-        else int(latest_score_data.get("grade_score") or 0)
-    )
-    grade_value = (
-        restaurant.grade_latest or latest_score_data.get("grade") or ""
-    ).strip()
-    last_inspection_date_value = (
-        restaurant.last_inspection_date or latest_score_data.get("last_inspection_date")
-    )
-
-    violation_score = float(latest_score_data.get("violation_score") or 0.0)
-    recency_score = float(latest_score_data.get("recency_score") or 0.0)
-    critical_violations = int(latest_score_data.get("critical_violations") or 0)
-    noncritical_violations = int(latest_score_data.get("noncritical_violations") or 0)
-
-    score_summary = {
-        "composite_score": composite_score_value,
-        "grade": grade_value or "N/A",
-        "grade_score": grade_score_value,
-        "last_inspection_date": last_inspection_date_value,
-    }
-
-    score_breakdown = [
-        {
-            "label": "Grade Quality",
-            "raw_value": grade_score_value,
-            "weight_percent": 50,
-            "weighted_contribution": round(grade_score_value * 0.50, 2),
-            "description": f"Latest grade: {grade_value or 'Not graded'}",
-        },
-        {
-            "label": "Violation Profile",
-            "raw_value": round(violation_score, 2),
-            "weight_percent": 35,
-            "weighted_contribution": round(violation_score * 0.35, 2),
-            "description": (
-                f"Critical: {critical_violations}, Non-critical: {noncritical_violations}"
-            ),
-        },
-        {
-            "label": "Inspection Recency",
-            "raw_value": round(recency_score, 2),
-            "weight_percent": 15,
-            "weighted_contribution": round(recency_score * 0.15, 2),
-            "description": (
-                f"Last inspected: {last_inspection_date_value}"
-                if last_inspection_date_value
-                else "No inspection date available"
-            ),
-        },
-    ]
-
-    trend_rows = list(restaurant.inspections.order_by("-inspection_date", "-id")[:8])
-    trend_rows.reverse()
-    trend_points = []
-    for inspection in trend_rows:
-        point_score = compute_composite_score_from_records([inspection])
-        trend_points.append(
-            {
-                "date": inspection.inspection_date.isoformat(),
-                "label": inspection.inspection_date.strftime("%b %d, %Y"),
-                "composite_score": _to_float(point_score.get("composite_score")) or 0.0,
-                "grade": (inspection.grade or "").strip().upper() or "N/A",
-                "grade_score": int(point_score.get("grade_score") or 0),
-                "critical_violations": int(inspection.critical_violations or 0),
-                "noncritical_violations": int(inspection.noncritical_violations or 0),
-                "inspection_type": inspection.inspection_type or "",
-            }
-        )
-
-    trend_summary = {
-        "direction": "flat",
-        "delta": 0.0,
-        "has_data": bool(trend_points),
-    }
-    if len(trend_points) >= 2:
-        delta = round(
-            trend_points[-1]["composite_score"] - trend_points[0]["composite_score"], 2
-        )
-        trend_summary["delta"] = delta
-        if delta > 1:
-            trend_summary["direction"] = "up"
-        elif delta < -1:
-            trend_summary["direction"] = "down"
-
-    location_scope = ""
-    peers = Restaurant.objects.filter(is_active=True, composite_score__isnull=False)
-    if restaurant.neighborhood:
-        peers = peers.filter(neighborhood__iexact=restaurant.neighborhood)
-        location_scope = restaurant.neighborhood
-    elif restaurant.borough:
-        peers = peers.filter(borough__iexact=restaurant.borough)
-        location_scope = restaurant.borough
-    elif restaurant.zip_code:
-        peers = peers.filter(zip_code__startswith=(restaurant.zip_code or "")[:5])
-        location_scope = (restaurant.zip_code or "")[:5]
-    else:
-        location_scope = "citywide"
-
-    peer_rows = list(peers.values("id", "composite_score"))
-    peer_count = len(peer_rows)
-    neighborhood_comparison = {
-        "location_scope": location_scope,
-        "peer_count": peer_count,
-        "rank": None,
-        "percentile": None,
-        "average_score": None,
-        "delta_vs_average": None,
-    }
-
-    if composite_score_value is not None and peer_count > 0:
-        sorted_rows = sorted(
-            peer_rows,
-            key=lambda item: float(item["composite_score"]),
-            reverse=True,
-        )
-        restaurant_rank = next(
-            (
-                index + 1
-                for index, item in enumerate(sorted_rows)
-                if item["id"] == restaurant.id
-            ),
-            None,
-        )
-        if restaurant_rank is None:
-            restaurant_rank = (
-                sum(
-                    1
-                    for item in sorted_rows
-                    if float(item["composite_score"]) > composite_score_value
-                )
-                + 1
-            )
-
-        average_score = round(
-            sum(float(item["composite_score"]) for item in peer_rows) / peer_count,
-            2,
-        )
-        percentile = round(((peer_count - restaurant_rank + 1) / peer_count) * 100, 1)
-        neighborhood_comparison.update(
-            {
-                "rank": restaurant_rank,
-                "percentile": percentile,
-                "average_score": average_score,
-                "delta_vs_average": round(composite_score_value - average_score, 2),
-            }
-        )
-
-    return {
-        "score_summary": score_summary,
-        "score_breakdown": score_breakdown,
-        "trend_points": trend_points,
-        "trend_summary": trend_summary,
-        "neighborhood_comparison": neighborhood_comparison,
-    }
+from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 
 def landing_page(request):
@@ -231,8 +40,19 @@ def landing_page(request):
     Shows "Nomz" with "Click to start" message
     Always shows splash screen regardless of authentication status
     """
+    if request.user.is_authenticated:
+        return redirect("dashboard")
+
+    return render(request, "nomz/splash.html")
+
+
+def signin_page(request):
+    """
+    Sign In page - displays login form
+    """
     context = {
         "is_authenticated": request.user.is_authenticated,
+        "title": "Sign In",
     }
     return render(request, "nomz/splash.html", context)
 
@@ -242,10 +62,16 @@ def home(request):
     Home page view - displays different content based on authentication status.
     Restaurant users are redirected to their profile instead.
     """
-    # If user is authenticated and is a restaurant, redirect to profile
-    if request.user.is_authenticated and hasattr(request.user, "userprofile"):
-        if request.user.userprofile.role == "restaurant":
-            return redirect("profile")
+    # If user is authenticated
+    if request.user.is_authenticated:
+        # Redirect staff/admins to dashboard
+        if request.user.is_staff or request.user.is_superuser:
+            return redirect("dashboard")
+
+        # Redirect restaurants to profile
+        if hasattr(request.user, "userprofile"):
+            if request.user.userprofile.role == "restaurant":
+                return redirect("profile")
 
     context = {
         "title": "Home",
@@ -271,10 +97,12 @@ def health_check(request):
     Lightweight health endpoint for ELB/EB health checks.
     Must return HTTP 200 quickly and without auth redirects.
     """
+    # Best-effort dependency checks. Keep it fast and avoid expensive ORM work.
     try:
         perform_dependency_health_checks()
         return JsonResponse({"status": "ok"}, status=200)
     except Exception as exc:
+        # Let monitoring middleware convert non-200 responses into alerts/audit logs.
         return JsonResponse({"status": "degraded", "error": str(exc)[:200]}, status=503)
 
 
@@ -282,37 +110,48 @@ def map_view(request):
     """
     Render interactive restaurant map page with filters and server-provided options.
     """
-    restaurants = apply_restaurant_filters(
-        Restaurant.objects.all(),
-        params=request.GET,
-        require_coordinates=True,
+    restaurants = Restaurant.objects.filter(
+        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
+        is_active=True,
+        latitude__isnull=False,
+        longitude__isnull=False,
     )
     boroughs = sorted(
         {
             borough.strip().title()
-            for borough in Restaurant.objects.filter(
-                is_active=True, latitude__isnull=False, longitude__isnull=False
-            ).values_list("borough", flat=True)
+            for borough in restaurants.values_list("borough", flat=True)
             if borough
         }
     )
 
     search = request.GET.get("search", "").strip()
     borough = request.GET.get("borough", "").strip()
-    cuisine = request.GET.get("cuisine", "").strip()
     min_score = request.GET.get("min_score", "").strip()
     max_score = request.GET.get("max_score", "").strip()
-    price_range = request.GET.get("price_range", "").strip()
-    min_rating = request.GET.get("min_rating", "").strip()
-    dietary = request.GET.getlist("dietary") if hasattr(request, "GET") else []
-    sort_by = request.GET.get("sort_by", "score_desc").strip()
-    open_now = parse_bool(request.GET.get("open_now"))
+    cuisine = request.GET.get("cuisine", "").strip()
+    sort_by = normalize_sort_key(request.GET.get("sort_by", "composite_desc"))
 
-    if open_now:
-        ordered = restaurants.order_by(*restaurant_ordering(sort_by))[:2000]
-        restaurant_count = len(apply_open_now_filter(ordered))
-    else:
-        restaurant_count = restaurants.count()
+    if search:
+        restaurants = restaurants.filter(
+            Q(name__icontains=search)
+            | Q(street__icontains=search)
+            | Q(zip_code__icontains=search)
+            | Q(borough__icontains=search)
+        )
+    if borough:
+        restaurants = restaurants.filter(borough__iexact=borough)
+    if cuisine:
+        restaurants = restaurants.filter(cuisine_tags__icontains=cuisine)
+    if min_score:
+        try:
+            restaurants = restaurants.filter(composite_score__gte=float(min_score))
+        except ValueError:
+            min_score = ""
+    if max_score:
+        try:
+            restaurants = restaurants.filter(composite_score__lte=float(max_score))
+        except ValueError:
+            max_score = ""
 
     cuisines = set()
     for row in restaurants.values_list("cuisine_tags", flat=True):
@@ -326,16 +165,10 @@ def map_view(request):
         "min_score": min_score,
         "max_score": max_score,
         "cuisine": cuisine,
-        "price_range": price_range,
-        "min_rating": min_rating,
-        "dietary": [item.lower() for item in dietary if item],
-        "open_now": open_now,
         "sort_by": sort_by,
         "boroughs": boroughs,
         "cuisines": sorted(filter(None, (item.title() for item in cuisines))),
-        "price_ranges": Restaurant.PRICE_CHOICES,
-        "dietary_options": DIETARY_OPTIONS,
-        "restaurant_count": restaurant_count,
+        "restaurant_count": restaurants.count(),
     }
     return render(request, "nomz/map.html", context)
 
@@ -370,13 +203,14 @@ def register(request):
 @require_http_methods(["GET", "POST"])
 def admin_login(request):
     """
-    Secure login for administrators only.
+    Secure Login for administrators only.
     Requires a specialized form with a security code.
     """
     if request.user.is_authenticated:
         if request.user.is_staff or request.user.is_superuser:
             return redirect("dashboard")
-        logout(request)
+        else:
+            logout(request)  # Logout if non-admin somehow got here
 
     if request.method == "POST":
         form = AdminLoginForm(request, data=request.POST)
@@ -387,6 +221,9 @@ def admin_login(request):
             login(request, user)
             messages.success(request, f"Admin session established for {username}.")
             return redirect("dashboard")
+        else:
+            # Login failures are logged by signals
+            pass
     else:
         form = AdminLoginForm()
 
@@ -405,6 +242,7 @@ def admin_login_logs(request):
 def admin_manage_users(request):
     users = User.objects.all().exclude(pk=request.user.pk).order_by("-date_joined")
 
+    # Identify users with suspicious login activity
     from django.db.models import Exists, OuterRef
 
     suspicious_logs = LoginLog.objects.filter(
@@ -459,6 +297,17 @@ def dashboard(request):
         "user": request.user,
         "role": role,
         "preferences": preferences,  # Add this to context
+        "is_approved": (
+            getattr(request.user.userprofile, "is_approved", True)
+            if hasattr(request.user, "userprofile")
+            else True
+        ),
+        "is_rejected": (
+            getattr(request.user.userprofile, "is_rejected", False)
+            if hasattr(request.user, "userprofile")
+            else False
+        ),
+        "reviews_written": Review.objects.filter(user=request.user).count(),
     }
 
     if role == "restaurant":
@@ -478,18 +327,46 @@ def dashboard(request):
         context["restaurant"] = restaurant
         context["active_claim"] = active_claim
         context["recent_claims"] = recent_claims
-        if restaurant is not None:
-            context.update(_build_restaurant_score_insights(restaurant))
+        if restaurant:
+            # Fetch reviews
+            reviews = restaurant.reviews.all().order_by("-created_at")
+            context["reviews"] = reviews
+
+            # Calculate average rating
+            avg_rating = reviews.filter(is_deleted=False).aggregate(Avg("rating"))[
+                "rating__avg"
+            ]
+            context["average_rating"] = round(avg_rating, 1) if avg_rating else None
         return render(request, "nomz/restaurant_dashboard.html", context)
     elif role == "admin":
+        # Enhanced metrics for Issue #45 and #46
+        # Fetch all user profiles for management
         all_users = (
             User.objects.all().select_related("userprofile").order_by("-date_joined")
         )
         diner_count = UserProfile.objects.filter(role="diner").count()
         restaurant_count = Restaurant.objects.count()
+
+        # Recent activities (Logins)
         recent_logins = LoginLog.objects.all().order_by("-timestamp")[:10]
+
+        # Security stats
         suspicious_count = LoginLog.objects.filter(is_suspicious=True).count()
 
+        # Business account approvals metrics (Issue #53)
+        pending_approval_count = UserProfile.objects.filter(
+            role="restaurant", is_approved=False, is_rejected=False
+        ).count()
+
+        approved_business_count = UserProfile.objects.filter(
+            role="restaurant", is_approved=True
+        ).count()
+
+        rejected_business_count = UserProfile.objects.filter(
+            role="restaurant", is_rejected=True
+        ).count()
+        # Moderation metrics
+        pending_report_count = ModerationReport.objects.filter(status="PENDING").count()
         context.update(
             {
                 "all_users": all_users,
@@ -498,29 +375,16 @@ def dashboard(request):
                 "recent_logins": recent_logins,
                 "suspicious_count": suspicious_count,
                 "total_users": User.objects.count(),
+                "approved_business_count": approved_business_count,
+                "pending_approval_count": pending_approval_count,
+                "rejected_business_count": rejected_business_count,
+                "pending_report_count": pending_report_count,
             }
         )
         return render(request, "nomz/admin_dashboard.html", context)
     else:
         # This matches the user_dashboard.html where your taste profile code is
         return render(request, "nomz/user_dashboard.html", context)
-
-
-@login_required(login_url="landing")
-@require_http_methods(["POST"])
-def user_logout(request):
-    """
-    User logout view
-    Logs out the user and redirects to login page
-    """
-    logout(request)
-    messages.success(request, "You have been logged out successfully.")
-    return redirect("signin")
-
-
-# ============================================================================
-# RESTAURANT PROFILE MANAGEMENT VIEWS
-# ============================================================================
 
 
 def is_restaurant_owner(user):
@@ -531,23 +395,21 @@ def is_restaurant_owner(user):
 @login_required(login_url="landing")
 def restaurant_profile(request):
     """
-    Legacy route for restaurant profile page.
-    Restaurant owners can access; diners/admins are redirected.
+    View restaurant owner's profile page
+    Shows restaurant details, photos, and status
     """
     if not is_restaurant_owner(request.user):
-        return redirect("profile")
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect("dashboard")
 
     restaurant = Restaurant.objects.filter(owner=request.user).first()
     context = {
         "title": "Restaurant Profile",
-        "user": request.user,
-        "role": "restaurant",
         "restaurant": restaurant,
-        "active_claim": None,
-        "recent_claims": [],
+        "user": request.user,
+        "is_approved": request.user.userprofile.is_approved,
+        "is_rejected": request.user.userprofile.is_rejected,
     }
-    if restaurant is not None:
-        context.update(_build_restaurant_score_insights(restaurant))
     return render(request, "nomz/restaurant_dashboard.html", context)
 
 
@@ -620,6 +482,23 @@ def claim_restaurant(request):
 
 
 @login_required(login_url="landing")
+@require_http_methods(["POST"])
+def user_logout(request):
+    """
+    User logout view
+    Logs out the user and redirects to login page
+    """
+    logout(request)
+    messages.success(request, "You have been logged out successfully.")
+    return redirect("signin")
+
+
+# ============================================================================
+# RESTAURANT PROFILE MANAGEMENT VIEWS
+# ============================================================================
+
+
+@login_required(login_url="landing")
 @require_http_methods(["GET", "POST"])
 def create_restaurant_profile(request):
     """
@@ -674,8 +553,14 @@ def edit_restaurant_profile(request):
     if request.method == "POST":
         form = RestaurantProfileForm(request.POST, instance=restaurant)
         if form.is_valid():
+            profile = request.user.userprofile
+            profile.is_approved = False
+            profile.is_rejected = False
+            profile.save()
             form.save()
-            messages.success(request, "Restaurant profile updated successfully!")
+            messages.success(
+                request, "Restaurant profile updated and re-submitted for approval!"
+            )
             return redirect("profile")
     else:
         form = RestaurantProfileForm(instance=restaurant)
@@ -851,44 +736,59 @@ def set_primary_photo(request, photo_id):
     return redirect("restaurant_photos")
 
 
+@login_required(login_url="login")
 def restaurant_search(request):
-    query = request.GET.get("q", "")
-    neighborhood = request.GET.get("neighborhood", "")
-    cuisine = request.GET.get("cuisine", "")
-    price_range = request.GET.get("price_range", "")
-    min_rating = request.GET.get("min_rating", "")
-    min_composite = request.GET.get("min_composite_score", "")
-    max_composite = request.GET.get("max_composite_score", "")
-    dietary = request.GET.getlist("dietary") if hasattr(request, "GET") else []
-    open_now = parse_bool(request.GET.get("open_now"))
-    sort_by = request.GET.get("sort_by", "score_desc")
+    query = request.GET.get("q", "").strip()
+    neighborhood = request.GET.get("neighborhood", "").strip()
+    sort_by = normalize_sort_key(request.GET.get("sort_by", "composite_desc"))
 
-    results = apply_restaurant_filters(
-        Restaurant.objects.filter(is_active=True),
-        params=request.GET,
-        require_coordinates=False,
-    ).order_by(*restaurant_ordering(sort_by))
+    base_restaurants = Restaurant.objects.filter(
+        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True), is_active=True
+    )
+    if query:
+        base_restaurants = base_restaurants.filter(
+            Q(name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(cuisine__icontains=query)
+            | Q(cuisine_type__icontains=query)
+            | Q(cuisine_tags__icontains=query)
+        )
+    if neighborhood:
+        base_restaurants = base_restaurants.filter(
+            Q(neighborhood__iexact=neighborhood) | Q(borough__iexact=neighborhood)
+        )
 
-    if open_now:
-        results = apply_open_now_filter(results)
-    else:
-        results = list(results)
+    base_restaurants = sort_restaurant_queryset(base_restaurants, sort_by)
+
+    results = []
+    for restaurant in base_restaurants:
+        fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
+        if not fallback_cuisine and restaurant.cuisine_tags:
+            fallback_cuisine = ", ".join(
+                str(tag) for tag in restaurant.cuisine_tags[:3]
+            )
+        results.append(
+            {
+                "id": restaurant.id,
+                "name": restaurant.name,
+                "description": restaurant.description or "",
+                "cuisine": fallback_cuisine,
+                "neighborhood": restaurant.neighborhood or restaurant.borough or "",
+                "composite_score": restaurant.composite_score,
+                "price_label": restaurant.get_price_range_display(),
+                "rating_score": restaurant.grade_score_latest,
+                "is_flagged": restaurant.is_flagged,
+            }
+        )
 
     all_neighborhoods = sorted(
         {
-            restaurant.neighborhood or restaurant.borough
-            for restaurant in Restaurant.objects.filter(is_active=True)
-            if (restaurant.neighborhood or restaurant.borough)
-        }
-    )
-
-    cuisines = sorted(
-        {
-            (item or "").strip().title()
-            for item in Restaurant.objects.values_list("cuisine", flat=True).filter(
-                is_active=True
+            r.neighborhood or r.borough
+            for r in Restaurant.objects.filter(
+                Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
+                is_active=True,
             )
-            if item
+            if (r.neighborhood or r.borough)
         }
     )
 
@@ -899,21 +799,13 @@ def restaurant_search(request):
             "results": results,
             "query": query,
             "neighborhood": neighborhood,
-            "all_neighborhoods": all_neighborhoods,
-            "cuisines": cuisines,
-            "all_price_ranges": Restaurant.PRICE_CHOICES,
-            "dietary_values": [item.lower() for item in dietary if item],
-            "dietary_options": DIETARY_OPTIONS,
-            "min_rating": min_rating,
-            "min_composite": min_composite,
-            "max_composite": max_composite,
-            "price_range": price_range,
-            "cuisine_filter": cuisine,
-            "open_now": open_now,
             "sort_by": sort_by,
-            "count": len(results),
+            "all_neighborhoods": all_neighborhoods,
         },
     )
+
+
+# Add this to views.py
 
 
 @login_required(login_url="landing")
@@ -940,6 +832,8 @@ def manage_preferences(request):
     )
 
 
+@login_required(login_url="landing")
+@require_POST
 def admin_toggle_user_status(request, user_id):
     """
     Directly toggle user active status from the admin dashboard.
@@ -975,3 +869,292 @@ def admin_toggle_user_status(request, user_id):
         user_to_change.save()
 
     return redirect("dashboard")
+
+
+@staff_member_required
+def admin_pending_approvals(request):
+    """
+    Dedicated view to manage pending restaurant registrations.
+    """
+    pending_approvals = (
+        User.objects.filter(
+            userprofile__role="restaurant",
+            userprofile__is_approved=False,
+            userprofile__is_rejected=False,
+        )
+        .select_related("userprofile")
+        .order_by("-date_joined")
+    )
+
+    context = {
+        "title": "Pending Approvals",
+        "pending_approvals": pending_approvals,
+    }
+    return render(request, "nomz/admin_pending_approvals.html", context)
+
+
+@staff_member_required
+@require_POST
+def admin_approve_restaurant(request, user_id):
+    """
+    Approve a pending restaurant owner account.
+    """
+    user_to_approve = get_object_or_404(User, id=user_id)
+    if hasattr(user_to_approve, "userprofile"):
+        profile = user_to_approve.userprofile
+        profile.is_approved = True
+        profile.is_rejected = False
+        profile.save()
+        messages.success(
+            request, f"Restaurant account for {user_to_approve.username} approved!"
+        )
+    return redirect("dashboard")
+
+
+@staff_member_required
+def admin_approved_accounts(request):
+    """
+    Dedicated view to manage already approved restaurant accounts.
+    """
+    approved_accounts = (
+        User.objects.filter(
+            userprofile__role="restaurant", userprofile__is_approved=True
+        )
+        .select_related("userprofile")
+        .order_by("-date_joined")
+    )
+
+    context = {
+        "title": "Approved Accounts",
+        "approved_accounts": approved_accounts,
+    }
+    return render(request, "nomz/admin_approved_list.html", context)
+
+
+@staff_member_required
+def admin_rejected_accounts(request):
+    """
+    Dedicated view to manage rejected restaurant accounts.
+    """
+    rejected_accounts = (
+        User.objects.filter(
+            userprofile__role="restaurant", userprofile__is_rejected=True
+        )
+        .select_related("userprofile")
+        .order_by("-date_joined")
+    )
+
+    context = {
+        "title": "Rejected Accounts",
+        "rejected_accounts": rejected_accounts,
+    }
+    return render(request, "nomz/admin_rejected_list.html", context)
+
+
+@staff_member_required
+@require_POST
+def admin_reject_restaurant(request, user_id):
+    """
+    Reject a restaurant owner account (works for pending and approved).
+    """
+    user_to_reject = get_object_or_404(User, id=user_id)
+    # We NO LONGER set is_active=False to allow login as requested.
+
+    if hasattr(user_to_reject, "userprofile"):
+        profile = user_to_reject.userprofile
+        profile.is_approved = False
+        profile.is_rejected = True
+        profile.save()
+
+    messages.warning(
+        request, f"Restaurant account for {user_to_reject.username} has been REJECTED."
+    )
+    return redirect("dashboard")
+
+
+# ============================================================================
+# MODERATION & REVIEW VIEWS
+# ============================================================================
+
+
+@login_required(login_url="landing")
+def add_review(request, restaurant_id):
+    """
+    Allow users to submit a review for a restaurant.
+    """
+    restaurant = get_object_or_404(Restaurant, id=restaurant_id)
+    if request.method == "POST":
+        form = ReviewForm(request.POST)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.restaurant = restaurant
+            review.user = request.user
+            review.save()
+            messages.success(request, "Your review has been posted!")
+            return redirect("restaurant_search")
+    else:
+        form = ReviewForm()
+
+    context = {
+        "title": f"Review {restaurant.name}",
+        "form": form,
+        "restaurant": restaurant,
+    }
+    return render(request, "nomz/add_review.html", context)
+
+
+@login_required(login_url="landing")
+def report_content(request, content_type, content_id):
+    """
+    Allow users to report a review or another user.
+    """
+    review = None
+    reported_user = None
+
+    if content_type == "review":
+        review = get_object_or_404(Review, id=content_id)
+    elif content_type == "user":
+        reported_user = get_object_or_404(User, id=content_id)
+    else:
+        messages.error(request, "Invalid report target.")
+        return redirect("dashboard")
+
+    if request.method == "POST":
+        form = ModerationReportForm(request.POST)
+        if form.is_valid():
+            report = form.save(commit=False)
+            report.reporter = request.user
+            report.review = review
+            report.reported_user = reported_user
+            report.save()
+            messages.success(
+                request, "Thank you. Your report has been submitted for review."
+            )
+            return redirect("dashboard")
+    else:
+        form = ModerationReportForm()
+
+    context = {
+        "title": "Report Content",
+        "form": form,
+        "content_type": content_type,
+        "target": review or reported_user,
+    }
+    return render(request, "nomz/report_content.html", context)
+
+
+@staff_member_required
+def admin_moderation_dashboard(request):
+    """
+    Dashboard for admins to manage pending reports.
+    """
+    pending_reports = ModerationReport.objects.filter(status="PENDING").order_by(
+        "-created_at"
+    )
+    resolved_reports = ModerationReport.objects.exclude(status="PENDING").order_by(
+        "-created_at"
+    )[:20]
+
+    context = {
+        "title": "Moderation Dashboard",
+        "pending_reports": pending_reports,
+        "resolved_reports": resolved_reports,
+    }
+    return render(request, "nomz/admin_moderation.html", context)
+
+
+@staff_member_required
+@require_POST
+def admin_resolve_report(request, report_id):
+    """
+    Admins can take action on a report.
+    """
+    report = get_object_or_404(ModerationReport, id=report_id)
+    action = request.POST.get("action")
+    moderator_note = request.POST.get("moderator_note", "")
+
+    if action == "dismiss":
+        report.status = "DISMISSED"
+        report.action_taken = "No action taken"
+    elif action == "flag_fraud":
+        if report.review:
+            report.review.is_flagged = True
+            report.review.save()
+            report.action_taken = "Review flagged as fraudulent"
+        elif report.reported_user:
+            # Set flag on UserProfile
+            if hasattr(report.reported_user, "userprofile"):
+                report.reported_user.userprofile.is_flagged = True
+                report.reported_user.userprofile.save()
+
+            # Set flag on all Restaurants owned by this user
+            Restaurant.objects.filter(owner=report.reported_user).update(
+                is_flagged=True
+            )
+
+            report.action_taken = "User and associated restaurant(s) flagged for fraud"
+        report.status = "RESOLVED"
+    elif action == "unflag":
+        if report.review:
+            report.review.is_flagged = False
+            report.review.save()
+            report.action_taken = "Review un-flagged"
+        elif report.reported_user:
+            # Remove flag on UserProfile
+            if hasattr(report.reported_user, "userprofile"):
+                report.reported_user.userprofile.is_flagged = False
+                report.reported_user.userprofile.save()
+
+            # Remove flag on all Restaurants owned by this user
+            Restaurant.objects.filter(owner=report.reported_user).update(
+                is_flagged=False
+            )
+
+            report.action_taken = "User and associated restaurant(s) un-flagged"
+        report.status = "PENDING"
+    elif action == "delete":
+        if report.review:
+            report.review.is_deleted = True
+            report.review.save()
+            report.action_taken = "Review soft-deleted"
+        report.status = "RESOLVED"
+    elif action == "reevaluate":
+        report.status = "PENDING"
+        report.action_taken = "Moved back to pending for re-evaluation"
+
+    report.moderator_note = moderator_note
+    report.resolved_at = timezone.now()
+    report.save()
+
+    # Audit logging
+    SystemAuditLog.objects.create(
+        actor_user=request.user,
+        actor_username=request.user.username,
+        level="WARNING" if action != "dismiss" else "INFO",
+        action=f"moderation_{action}",
+        request_path=request.path,
+        http_method=request.method,
+        ip_address=request.META.get("REMOTE_ADDR"),
+        metadata={
+            "report_id": report.id,
+            "action": action,
+            "target": str(report),
+        },
+    )
+
+    messages.success(request, f"Report {report_id} has been {report.status.lower()}.")
+    return redirect("admin_moderation_dashboard")
+
+
+@login_required(login_url="landing")
+def restaurant_detail(request, restaurant_id):
+    """
+    Public detail page for a restaurant to view info and reviews.
+    """
+    restaurant = get_object_or_404(Restaurant, id=restaurant_id)
+    reviews = restaurant.reviews.filter(is_deleted=False).order_by("-created_at")
+    return render(
+        request,
+        "nomz/restaurant_detail.html",
+        {"restaurant": restaurant, "reviews": reviews},
+    )

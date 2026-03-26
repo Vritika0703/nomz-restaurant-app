@@ -215,10 +215,15 @@
             <div class="col-md-2">
                 <label for="sort_by" class="form-label">Sort by</label>
                 <select id="sort_by" name="sort_by" class="form-select">
-                    <option value="score_desc" {% if sort_by == 'score_desc' %}selected{% endif %}>Score: High to Low</option>
-                    <option value="score_asc" {% if sort_by == 'score_asc' %}selected{% endif %}>Score: Low to High</option>
-                    <option value="name_asc" {% if sort_by == 'name_asc' %}selected{% endif %}>Name: A to Z</option>
-                    <option value="name_desc" {% if sort_by == 'name_desc' %}selected{% endif %}>Name: Z to A</option>
+                    <option value="composite_desc" {% if sort_by == 'composite_desc' %}selected{% endif %}>Composite: High → Low</option>
+                    <option value="composite_asc" {% if sort_by == 'composite_asc' %}selected{% endif %}>Composite: Low → High</option>
+                    <option value="rating_desc" {% if sort_by == 'rating_desc' %}selected{% endif %}>Rating: High → Low</option>
+                    <option value="rating_asc" {% if sort_by == 'rating_asc' %}selected{% endif %}>Rating: Low → High</option>
+                    <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Price: Low → High</option>
+                    <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Price: High → Low</option>
+                    <option value="popularity_desc" {% if sort_by == 'popularity_desc' %}selected{% endif %}>Popularity</option>
+                    <option value="name_asc" {% if sort_by == 'name_asc' %}selected{% endif %}>Name: A → Z</option>
+                    <option value="name_desc" {% if sort_by == 'name_desc' %}selected{% endif %}>Name: Z → A</option>
                 </select>
             </div>
             <div class="col-md-2">
