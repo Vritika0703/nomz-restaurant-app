@@ -30,6 +30,7 @@ urlpatterns = [
     path("restaurant-profile/", views.restaurant_profile, name="restaurant_profile"),
     path("search/", views.restaurant_search, name="restaurant_search"),
     path("preferences/", views.manage_preferences, name="manage_preferences"),
+    path("recommendations/", views.recommendations, name="recommendations"),
     # Restaurant Profile Management
     path(
         "restaurant/create/", views.create_restaurant_profile, name="create_restaurant"

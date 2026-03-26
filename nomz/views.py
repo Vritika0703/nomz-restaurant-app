@@ -29,7 +29,11 @@ from .models import (
     ModerationReport,
     SystemAuditLog,
 )
-from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
+from .restaurant_sorting import (
+    normalize_sort_key,
+    sort_restaurant_queryset,
+    recommend_restaurants_for_user,
+)
 
 
 def landing_page(request):
@@ -283,11 +287,28 @@ def dashboard(request):
     except UserPreference.DoesNotExist:
         preferences = None
 
+    # 3. Recommendations - powered by saved preferences
+    recommended_restaurants = []
+    recommendation_message = ""
+    if preferences:
+        recommended_restaurants = recommend_restaurants_for_user(request.user, limit=8)
+        if not recommended_restaurants:
+            recommendation_message = (
+                "No restaurants match your saved preferences yet. "
+                "Try expanding cuisine options, price range, or neighborhood."
+            )
+    else:
+        recommendation_message = (
+            "Please save your dining preferences to show personalized recommendations."
+        )
+
     context = {
         "title": "Dashboard",
         "user": request.user,
         "role": role,
         "preferences": preferences,  # Add this to context
+        "recommended_restaurants": recommended_restaurants,
+        "recommendation_message": recommendation_message,
         "is_approved": (
             getattr(request.user.userprofile, "is_approved", True)
             if hasattr(request.user, "userprofile")
@@ -739,6 +760,41 @@ def manage_preferences(request):
         request,
         "nomz/manage_preferences.html",
         {"form": form, "title": "My Preferences"},
+    )
+
+
+@login_required(login_url="landing")
+def recommendations(request):
+    """Show personalized restaurant recommendations."""
+    try:
+        preferences = request.user.preferences
+    except UserPreference.DoesNotExist:
+        preferences = None
+
+    if not preferences:
+        messages.warning(
+            request,
+            "Please set your preferences first so we can suggest restaurants for you.",
+        )
+        return redirect("manage_preferences")
+
+    recommended_restaurants = recommend_restaurants_for_user(request.user, limit=20)
+    recommendation_message = ""
+    if not recommended_restaurants:
+        recommendation_message = (
+            "No restaurants currently match your saved preferences. "
+            "Try updating your preferences."
+        )
+
+    return render(
+        request,
+        "nomz/recommendations.html",
+        {
+            "title": "Recommendations",
+            "recommended_restaurants": recommended_restaurants,
+            "recommendation_message": recommendation_message,
+            "preferences": preferences,
+        },
     )
 
 
