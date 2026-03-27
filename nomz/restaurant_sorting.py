@@ -77,7 +77,11 @@ def recommend_restaurants_for_user(user, limit=10):
     except UserPreference.DoesNotExist:
         return []
 
-    if not prefs.favorite_cuisines and not prefs.dietary_restrictions and not prefs.price_preference:
+    if (
+        not prefs.favorite_cuisines
+        and not prefs.dietary_restrictions
+        and not prefs.price_preference
+    ):
         return []
 
     base_qs = Restaurant.objects.filter(is_active=True, is_flagged=False)
@@ -87,7 +91,10 @@ def recommend_restaurants_for_user(user, limit=10):
         matched = False
 
         # cuisine match
-        if prefs.favorite_cuisines and restaurant.cuisine_type in prefs.favorite_cuisines:
+        if (
+            prefs.favorite_cuisines
+            and restaurant.cuisine_type in prefs.favorite_cuisines
+        ):
             score += 5
             matched = True
 
@@ -99,9 +106,9 @@ def recommend_restaurants_for_user(user, limit=10):
         # neighborhood match
         if prefs.neighborhood_preference and prefs.neighborhood_preference.strip():
             pref_nh = prefs.neighborhood_preference.strip().lower()
-            if (restaurant.neighborhood and restaurant.neighborhood.lower() == pref_nh) or (
-                restaurant.borough and restaurant.borough.lower() == pref_nh
-            ):
+            if (
+                restaurant.neighborhood and restaurant.neighborhood.lower() == pref_nh
+            ) or (restaurant.borough and restaurant.borough.lower() == pref_nh):
                 score += 2
                 matched = True
 
@@ -112,7 +119,9 @@ def recommend_restaurants_for_user(user, limit=10):
             if restaurant.cuisine_type:
                 restaurant_tags.append(restaurant.cuisine_type.lower())
             if restaurant.cuisine_tags:
-                restaurant_tags.extend([str(x).lower() for x in restaurant.cuisine_tags])
+                restaurant_tags.extend(
+                    [str(x).lower() for x in restaurant.cuisine_tags]
+                )
 
             if "vegan" in dietary and "vegan" in restaurant_tags:
                 score += 4
@@ -143,7 +152,9 @@ def recommend_restaurants_for_user(user, limit=10):
         return score
 
     scored = [(calculate_score(r), r) for r in base_qs]
-    scored = sorted(scored, key=lambda x: (x[0], x[1].composite_score or 0), reverse=True)
+    scored = sorted(
+        scored, key=lambda x: (x[0], x[1].composite_score or 0), reverse=True
+    )
 
     # remove zero-score entries (no matching preference traits)
     filtered = [r for (points, r) in scored if points > 0]
