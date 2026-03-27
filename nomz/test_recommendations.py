@@ -153,6 +153,10 @@ class RecommendationSystemTests(TestCase):
 
     def test_cuisine_matching(self):
         """Test recommendations based on cuisine preferences."""
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian", "mexican"],
+        )
 
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
 
@@ -165,6 +169,10 @@ class RecommendationSystemTests(TestCase):
 
     def test_price_range_matching(self):
         """Test recommendations based on price preference."""
+        UserPreference.objects.create(
+            user=self.diner,
+            price_preference="$",
+        )
 
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
         rec_names = [r.name for r in recommendations]
@@ -176,6 +184,10 @@ class RecommendationSystemTests(TestCase):
 
     def test_dietary_restrictions_matching(self):
         """Test recommendations based on dietary restrictions."""
+        UserPreference.objects.create(
+            user=self.diner,
+            dietary_restrictions=["vegan"],
+        )
 
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
         rec_names = [r.name for r in recommendations]
@@ -185,6 +197,10 @@ class RecommendationSystemTests(TestCase):
 
     def test_flagged_restaurants_excluded(self):
         """Test that flagged restaurants are excluded from recommendations."""
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian"],
+        )
 
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
         rec_names = [r.name for r in recommendations]
@@ -196,6 +212,10 @@ class RecommendationSystemTests(TestCase):
 
     def test_inactive_restaurants_excluded(self):
         """Test that inactive restaurants are excluded."""
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian"],
+        )
         self.italian_restaurant.is_active = False
         self.italian_restaurant.save()
 
@@ -207,12 +227,21 @@ class RecommendationSystemTests(TestCase):
 
     def test_limit_parameter(self):
         """Test that the limit parameter works correctly."""
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian", "mexican"],
+        )
 
         recommendations = recommend_restaurants_for_user(self.diner, limit=2)
         self.assertEqual(len(recommendations), 2)
 
     def test_highest_match_first(self):
         """Test that highest scoring restaurants appear first."""
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["japanese"],
+            price_preference="$$$",
+        )
 
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
 
@@ -234,6 +263,24 @@ class RecommendationSystemTests(TestCase):
         )
         UserProfile.objects.create(user=owner7, role="restaurant")
 
+        # Create the Midtown Pizza restaurant
+        Restaurant.objects.create(
+            owner=owner7,
+            name="Midtown Pizza",
+            cuisine_type="italian",
+            price_range="$$",
+            description="Pizza in Midtown",
+            is_active=True,
+            is_flagged=False,
+            composite_score=Decimal("80.0"),
+            neighborhood="Midtown",
+        )
+
+        UserPreference.objects.create(
+            user=self.diner,
+            neighborhood_preference="Midtown",
+        )
+
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
         rec_names = [r.name for r in recommendations]
 
@@ -241,6 +288,12 @@ class RecommendationSystemTests(TestCase):
         self.assertIn("Midtown Pizza", rec_names)
 
     def test_combined_preferences(self):
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["vegan"],
+            dietary_restrictions=["vegan"],
+            price_preference="$",
+        )
 
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
         rec_names = [r.name for r in recommendations]
@@ -251,6 +304,11 @@ class RecommendationSystemTests(TestCase):
 
     def test_edge_case_no_matching_restaurants(self):
         """Test when restaurants match dietary but not other criteria still returns matches."""
+        UserPreference.objects.create(
+            user=self.diner,
+            dietary_restrictions=["vegan"],
+        )
+
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
         rec_names = [r.name for r in recommendations]
 
@@ -259,6 +317,10 @@ class RecommendationSystemTests(TestCase):
 
     def test_composite_score_boost(self):
         """Test that composite score influences ranking when cuisines match equally."""
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["japanese", "italian"],
+        )
 
         recommendations = recommend_restaurants_for_user(self.diner, limit=10)
         rec_names = [r.name for r in recommendations]
