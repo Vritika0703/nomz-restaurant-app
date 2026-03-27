@@ -878,9 +878,7 @@ def admin_pending_approvals(request):
     Dedicated view to manage pending restaurant registrations and ownership claims.
     """
     pending_approvals = (
-        User.objects.filter(
-            userprofile__role="restaurant"
-        )
+        User.objects.filter(userprofile__role="restaurant")
         .filter(
             Q(userprofile__is_approved=False, userprofile__is_rejected=False)
             | Q(restaurant_claims__status=RestaurantOwnershipClaim.STATUS_PENDING)
