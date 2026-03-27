@@ -19,7 +19,12 @@
         <div class="col-12">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-primary text-white py-3">
-                    <h5 class="mb-0 font-weight-bold">Business Registration Queue</h5>
+                    <h5 class="mb-0 font-weight-bold">
+                        Business Registration Queue
+                        {% if pending_claim_count %}
+                        <span class="badge bg-light text-dark ms-2">{{ pending_claim_count }} claim(s)</span>
+                        {% endif %}
+                    </h5>
                 </div>
                 <div class="card-body p-0">
                     {% if pending_approvals %}
@@ -29,7 +34,8 @@
                                 <tr>
                                     <th class="ps-4">Username</th>
                                     <th>Email</th>
-                                    <th>Joined</th>
+                                    <th>Request Details</th>
+                                    <th>Submitted</th>
                                     <th class="text-end pe-4">Actions</th>
                                 </tr>
                             </thead>
@@ -38,18 +44,39 @@
                                 <tr>
                                     <td class="ps-4"><strong>{{ p_user.username }}</strong></td>
                                     <td>{{ p_user.email }}</td>
-                                    <td>{{ p_user.date_joined|date:"M d, Y" }}</td>
+                                    <td>
+                                        {% if p_user.pending_claim %}
+                                            <div><strong>Claim:</strong> {{ p_user.pending_claim.restaurant.name }}</div>
+                                            <div class="text-muted small">
+                                                {{ p_user.pending_claim.business_email|default:"No business email" }}
+                                            </div>
+                                            {% if p_user.pending_claim.proof_details %}
+                                            <div class="text-muted small">
+                                                {{ p_user.pending_claim.proof_details|truncatechars:90 }}
+                                            </div>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">Account approval only (no claim submitted)</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if p_user.pending_claim %}
+                                            {{ p_user.pending_claim.created_at|date:"M d, Y" }}
+                                        {% else %}
+                                            {{ p_user.date_joined|date:"M d, Y" }}
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end pe-4">
                                         <form action="{% url 'admin_approve_restaurant' p_user.id %}" method="POST" class="d-inline">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-success btn-sm px-3 shadow-sm">
-                                                <i class="fas fa-check me-1"></i> Approve
+                                                <i class="fas fa-check me-1"></i> Approve{% if p_user.pending_claim %} Claim{% endif %}
                                             </button>
                                         </form>
                                         <form action="{% url 'admin_reject_restaurant' p_user.id %}" method="POST" class="d-inline ms-2">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-outline-danger btn-sm px-3 shadow-sm" 
-                                                    onclick="return confirm('Are you sure you want to reject this business account? It will be deactivated.');">
+                                                    onclick="return confirm('Are you sure you want to reject this business account? Pending claims (if any) will also be rejected.');">
                                                 <i class="fas fa-times me-1"></i> Reject
                                             </button>
                                         </form>

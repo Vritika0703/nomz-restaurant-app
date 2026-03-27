@@ -242,6 +242,9 @@
             <div class="form-group full-width">
                 <label for="{{ form.role.id_for_label }}">I am a...</label>
                 {{ form.role }}
+                <small style="color: #465F6E; display: block; margin-top: 0.25rem;">
+                    Restaurant owners can claim an existing listing right after signup.
+                </small>
                 {% if form.role.errors %}
                 <div class="invalid-feedback">{{ form.role.errors|striptags }}</div>
                 {% endif %}

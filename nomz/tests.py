@@ -15,6 +15,7 @@ from django.test.utils import override_settings
 from .models import (
     InspectionRecord,
     Restaurant,
+    RestaurantOwnershipClaim,
     RestaurantPhoto,
     SystemAlert,
     SystemAuditLog,
@@ -617,3 +618,111 @@ class RestaurantSortingTests(TestCase):
             names,
             ["Sort Test A", "Sort Test C", "Sort Test B"],
         )
+
+
+class RestaurantClaimFlowTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username="claim_owner",
+            email="claim@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(
+            user=self.user,
+            role="restaurant",
+            is_approved=False,
+            is_rejected=False,
+        )
+        self.unowned_restaurant = Restaurant.objects.create(
+            name="Claimable Spot",
+            is_active=True,
+            price_range="$$",
+            cuisine_type="other",
+        )
+
+    def test_register_restaurant_redirects_to_claim_page(self):
+        response = self.client.post(
+            reverse("register"),
+            {
+                "email": "newclaim@example.com",
+                "username": "newclaimuser",
+                "role": "restaurant",
+                "password1": "pass12345AA!",
+                "password2": "pass12345AA!",
+            },
+        )
+        self.assertRedirects(response, reverse("claim_restaurant"))
+
+    def test_claim_restaurant_creates_pending_claim(self):
+        self.client.login(username="claim_owner", password="pass12345")
+        response = self.client.post(
+            reverse("claim_restaurant"),
+            {
+                "restaurant": self.unowned_restaurant.pk,
+                "business_email": "owner@claimablespot.com",
+                "contact_phone": "+1 212-555-1234",
+                "proof_details": "Business license and matching domain email.",
+            },
+        )
+        self.assertRedirects(response, reverse("profile"))
+        claim = RestaurantOwnershipClaim.objects.get(
+            claimant=self.user,
+            restaurant=self.unowned_restaurant,
+        )
+        self.assertEqual(claim.status, RestaurantOwnershipClaim.STATUS_PENDING)
+
+    def test_admin_approve_restaurant_approves_claim_and_assigns_owner(self):
+        admin_user = User.objects.create_user(
+            username="claim_admin",
+            email="admin@example.com",
+            password="pass12345",
+            is_staff=True,
+            is_superuser=True,
+        )
+        claim = RestaurantOwnershipClaim.objects.create(
+            claimant=self.user,
+            restaurant=self.unowned_restaurant,
+            business_email="owner@claimablespot.com",
+            proof_details="Proof doc",
+        )
+
+        self.client.login(username="claim_admin", password="pass12345")
+        response = self.client.post(
+            reverse("admin_approve_restaurant", args=[self.user.id]),
+        )
+        self.assertRedirects(response, reverse("admin_pending_approvals"))
+
+        claim.refresh_from_db()
+        self.unowned_restaurant.refresh_from_db()
+        self.user.userprofile.refresh_from_db()
+        self.assertEqual(claim.status, RestaurantOwnershipClaim.STATUS_APPROVED)
+        self.assertEqual(self.unowned_restaurant.owner_id, self.user.id)
+        self.assertEqual(claim.reviewed_by_id, admin_user.id)
+        self.assertTrue(self.user.userprofile.is_approved)
+        self.assertFalse(self.user.userprofile.is_rejected)
+
+    def test_pending_approvals_page_includes_claim_for_approved_user(self):
+        admin_user = User.objects.create_user(
+            username="claim_admin_2",
+            email="admin2@example.com",
+            password="pass12345",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.user.userprofile.is_approved = True
+        self.user.userprofile.save(update_fields=["is_approved"])
+
+        RestaurantOwnershipClaim.objects.create(
+            claimant=self.user,
+            restaurant=self.unowned_restaurant,
+            business_email="owner@claimablespot.com",
+            proof_details="Proof doc",
+        )
+
+        self.client.login(username="claim_admin_2", password="pass12345")
+        response = self.client.get(reverse("admin_pending_approvals"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Claimable Spot")
+        self.assertContains(response, "Approve Claim")

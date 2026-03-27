@@ -5,12 +5,14 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db.models import Q, Avg
 from django.views.decorators.http import require_http_methods, require_POST
 from .forms import (
     UserRegisterForm,
     AdminLoginForm,
     RestaurantProfileForm,
+    RestaurantOwnershipClaimForm,
     RestaurantAvailabilityForm,
     RestaurantActivationForm,
     RestaurantPhotoForm,
@@ -21,6 +23,7 @@ from .forms import (
 from django.contrib.auth.models import User
 from .models import (
     Restaurant,
+    RestaurantOwnershipClaim,
     RestaurantPhoto,
     UserPreference,
     UserProfile,
@@ -181,8 +184,15 @@ def register(request):
         if form.is_valid():
             user = form.save()
             username = form.cleaned_data.get("username")
+            role = form.cleaned_data.get("role")
             messages.success(request, f"Account created successfully for {username}!")
             login(request, user)
+            if role == "restaurant":
+                messages.info(
+                    request,
+                    "Claim your restaurant listing to unlock owner controls.",
+                )
+                return redirect("claim_restaurant")
             return redirect("profile")
     else:
         form = UserRegisterForm()
@@ -304,7 +314,20 @@ def dashboard(request):
     if role == "restaurant":
         # Get the restaurant profile for the restaurant owner
         restaurant = Restaurant.objects.filter(owner=request.user).first()
+        active_claim = (
+            RestaurantOwnershipClaim.objects.filter(
+                claimant=request.user,
+                status=RestaurantOwnershipClaim.STATUS_PENDING,
+            )
+            .select_related("restaurant")
+            .first()
+        )
+        recent_claims = RestaurantOwnershipClaim.objects.filter(
+            claimant=request.user,
+        ).select_related("restaurant")[:5]
         context["restaurant"] = restaurant
+        context["active_claim"] = active_claim
+        context["recent_claims"] = recent_claims
         if restaurant:
             # Fetch reviews
             reviews = restaurant.reviews.all().order_by("-created_at")
@@ -389,6 +412,74 @@ def restaurant_profile(request):
         "is_rejected": request.user.userprofile.is_rejected,
     }
     return render(request, "nomz/restaurant_dashboard.html", context)
+
+
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def claim_restaurant(request):
+    """
+    Allow a restaurant-role user to claim ownership of an existing restaurant row.
+    Claims are reviewed before assignment.
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(
+            request, "Only restaurant owner accounts can submit ownership claims."
+        )
+        return redirect("profile")
+
+    if Restaurant.objects.filter(owner=request.user).exists():
+        messages.info(
+            request, "You already have a restaurant assigned to your account."
+        )
+        return redirect("profile")
+
+    active_claim = (
+        RestaurantOwnershipClaim.objects.filter(
+            claimant=request.user,
+            status=RestaurantOwnershipClaim.STATUS_PENDING,
+        )
+        .select_related("restaurant")
+        .first()
+    )
+
+    search_query = (
+        request.POST.get("search", "")
+        if request.method == "POST"
+        else request.GET.get("search", "")
+    )
+    form = RestaurantOwnershipClaimForm(
+        request.POST or None,
+        user=request.user,
+        search_query=search_query,
+    )
+
+    if request.method == "POST" and active_claim:
+        messages.warning(
+            request,
+            f'You already have a pending claim for "{active_claim.restaurant.name}". Please wait for review.',
+        )
+        return redirect("claim_restaurant")
+
+    if request.method == "POST" and form.is_valid():
+        claim = form.save()
+        messages.success(
+            request,
+            f'Claim submitted for "{claim.restaurant.name}". We will review your verification details shortly.',
+        )
+        return redirect("profile")
+
+    recent_claims = RestaurantOwnershipClaim.objects.filter(
+        claimant=request.user,
+    ).select_related("restaurant")[:5]
+
+    context = {
+        "title": "Claim Restaurant",
+        "form": form,
+        "search_query": search_query,
+        "active_claim": active_claim,
+        "recent_claims": recent_claims,
+    }
+    return render(request, "nomz/claim_restaurant.html", context)
 
 
 @login_required(login_url="landing")
@@ -784,21 +875,33 @@ def admin_toggle_user_status(request, user_id):
 @staff_member_required
 def admin_pending_approvals(request):
     """
-    Dedicated view to manage pending restaurant registrations.
+    Dedicated view to manage pending restaurant registrations and ownership claims.
     """
     pending_approvals = (
-        User.objects.filter(
-            userprofile__role="restaurant",
-            userprofile__is_approved=False,
-            userprofile__is_rejected=False,
+        User.objects.filter(userprofile__role="restaurant")
+        .filter(
+            Q(userprofile__is_approved=False, userprofile__is_rejected=False)
+            | Q(restaurant_claims__status=RestaurantOwnershipClaim.STATUS_PENDING)
         )
+        .distinct()
         .select_related("userprofile")
         .order_by("-date_joined")
     )
+    pending_claims = (
+        RestaurantOwnershipClaim.objects.filter(
+            status=RestaurantOwnershipClaim.STATUS_PENDING
+        )
+        .select_related("restaurant", "claimant")
+        .order_by("-created_at")
+    )
+    claims_by_user_id = {claim.claimant_id: claim for claim in pending_claims}
+    for pending_user in pending_approvals:
+        pending_user.pending_claim = claims_by_user_id.get(pending_user.id)
 
     context = {
         "title": "Pending Approvals",
         "pending_approvals": pending_approvals,
+        "pending_claim_count": pending_claims.count(),
     }
     return render(request, "nomz/admin_pending_approvals.html", context)
 
@@ -807,18 +910,49 @@ def admin_pending_approvals(request):
 @require_POST
 def admin_approve_restaurant(request, user_id):
     """
-    Approve a pending restaurant owner account.
+    Approve a pending restaurant owner account and, when present, approve
+    the user's pending ownership claim.
     """
     user_to_approve = get_object_or_404(User, id=user_id)
+    pending_claim = (
+        RestaurantOwnershipClaim.objects.filter(
+            claimant=user_to_approve,
+            status=RestaurantOwnershipClaim.STATUS_PENDING,
+        )
+        .select_related("restaurant")
+        .first()
+    )
+
+    if pending_claim:
+        try:
+            pending_claim.approve(
+                reviewer=request.user,
+                notes="Approved via admin pending approvals dashboard.",
+            )
+        except ValidationError as exc:
+            messages.error(
+                request,
+                f"Could not approve ownership claim for {user_to_approve.username}: {exc}",
+            )
+            return redirect("admin_pending_approvals")
+
     if hasattr(user_to_approve, "userprofile"):
         profile = user_to_approve.userprofile
         profile.is_approved = True
         profile.is_rejected = False
         profile.save()
+
+    if pending_claim:
+        messages.success(
+            request,
+            f"Approved {user_to_approve.username} and assigned ownership of "
+            f'"{pending_claim.restaurant.name}".',
+        )
+    else:
         messages.success(
             request, f"Restaurant account for {user_to_approve.username} approved!"
         )
-    return redirect("dashboard")
+    return redirect("admin_pending_approvals")
 
 
 @staff_member_required
@@ -865,10 +999,22 @@ def admin_rejected_accounts(request):
 @require_POST
 def admin_reject_restaurant(request, user_id):
     """
-    Reject a restaurant owner account (works for pending and approved).
+    Reject a restaurant owner account and reject pending ownership claim(s) if any.
     """
     user_to_reject = get_object_or_404(User, id=user_id)
     # We NO LONGER set is_active=False to allow login as requested.
+
+    pending_claims = RestaurantOwnershipClaim.objects.filter(
+        claimant=user_to_reject,
+        status=RestaurantOwnershipClaim.STATUS_PENDING,
+    )
+    rejected_claim_count = 0
+    for claim in pending_claims:
+        claim.reject(
+            reviewer=request.user,
+            notes="Rejected via admin pending approvals dashboard.",
+        )
+        rejected_claim_count += 1
 
     if hasattr(user_to_reject, "userprofile"):
         profile = user_to_reject.userprofile
@@ -876,10 +1022,18 @@ def admin_reject_restaurant(request, user_id):
         profile.is_rejected = True
         profile.save()
 
-    messages.warning(
-        request, f"Restaurant account for {user_to_reject.username} has been REJECTED."
-    )
-    return redirect("dashboard")
+    if rejected_claim_count:
+        messages.warning(
+            request,
+            f"Restaurant account for {user_to_reject.username} rejected. "
+            f"{rejected_claim_count} pending ownership claim(s) were also rejected.",
+        )
+    else:
+        messages.warning(
+            request,
+            f"Restaurant account for {user_to_reject.username} has been REJECTED.",
+        )
+    return redirect("admin_pending_approvals")
 
 
 # ============================================================================

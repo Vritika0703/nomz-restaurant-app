@@ -136,7 +136,14 @@
                 </div>
                 <div class="card-body">
                     <p class="lead">No restaurant profile found.</p>
-                    <a href="{% url 'create_restaurant' %}" class="btn" style="background-color: #465F6E; border-color: #465F6E; color: white;">Create Restaurant Profile</a>
+                    {% if active_claim %}
+                    <div class="alert alert-warning mb-3">
+                        You have a pending claim for <strong>{{ active_claim.restaurant.name }}</strong>.
+                    </div>
+                    {% else %}
+                    <a href="{% url 'claim_restaurant' %}" class="btn me-2" style="background-color: #465F6E; border-color: #465F6E; color: white;">Claim Existing Listing</a>
+                    {% endif %}
+                    <a href="{% url 'create_restaurant' %}" class="btn btn-outline-secondary">Create New Restaurant Profile</a>
                 </div>
             </div>
             {% endif %}

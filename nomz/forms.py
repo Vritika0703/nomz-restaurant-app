@@ -1,9 +1,11 @@
 from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.db.models import Q
 from .models import (
     UserProfile,
     Restaurant,
+    RestaurantOwnershipClaim,
     RestaurantPhoto,
     UserPreference,
     Review,
@@ -338,6 +340,112 @@ class UserPreferenceForm(forms.ModelForm):
             "price_preference",
             "neighborhood_preference",
         ]
+
+
+class RestaurantOwnershipClaimForm(forms.ModelForm):
+    restaurant = forms.ModelChoiceField(
+        queryset=Restaurant.objects.none(),
+        widget=forms.Select(attrs={"class": "form-control"}),
+        help_text="Pick your restaurant from the existing database records.",
+    )
+
+    class Meta:
+        model = RestaurantOwnershipClaim
+        fields = ["restaurant", "business_email", "contact_phone", "proof_details"]
+        labels = {
+            "business_email": "Business Email",
+            "contact_phone": "Business Phone",
+            "proof_details": "Verification Details",
+        }
+        widgets = {
+            "business_email": forms.EmailInput(
+                attrs={"class": "form-control", "placeholder": "owner@restaurant.com"}
+            ),
+            "contact_phone": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "+1 212-555-1234"}
+            ),
+            "proof_details": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": "Share proof like website manager email match, business license number, menu system access, or public listing links.",
+                }
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        search_query = (kwargs.pop("search_query", "") or "").strip()
+        super().__init__(*args, **kwargs)
+
+        queryset = Restaurant.objects.filter(owner__isnull=True)
+        if search_query:
+            queryset = queryset.filter(
+                Q(name__icontains=search_query)
+                | Q(address__icontains=search_query)
+                | Q(zip_code__icontains=search_query)
+            )
+
+        self.fields["restaurant"].queryset = queryset.order_by("name")[:100]
+
+        selected_restaurant_id = self.data.get("restaurant") or self.initial.get(
+            "restaurant"
+        )
+        if selected_restaurant_id:
+            self.fields["restaurant"].queryset = Restaurant.objects.filter(
+                Q(owner__isnull=True) | Q(pk=selected_restaurant_id)
+            ).order_by("name")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        restaurant = cleaned_data.get("restaurant")
+        if not self.user or not restaurant:
+            return cleaned_data
+
+        if Restaurant.objects.filter(owner=self.user).exists():
+            raise forms.ValidationError("You already own a restaurant profile.")
+
+        if restaurant.owner and restaurant.owner != self.user:
+            raise forms.ValidationError(
+                "This restaurant is already owned by another user."
+            )
+
+        existing_claim = RestaurantOwnershipClaim.objects.filter(
+            claimant=self.user,
+            restaurant=restaurant,
+            status=RestaurantOwnershipClaim.STATUS_PENDING,
+        ).exists()
+        if existing_claim:
+            raise forms.ValidationError(
+                "You already submitted a pending claim for this restaurant."
+            )
+
+        other_pending = RestaurantOwnershipClaim.objects.filter(
+            claimant=self.user,
+            status=RestaurantOwnershipClaim.STATUS_PENDING,
+        ).exists()
+        if other_pending:
+            raise forms.ValidationError(
+                "You already have another pending ownership claim."
+            )
+
+        restaurant_pending = RestaurantOwnershipClaim.objects.filter(
+            restaurant=restaurant,
+            status=RestaurantOwnershipClaim.STATUS_PENDING,
+        ).exists()
+        if restaurant_pending:
+            raise forms.ValidationError(
+                "This restaurant already has a pending claim under review."
+            )
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        claim = super().save(commit=False)
+        claim.claimant = self.user
+        if commit:
+            claim.save()
+        return claim
 
 
 class ReviewForm(forms.ModelForm):
