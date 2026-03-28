@@ -9,7 +9,6 @@ from nomz.ingestion.sources.dining_out_feed import stream_dining_out_rows
 from nomz.ingestion.sources.inspections_feed import stream_inspection_rows
 from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError
 
-
 RecordWriter = Callable[[Dict], None]
 
 

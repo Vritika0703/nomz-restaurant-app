@@ -6,7 +6,6 @@ from difflib import SequenceMatcher
 from math import atan2, cos, radians, sin, sqrt
 from typing import Dict, Iterable, Optional, Tuple
 
-
 _NON_ALNUM_RE = re.compile(r"[^A-Z0-9]")
 
 

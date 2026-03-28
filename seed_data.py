@@ -35,49 +35,84 @@ def seed_restaurants():
         is_active=True,
     )
 
-    # 4. Sample data for RestaurantSearch (Legacy/Search compatibility)
+    # 4. Sample data for RestaurantSearch (Legacy/Search compatibility) and Restaurant models
     restaurants = [
         {
             "name": "The Daily Grind",
             "neighborhood": "Downtown",
             "cuisine": "Coffee & Bakery",
+            "cuisine_type": "other",
+            "price_range": "$$",
             "description": "Artisan coffee and fresh pastries in a cozy, industrial atmosphere.",
+            "address": "123 Coffee Lane, NYC",
         },
         {
             "name": "Campus Pizza",
             "neighborhood": "North Campus",
             "cuisine": "Italian",
+            "cuisine_type": "italian",
+            "price_range": "$",
             "description": "Authentic wood-fired pizzas with a student-friendly price tag.",
+            "address": "456 University Ave, NYC",
         },
         {
             "name": "Sushi Zen",
             "neighborhood": "Downtown",
             "cuisine": "Japanese",
+            "cuisine_type": "japanese",
+            "price_range": "$$$",
             "description": "Fresh sashimi and innovative rolls served in a minimalist setting.",
+            "address": "789 Sushi St, NYC",
         },
         {
             "name": "Burger Haven",
             "neighborhood": "West End",
             "cuisine": "American",
+            "cuisine_type": "american",
+            "price_range": "$$",
             "description": "Gourmet burgers with locally sourced beef and hand-cut fries.",
+            "address": "101 Burger Blvd, NYC",
         },
         {
             "name": "Taco Fiesta",
             "neighborhood": "North Campus",
             "cuisine": "Mexican",
+            "cuisine_type": "mexican",
+            "price_range": "$",
             "description": "Vibrant street tacos and the best margaritas in the city.",
+            "address": "202 Taco Way, NYC",
         },
         {
             "name": "The Green Leaf",
             "neighborhood": "East Side",
             "cuisine": "Vegan",
+            "cuisine_type": "vegan",
+            "price_range": "$$",
             "description": "Plant-based comfort food that even meat-eaters will love.",
+            "address": "303 Vegan Rd, NYC",
         },
     ]
 
     print(f"Seeding {len(restaurants)} restaurants...")
     for r in restaurants:
-        RestaurantSearch.objects.create(**r)
+        # Create Restaurant object
+        Restaurant.objects.create(
+            name=r["name"],
+            neighborhood=r["neighborhood"],
+            cuisine=r["cuisine"],
+            cuisine_type=r["cuisine_type"],
+            price_range=r["price_range"],
+            description=r["description"],
+            address=r["address"],
+            is_active=True,
+        )
+        # Also create RestaurantSearch for compatibility
+        RestaurantSearch.objects.create(
+            name=r["name"],
+            neighborhood=r["neighborhood"],
+            cuisine=r["cuisine"],
+            description=r["description"],
+        )
 
     print("Done! Your local database is ready for testing.")
 
