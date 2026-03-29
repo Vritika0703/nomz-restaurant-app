@@ -572,6 +572,17 @@
                         </form>
                     </li>
                     {% endif %}
+                    {% else %}
+                    {# Admin users only see logout #}
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <form method="POST" action="{% url 'logout' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="nav-link" style="background: none; border: none; padding: 0.5rem 1rem; cursor: pointer;">Logout</button>
+                        </form>
+                    </li>
+                    {% endif %}
+                    {% endif %}
                 </ul>
             </div>
         </div>
