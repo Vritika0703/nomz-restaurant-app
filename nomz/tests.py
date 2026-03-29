@@ -5,6 +5,7 @@ from django.test import TestCase, Client, TransactionTestCase
 from django.http import HttpResponseServerError
 from django.contrib.auth.models import User
 from django.urls import reverse
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from io import BytesIO
 from PIL import Image
@@ -17,6 +18,7 @@ from .models import (
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
+    Review,
     SystemAlert,
     SystemAuditLog,
     SystemPerformanceMetric,
@@ -726,3 +728,160 @@ class RestaurantClaimFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Claimable Spot")
         self.assertContains(response, "Approve Claim")
+
+
+class RestaurantOwnerScoreDashboardTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(
+            username="owner_score",
+            email="owner_score@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(
+            user=self.owner,
+            role="restaurant",
+            is_approved=True,
+            is_rejected=False,
+        )
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Owner Score Bistro",
+            is_active=True,
+            borough="Manhattan",
+            neighborhood="Midtown",
+            composite_score=Decimal("88.50"),
+            grade_latest="A",
+            grade_score_latest=95,
+            cuisine_type="italian",
+            price_range="$$",
+        )
+        Restaurant.objects.create(
+            name="Peer One",
+            is_active=True,
+            borough="Manhattan",
+            neighborhood="Midtown",
+            composite_score=Decimal("82.00"),
+            cuisine_type="other",
+            price_range="$$",
+        )
+        Restaurant.objects.create(
+            name="Peer Two",
+            is_active=True,
+            borough="Manhattan",
+            neighborhood="Midtown",
+            composite_score=Decimal("72.00"),
+            cuisine_type="other",
+            price_range="$$",
+        )
+
+        InspectionRecord.objects.create(
+            restaurant=self.restaurant,
+            inspection_date=date(2025, 1, 10),
+            inspection_key="owner-score-1",
+            grade="B",
+            score=18,
+            critical_violations=2,
+            noncritical_violations=1,
+        )
+        InspectionRecord.objects.create(
+            restaurant=self.restaurant,
+            inspection_date=date(2025, 4, 15),
+            inspection_key="owner-score-2",
+            grade="A",
+            score=9,
+            critical_violations=0,
+            noncritical_violations=1,
+        )
+
+    def test_owner_dashboard_exposes_score_breakdown_comparison_and_trend(self):
+        self.client.login(username="owner_score", password="pass12345")
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+
+        self.assertIn("score_summary", response.context)
+        self.assertIn("score_breakdown", response.context)
+        self.assertIn("review_factor_breakdown", response.context)
+        self.assertIn("neighborhood_comparison", response.context)
+        self.assertIn("trend_points", response.context)
+        self.assertIn("trend_summary", response.context)
+
+        score_summary = response.context["score_summary"]
+        self.assertEqual(score_summary["grade"], "A")
+        self.assertGreater(float(score_summary["composite_score"]), 80.0)
+
+        score_breakdown = response.context["score_breakdown"]
+        self.assertGreaterEqual(len(score_breakdown), 4)
+        self.assertEqual(score_breakdown[0]["label"], "User Experience Signal")
+
+        comparison = response.context["neighborhood_comparison"]
+        self.assertEqual(comparison["location_scope"], "Midtown")
+        self.assertEqual(comparison["peer_count"], 3)
+        self.assertIsNotNone(comparison["rank"])
+        self.assertIsNotNone(comparison["percentile"])
+
+        trend_points = response.context["trend_points"]
+        trend_summary = response.context["trend_summary"]
+        self.assertEqual(len(trend_points), 2)
+        self.assertTrue(trend_summary["has_data"])
+
+
+class CompositeScoreAutomationTests(TestCase):
+    def setUp(self):
+        self.restaurant = Restaurant.objects.create(
+            name="Automation Bistro",
+            is_active=True,
+            price_range="$$",
+            cuisine_type="other",
+            latitude=Decimal("40.720001"),
+            longitude=Decimal("-73.990001"),
+        )
+        self.user = User.objects.create_user(
+            username="auto_reviewer",
+            password="pass12345",
+        )
+
+    def test_inspection_save_auto_refreshes_composite_score(self):
+        self.assertIsNone(self.restaurant.composite_score)
+        InspectionRecord.objects.create(
+            restaurant=self.restaurant,
+            inspection_date=date(2025, 4, 18),
+            inspection_key="auto-insp-1",
+            grade="A",
+            critical_violations=0,
+            noncritical_violations=1,
+        )
+        self.restaurant.refresh_from_db()
+        self.assertIsNotNone(self.restaurant.composite_score)
+        self.assertEqual(self.restaurant.grade_latest, "A")
+
+    def test_review_save_auto_refreshes_composite_score(self):
+        Review.objects.create(
+            restaurant=self.restaurant,
+            user=self.user,
+            rating=5,
+            food_quality_rating=5,
+            service_quality_rating=5,
+            ambience_rating=4,
+            location_rating=4,
+            value_rating=4,
+            dietary_accommodation_rating=4,
+            cleanliness_rating=5,
+            comment="Great all-around experience.",
+        )
+        self.restaurant.refresh_from_db()
+        self.assertIsNotNone(self.restaurant.composite_score)
+        self.assertGreater(float(self.restaurant.composite_score), 65.0)
+
+    def test_recalculate_command_supports_specific_restaurant(self):
+        other = Restaurant.objects.create(
+            name="Command Control Cafe",
+            is_active=True,
+            price_range="$$",
+            cuisine_type="other",
+        )
+        call_command("recalculate_composite_scores", restaurant_id=self.restaurant.id)
+        self.restaurant.refresh_from_db()
+        other.refresh_from_db()
+        self.assertIsNotNone(self.restaurant.composite_score)
+        self.assertIsNone(other.composite_score)

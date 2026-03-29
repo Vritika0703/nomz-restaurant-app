@@ -1,6 +1,8 @@
 from django.contrib.auth.signals import user_logged_in, user_login_failed
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
-from .models import LoginLog
+from .models import InspectionRecord, LoginLog, Review
+from .scoring import refresh_restaurant_composite
 
 from django.utils import timezone
 from datetime import timedelta
@@ -64,3 +66,27 @@ def log_user_login_failed(sender, credentials, request, **kwargs):
         is_suspicious=is_suspicious,
         is_user_suspicious=is_user_suspicious,
     )
+
+
+@receiver(post_save, sender=Review)
+def refresh_score_on_review_save(sender, instance, raw=False, **kwargs):
+    if raw:
+        return
+    refresh_restaurant_composite(instance.restaurant)
+
+
+@receiver(post_delete, sender=Review)
+def refresh_score_on_review_delete(sender, instance, **kwargs):
+    refresh_restaurant_composite(instance.restaurant)
+
+
+@receiver(post_save, sender=InspectionRecord)
+def refresh_score_on_inspection_save(sender, instance, raw=False, **kwargs):
+    if raw:
+        return
+    refresh_restaurant_composite(instance.restaurant)
+
+
+@receiver(post_delete, sender=InspectionRecord)
+def refresh_score_on_inspection_delete(sender, instance, **kwargs):
+    refresh_restaurant_composite(instance.restaurant)

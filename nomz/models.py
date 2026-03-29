@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 from django.db import models, transaction
 
@@ -730,7 +731,46 @@ class Review(models.Model):
         Restaurant, on_delete=models.CASCADE, related_name="reviews"
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
-    rating = models.PositiveSmallIntegerField(help_text="Rating from 1 to 5", default=5)
+    rating = models.PositiveSmallIntegerField(
+        help_text="Overall rating from 1 to 5",
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    food_quality_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Food quality rating from 1 to 5",
+    )
+    service_quality_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Service quality rating from 1 to 5",
+    )
+    ambience_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Ambience rating from 1 to 5",
+    )
+    location_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Location and accessibility rating from 1 to 5",
+    )
+    value_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Price-to-value rating from 1 to 5",
+    )
+    dietary_accommodation_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Dietary accommodation quality rating from 1 to 5",
+    )
+    cleanliness_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Cleanliness rating from 1 to 5",
+    )
     comment = models.TextField(blank=True, null=True)
     is_flagged = models.BooleanField(
         default=False, help_text="Flagged for moderation/fraud"
@@ -744,6 +784,19 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review by {self.user.username} for {self.restaurant.name} ({self.rating}/5)"
+
+    @property
+    def experience_rating(self):
+        weighted = (
+            (self.food_quality_rating * 0.30)
+            + (self.service_quality_rating * 0.20)
+            + (self.ambience_rating * 0.15)
+            + (self.location_rating * 0.10)
+            + (self.value_rating * 0.10)
+            + (self.dietary_accommodation_rating * 0.05)
+            + (self.cleanliness_rating * 0.10)
+        )
+        return round(weighted, 2)
 
 
 class ModerationReport(models.Model):

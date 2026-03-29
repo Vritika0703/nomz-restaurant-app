@@ -52,6 +52,15 @@
                             <small class="text-muted">{{ review.created_at|date:"M d, Y" }}</small>
                         </div>
                         <p class="card-text mt-2">{{ review.comment }}</p>
+                        <p class="small text-muted mb-2">
+                            Food {{ review.food_quality_rating }}/5 |
+                            Service {{ review.service_quality_rating }}/5 |
+                            Ambience {{ review.ambience_rating }}/5 |
+                            Location {{ review.location_rating }}/5 |
+                            Value {{ review.value_rating }}/5 |
+                            Dietary {{ review.dietary_accommodation_rating }}/5 |
+                            Cleanliness {{ review.cleanliness_rating }}/5
+                        </p>
                         <div class="d-flex justify-content-end">
                             <a href="{% url 'report_content' 'review' review.id %}" class="btn btn-sm btn-outline-danger">
                                 🚩 Report
