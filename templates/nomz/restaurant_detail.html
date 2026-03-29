@@ -82,6 +82,11 @@
                     <p class="small">This is a verified restaurant on Nomz.</p>
                     <hr>
                     <div class="d-grid gap-2">
+                        {% if user.is_authenticated and user.userprofile.role == "diner" and restaurant.owner %}
+                            <a href="{% url 'message_restaurant' restaurant.id %}" class="btn btn-primary btn-sm">
+                                Message Restaurant
+                            </a>
+                        {% endif %}
                         {% if restaurant.owner %}
                             <a href="{% url 'report_content' 'user' restaurant.owner.id %}" class="btn btn-outline-warning btn-sm">
                                 Report Owner/Account
