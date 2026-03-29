@@ -963,12 +963,16 @@ class MessagingApiTests(TestCase):
         )
 
         self.client.login(username="restaurant_owner", password="pass12345")
-        response = self.client.get(reverse("api_conversation_messages", args=[conversation.id]))
+        response = self.client.get(
+            reverse("api_conversation_messages", args=[conversation.id])
+        )
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(len(payload["messages"]), 2)
         self.assertEqual(payload["messages"][0]["body"], "Can I reserve for 8 pm?")
-        self.assertEqual(payload["messages"][1]["body"], "Yes, table for two is available.")
+        self.assertEqual(
+            payload["messages"][1]["body"], "Yes, table for two is available."
+        )
 
     def test_unauthorized_user_cannot_access_other_conversation(self):
         conversation = Conversation.objects.create(
@@ -982,7 +986,9 @@ class MessagingApiTests(TestCase):
         )
 
         self.client.login(username="diner_b", password="pass12345")
-        response = self.client.get(reverse("api_conversation_messages", args=[conversation.id]))
+        response = self.client.get(
+            reverse("api_conversation_messages", args=[conversation.id])
+        )
         self.assertEqual(response.status_code, 403)
 
         post_response = self.client.post(
@@ -998,7 +1004,9 @@ class MessagingApiTests(TestCase):
             email="owner2@example.com",
             password="pass12345",
         )
-        UserProfile.objects.create(user=other_owner, role="restaurant", is_approved=True)
+        UserProfile.objects.create(
+            user=other_owner, role="restaurant", is_approved=True
+        )
         other_restaurant = Restaurant.objects.create(
             owner=other_owner,
             name="Other Bistro",
@@ -1040,7 +1048,9 @@ class MessagingWebsiteTests(TestCase):
 
     def test_diner_can_open_thread_from_restaurant_page(self):
         self.client.login(username="web_diner", password="pass12345")
-        response = self.client.get(reverse("message_restaurant", args=[self.restaurant.id]))
+        response = self.client.get(
+            reverse("message_restaurant", args=[self.restaurant.id])
+        )
         self.assertEqual(response.status_code, 302)
         conversation = Conversation.objects.get(
             restaurant=self.restaurant,

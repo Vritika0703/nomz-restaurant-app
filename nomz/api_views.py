@@ -284,7 +284,9 @@ def start_conversation(request):
         id=restaurant_id,
     )
     if not restaurant.owner_id:
-        return _json_error("Restaurant must have an owner to receive messages.", status=400)
+        return _json_error(
+            "Restaurant must have an owner to receive messages.", status=400
+        )
 
     conversation, _ = Conversation.objects.get_or_create(
         restaurant=restaurant,
@@ -296,7 +298,9 @@ def start_conversation(request):
         body=first_message,
     )
     conversation.save(update_fields=["updated_at"])
-    return JsonResponse({"conversation_id": conversation.id, "created": True}, status=201)
+    return JsonResponse(
+        {"conversation_id": conversation.id, "created": True}, status=201
+    )
 
 
 @csrf_exempt
@@ -314,7 +318,9 @@ def send_message(request, conversation_id):
 
     if request.user.id == conversation.restaurant.owner_id:
         if not _is_restaurant_owner(request.user):
-            return HttpResponseForbidden("Only restaurant owners can send as restaurant.")
+            return HttpResponseForbidden(
+                "Only restaurant owners can send as restaurant."
+            )
     elif request.user.id == conversation.diner_id:
         if not _is_diner(request.user):
             return HttpResponseForbidden("Only diners can send as diner.")
@@ -333,7 +339,9 @@ def send_message(request, conversation_id):
         sender=request.user,
         body=body,
     )
-    Conversation.objects.filter(id=conversation.id).update(updated_at=message.created_at)
+    Conversation.objects.filter(id=conversation.id).update(
+        updated_at=message.created_at
+    )
 
     return JsonResponse(
         {

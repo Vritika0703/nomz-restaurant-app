@@ -1535,7 +1535,9 @@ def message_restaurant(request, restaurant_id):
         )
         return redirect("restaurant_detail", restaurant_id=restaurant_id)
 
-    restaurant = get_object_or_404(Restaurant.objects.select_related("owner"), id=restaurant_id)
+    restaurant = get_object_or_404(
+        Restaurant.objects.select_related("owner"), id=restaurant_id
+    )
     if not restaurant.owner_id:
         messages.error(
             request,
@@ -1574,7 +1576,9 @@ def conversation_detail(request, conversation_id):
         conversation.save(update_fields=["updated_at"])
         return redirect("conversation_detail", conversation_id=conversation.id)
 
-    thread_messages = conversation.messages.select_related("sender").order_by("created_at")
+    thread_messages = conversation.messages.select_related("sender").order_by(
+        "created_at"
+    )
     return render(
         request,
         "nomz/conversation_detail.html",
