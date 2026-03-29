@@ -1597,7 +1597,6 @@ def conversation_detail(request, conversation_id):
                 "This restaurant has messaging disabled and is not accepting messages.",
             )
             return redirect("conversation_detail", conversation_id=conversation.id)
-
         text = (request.POST.get("message") or "").strip()
         if not text:
             messages.error(request, "Message cannot be empty.")

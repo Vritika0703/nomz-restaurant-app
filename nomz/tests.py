@@ -1079,7 +1079,6 @@ class MessagingWebsiteTests(TestCase):
         self.assertEqual(detail_response.status_code, 200)
         self.assertContains(detail_response, "Do you have outdoor seating?")
 
-
 # =============================================================================
 # Issue #62: Restaurant Communication Settings Tests
 # =============================================================================
