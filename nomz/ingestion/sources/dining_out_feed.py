@@ -6,6 +6,7 @@ from nomz.ingestion.sources.nyc_endpoints import DINING_OUT
 from nomz.ingestion.utils.normalization import (
     first_non_empty,
     normalize_text,
+    sanitize_nyc_coordinate_pair,
     split_list_fields,
     to_decimal_str,
     to_str,
@@ -23,18 +24,21 @@ def _extract_coordinates(row: Dict) -> tuple[str | None, str | None]:
     lat = to_decimal_str(row.get("latitude"))
     lon = to_decimal_str(row.get("longitude"))
     if lat and lon:
-        return lat, lon
+        return sanitize_nyc_coordinate_pair(lat, lon)
 
     location = row.get("location")
     if isinstance(location, str):
         cleaned = location.replace("POINT", "").replace("(", "").replace(")", "")
         parts = [p.strip() for p in cleaned.split() if p.strip()]
         if len(parts) >= 2:
-            return to_decimal_str(parts[1]), to_decimal_str(parts[0])
+            return sanitize_nyc_coordinate_pair(
+                to_decimal_str(parts[1]),
+                to_decimal_str(parts[0]),
+            )
     elif isinstance(location, dict):
         lat = lat or to_decimal_str(location.get("latitude"))
         lon = lon or to_decimal_str(location.get("longitude"))
-        return lat, lon
+        return sanitize_nyc_coordinate_pair(lat, lon)
 
     return None, None
 

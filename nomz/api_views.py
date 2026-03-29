@@ -9,6 +9,11 @@ from django.views.decorators.http import require_GET
 from .models import Restaurant
 from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
+NYC_MIN_LAT = 40.0
+NYC_MAX_LAT = 41.5
+NYC_MIN_LON = -75.5
+NYC_MAX_LON = -72.0
+
 
 def _safe_decimal_to_float(value: Decimal | None) -> float | None:
     if value is None:
@@ -46,6 +51,10 @@ def map_restaurant_data(request):
         is_active=True,
         latitude__isnull=False,
         longitude__isnull=False,
+        latitude__gte=NYC_MIN_LAT,
+        latitude__lte=NYC_MAX_LAT,
+        longitude__gte=NYC_MIN_LON,
+        longitude__lte=NYC_MAX_LON,
     ).select_related("owner")
 
     search = request.GET.get("search", "").strip()

@@ -12,6 +12,9 @@
                     <h5 class="mb-0">Share your experience at {{ restaurant.name }}</h5>
                 </div>
                 <div class="card-body p-4">
+                    <p class="text-muted mb-3">
+                        Please rate the restaurant across all categories. These category scores strongly influence the composite score shown across Nomz.
+                    </p>
                     <form method="post">
                         {% csrf_token %}
                         {{ form|crispy }}

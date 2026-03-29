@@ -455,10 +455,59 @@ class ReviewForm(forms.ModelForm):
 
     class Meta:
         model = Review
-        fields = ["rating", "comment"]
+        fields = [
+            "rating",
+            "food_quality_rating",
+            "service_quality_rating",
+            "ambience_rating",
+            "location_rating",
+            "value_rating",
+            "dietary_accommodation_rating",
+            "cleanliness_rating",
+            "comment",
+        ]
+        labels = {
+            "rating": "Overall rating",
+            "food_quality_rating": "Food quality",
+            "service_quality_rating": "Service quality",
+            "ambience_rating": "Ambience",
+            "location_rating": "Location & accessibility",
+            "value_rating": "Price-to-value",
+            "dietary_accommodation_rating": "Dietary accommodation",
+            "cleanliness_rating": "Cleanliness",
+            "comment": "Written review",
+        }
         widgets = {
             "rating": forms.Select(
                 choices=[(i, f"{i} Star{'s' if i > 1 else ''}") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "food_quality_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "service_quality_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "ambience_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "location_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "value_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "dietary_accommodation_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "cleanliness_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
                 attrs={"class": "form-control"},
             ),
             "comment": forms.Textarea(

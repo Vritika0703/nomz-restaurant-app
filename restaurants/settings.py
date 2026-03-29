@@ -253,6 +253,10 @@ CSRF_TRUSTED_ORIGINS = list(
     )
 )
 
+# OpenStreetMap tile servers require a Referer/origin; this policy keeps a safe
+# origin-only referrer on cross-origin requests (including map tiles).
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
 # Security Settings for Production
 if not DEBUG:
     # EB terminates SSL at the load balancer; redirect at Django level causes loops

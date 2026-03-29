@@ -44,6 +44,12 @@ class Command(BaseCommand):
             action="store_true",
             help="Pretty print rows in command output",
         )
+        parser.add_argument(
+            "--max-records-per-source",
+            type=int,
+            default=None,
+            help="Optional cap per source for faster smoke tests.",
+        )
 
     def handle(self, *args, **options):
         app_token = options["app_token"] or os.getenv("SOC_DATA_APP_TOKEN")
@@ -52,6 +58,7 @@ class Command(BaseCommand):
         pretty = options["pretty"]
         dry_run = options["dry_run"]
         no_db = options["no_db"]
+        max_records_per_source = options["max_records_per_source"]
 
         db_writer = None if no_db else DbIngestionWriter(dry_run=dry_run)
         writer_fns = []
@@ -82,6 +89,7 @@ class Command(BaseCommand):
                         ),
                         writer=writer,
                         skip_sources=skip_sources,
+                        max_records_per_source=max_records_per_source,
                     )
                     run_status = "failed" if summary.failures else "success"
                     run_context.set_summary(
@@ -97,6 +105,7 @@ class Command(BaseCommand):
                     ),
                     writer=writer,
                     skip_sources=skip_sources,
+                    max_records_per_source=max_records_per_source,
                 )
         finally:
             while close_fns:
