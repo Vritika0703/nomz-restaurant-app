@@ -23,27 +23,19 @@
             </div>
             
             <!-- Quick Action Buttons -->
-            <div class="row mb-4 mt-4">
-                <div class="col-12 mb-3">
-                    <a href="{% url 'restaurant_photos' %}" class="btn btn-secondary w-100 mb-3">
-                        <i class="bi bi-images"></i> Manage Photos
-                    </a>
-                </div>
-                <div class="col-12 mb-3">
-                    <a href="{% url 'manage_availability' %}" class="btn btn-secondary w-100">
-                        <i class="bi bi-calendar-x"></i> Availability Status
-                    </a>
-                </div>
-                <div class="col-12 mb-3">
-                    <a href="{% url 'message_inbox' %}" class="btn w-100" style="background-color: #465F6E; color: white; border: none;">
-                        Open Messages
-                    </a>
-                </div>
-                <div class="col-12 mb-3">
-                    <a href="{% url 'manage_communication_settings' %}" class="btn w-100" style="background-color: #96A99E; color: white; border: none;">
-                        <i class="bi bi-chat-dots"></i> Communication Settings
-                    </a>
-                </div>
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; margin-top: 1.5rem;">
+                <a href="{% url 'restaurant_photos' %}" class="btn btn-secondary w-100">
+                    <i class="bi bi-images"></i> Manage Photos
+                </a>
+                <a href="{% url 'manage_availability' %}" class="btn btn-secondary w-100">
+                    <i class="bi bi-calendar-x"></i> Availability Status
+                </a>
+                <a href="{% url 'message_inbox' %}" class="btn w-100" style="background-color: var(--primary-color); color: white; border: none;">
+                    Open Messages
+                </a>
+                <a href="{% url 'manage_communication_settings' %}" class="btn w-100" style="background-color: var(--muted-color); color: white; border: none;">
+                    <i class="bi bi-chat-dots"></i> Communication Settings
+                </a>
             </div>
         </div>
 
@@ -247,7 +239,7 @@
             </div>
 
             <div class="card mb-4">
-                <div class="card-header" style="background-color: #96A99E; color: white;">
+                <div class="card-header" style="background-color: var(--muted-color); color: white;">
                     <h5 class="mb-0">Composite Factor Breakdown</h5>
                 </div>
                 <div class="card-body">
@@ -258,7 +250,7 @@
                             <span>{{ factor.raw_value|floatformat:1 }}</span>
                         </div>
                         <div class="progress" role="progressbar" aria-label="{{ factor.label }}" style="height: 10px;">
-                            <div class="progress-bar" style="width: {{ factor.raw_value|floatformat:0 }}%; background-color: #465F6E;"></div>
+                            <div class="progress-bar" style="width: {{ factor.raw_value|floatformat:0 }}%; background-color: var(--primary-color);"></div>
                         </div>
                         <p class="small text-muted mb-0 mt-1">{{ factor.description }} | Weighted contribution: {{ factor.weighted_contribution|floatformat:2 }}</p>
                     </div>
@@ -267,7 +259,7 @@
             </div>
 
             <div class="card mb-4">
-                <div class="card-header" style="background-color: #465F6E; color: white;">
+                <div class="card-header" style="background-color: var(--dark-color); color: white;">
                     <h5 class="mb-0">Review Parameter Breakdown</h5>
                 </div>
                 <div class="card-body">
@@ -307,7 +299,7 @@
             </div>
 
             <div class="card mb-4">
-                <div class="card-header" style="background-color: #465F6E; color: white;">
+                <div class="card-header" style="background-color: var(--dark-color); color: white;">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Historical Trend</h5>
                         {% if trend_summary.has_data %}
