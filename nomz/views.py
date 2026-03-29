@@ -40,6 +40,11 @@ from .restaurant_sorting import (
     recommend_restaurants_for_user,
 )
 
+NYC_MIN_LAT = 40.0
+NYC_MAX_LAT = 41.5
+NYC_MIN_LON = -75.5
+NYC_MAX_LON = -72.0
+
 
 def _to_float(value):
     if value is None:
@@ -66,9 +71,12 @@ def _build_restaurant_score_insights(restaurant):
         if restaurant.grade_score_latest is not None
         else int(current_score_data.get("grade_score") or 0)
     )
-    grade_value = (restaurant.grade_latest or current_score_data.get("grade") or "").strip()
+    grade_value = (
+        restaurant.grade_latest or current_score_data.get("grade") or ""
+    ).strip()
     last_inspection_date_value = (
-        restaurant.last_inspection_date or current_score_data.get("last_inspection_date")
+        restaurant.last_inspection_date
+        or current_score_data.get("last_inspection_date")
     )
 
     score_summary = {
@@ -117,7 +125,9 @@ def _build_restaurant_score_insights(restaurant):
         },
         {
             "label": "Dietary Accommodation",
-            "average_rating": review_factor_averages.get("dietary_accommodation_rating"),
+            "average_rating": review_factor_averages.get(
+                "dietary_accommodation_rating"
+            ),
             "score_100": review_factor_scores.get("dietary_accommodation_rating", 0),
         },
         {
@@ -320,6 +330,10 @@ def map_view(request):
         is_active=True,
         latitude__isnull=False,
         longitude__isnull=False,
+        latitude__gte=NYC_MIN_LAT,
+        latitude__lte=NYC_MAX_LAT,
+        longitude__gte=NYC_MIN_LON,
+        longitude__lte=NYC_MAX_LON,
     )
     boroughs = sorted(
         {

@@ -119,7 +119,7 @@ class DbIngestionWriter:
         self.dry_run = dry_run
         self.stats = IngestionStats()
         self._source_link_cache: set[tuple[str, str]] = set()
-        self._sqlite_lock_retry_attempts = 5
+        self._sqlite_lock_retry_attempts = 10
         self._sqlite_lock_retry_base_sleep = 0.05
 
     def ingest(self, record: Dict[str, Any]) -> None:
@@ -143,7 +143,9 @@ class DbIngestionWriter:
                 is_sqlite_lock = "database is locked" in str(exc).lower()
                 if is_sqlite_lock and attempts < self._sqlite_lock_retry_attempts:
                     attempts += 1
-                    sleep_for = self._sqlite_lock_retry_base_sleep * attempts
+                    sleep_for = self._sqlite_lock_retry_base_sleep * (
+                        2 ** (attempts - 1)
+                    )
                     time.sleep(sleep_for)
                     continue
                 self.stats.records_failed += 1

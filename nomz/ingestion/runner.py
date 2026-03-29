@@ -90,8 +90,7 @@ def run_ingestion(
     if failure_breakdown:
         for source_name, counter in write_failures.items():
             top_write_errors = ", ".join(
-                f"{count}x {message}"
-                for message, count in counter.most_common(3)
+                f"{count}x {message}" for message, count in counter.most_common(3)
             )
             if not top_write_errors:
                 continue

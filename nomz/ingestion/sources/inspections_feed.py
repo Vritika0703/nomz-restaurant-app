@@ -7,8 +7,8 @@ from nomz.ingestion.sources.nyc_endpoints import INSPECTIONS
 from nomz.ingestion.utils.normalization import (
     first_non_empty,
     normalize_text,
+    sanitize_nyc_coordinate_pair,
     split_list_fields,
-    to_decimal_str,
     to_str,
 )
 
@@ -63,7 +63,9 @@ def _noncritical_flag_to_int(raw: object, has_violation: bool) -> int:
 def _inspection_group_key(
     camis: str, inspection_date: str, inspection_type: str, action: str
 ) -> str:
-    return "|".join([camis or "", inspection_date or "", inspection_type or "", action or ""])
+    return "|".join(
+        [camis or "", inspection_date or "", inspection_type or "", action or ""]
+    )
 
 
 def normalize_inspection_row(row: Dict) -> Dict:
@@ -73,11 +75,17 @@ def normalize_inspection_row(row: Dict) -> Dict:
     zip_code = first_non_empty(row, ["zipcode", "zip"])
     borough = first_non_empty(row, ["boro", "borough"])
     phone = first_non_empty(row, ["phone", "phone_number"])
-    latitude = to_decimal_str(first_non_empty(row, ["latitude"]))
-    longitude = to_decimal_str(first_non_empty(row, ["longitude"]))
-    cuisine_tags = split_list_fields(first_non_empty(row, ["cuisine_description", "cuisine"]))
+    latitude, longitude = sanitize_nyc_coordinate_pair(
+        first_non_empty(row, ["latitude"]),
+        first_non_empty(row, ["longitude"]),
+    )
+    cuisine_tags = split_list_fields(
+        first_non_empty(row, ["cuisine_description", "cuisine"])
+    )
 
-    inspection_date = _parse_date(first_non_empty(row, ["inspection_date", "record_date"]))
+    inspection_date = _parse_date(
+        first_non_empty(row, ["inspection_date", "record_date"])
+    )
     inspection_type = first_non_empty(row, ["inspection_type"])
     action = first_non_empty(row, ["action"])
     grade = _normalize_grade(first_non_empty(row, ["grade", "inspection_grade"]))

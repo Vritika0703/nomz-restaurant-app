@@ -132,7 +132,9 @@ class SocrataClient:
                             )
                         return rows
                 except urllib.error.HTTPError as exc:
-                    body = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+                    body = (
+                        exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+                    )
                     last_error = SocrataError(
                         f"HTTP {exc.code} while loading {resource.name}: {body}",
                         status_code=exc.code,
@@ -180,9 +182,7 @@ class SocrataClient:
                         continue
                     raise last_error
                 except Exception as exc:
-                    last_error = SocrataError(
-                        f"Failed to fetch {resource.name}: {exc}"
-                    )
+                    last_error = SocrataError(f"Failed to fetch {resource.name}: {exc}")
                     raise last_error
 
         raise last_error or SocrataError(f"Unable to fetch {resource.name}")

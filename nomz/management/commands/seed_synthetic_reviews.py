@@ -26,9 +26,7 @@ def _bounded_round(value: float) -> int:
 
 
 class Command(BaseCommand):
-    help = (
-        "Seed synthetic multi-parameter reviews for restaurants without inspection data."
-    )
+    help = "Seed synthetic multi-parameter reviews for restaurants without inspection data."
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -141,11 +139,17 @@ class Command(BaseCommand):
             review_count = local_rng.randint(min_reviews, max_reviews)
             for _ in range(review_count):
                 reviewer = rng.choice(reviewers)
-                food = _bounded_round(local_rng.gauss((borough_bias + price_bias) / 2, 0.8))
+                food = _bounded_round(
+                    local_rng.gauss((borough_bias + price_bias) / 2, 0.8)
+                )
                 service = _bounded_round(local_rng.gauss(3.8, 0.9))
                 ambience = _bounded_round(local_rng.gauss(price_bias, 0.8))
                 location = _bounded_round(local_rng.gauss(borough_bias, 0.7))
-                value = _bounded_round(local_rng.gauss(3.9 if restaurant.price_range in {"$", "$$"} else 3.5, 0.8))
+                value = _bounded_round(
+                    local_rng.gauss(
+                        3.9 if restaurant.price_range in {"$", "$$"} else 3.5, 0.8
+                    )
+                )
                 dietary = _bounded_round(local_rng.gauss(3.6, 0.9))
                 cleanliness = _bounded_round(local_rng.gauss(4.0, 0.7))
                 overall = _bounded_round(

@@ -126,8 +126,12 @@ def _review_signal(reviews: Iterable[object], reference_day: date) -> Dict[str, 
         "service_quality_rating": _average(
             float(item.service_quality_rating) for item in active_reviews
         ),
-        "ambience_rating": _average(float(item.ambience_rating) for item in active_reviews),
-        "location_rating": _average(float(item.location_rating) for item in active_reviews),
+        "ambience_rating": _average(
+            float(item.ambience_rating) for item in active_reviews
+        ),
+        "location_rating": _average(
+            float(item.location_rating) for item in active_reviews
+        ),
         "value_rating": _average(float(item.value_rating) for item in active_reviews),
         "dietary_accommodation_rating": _average(
             float(item.dietary_accommodation_rating) for item in active_reviews
@@ -184,8 +188,7 @@ def _review_signal(reviews: Iterable[object], reference_day: date) -> Dict[str, 
     review_component_score = _clamp(review_component_score)
 
     factor_scores = {
-        key: _normalize_5_to_100(value)
-        for key, value in factor_averages.items()
+        key: _normalize_5_to_100(value) for key, value in factor_averages.items()
     }
     confidence = min(1.0, review_count / 25.0)
 
@@ -199,7 +202,9 @@ def _review_signal(reviews: Iterable[object], reference_day: date) -> Dict[str, 
     }
 
 
-def _inspection_signal(latest_inspection: Optional[object], reference_day: date) -> Dict[str, object]:
+def _inspection_signal(
+    latest_inspection: Optional[object], reference_day: date
+) -> Dict[str, object]:
     if latest_inspection is None:
         return {
             "grade": "",
@@ -234,7 +239,9 @@ def _inspection_signal(latest_inspection: Optional[object], reference_day: date)
     }
 
 
-def _price_value_signal(price_range: str, value_rating_average: Optional[float]) -> float:
+def _price_value_signal(
+    price_range: str, value_rating_average: Optional[float]
+) -> float:
     if value_rating_average is None:
         return 58.0
 
@@ -255,7 +262,9 @@ def _operational_signal(restaurant: object) -> float:
         score -= 28.0
     if getattr(restaurant, "is_flagged", False):
         score -= 20.0
-    if getattr(restaurant, "hours_open", None) and getattr(restaurant, "hours_close", None):
+    if getattr(restaurant, "hours_open", None) and getattr(
+        restaurant, "hours_close", None
+    ):
         score += 5.0
     if getattr(restaurant, "latitude", None) and getattr(restaurant, "longitude", None):
         score += 4.0
@@ -348,7 +357,10 @@ def compute_restaurant_composite_score(
 
     composite_score = (
         (review_signal["review_component_score"] * weights["review_experience"])
-        + (inspection_signal["inspection_component_score"] * weights["inspection_hygiene"])
+        + (
+            inspection_signal["inspection_component_score"]
+            * weights["inspection_hygiene"]
+        )
         + (price_value_score * weights["price_value_alignment"])
         + (operational_score * weights["operational_reliability"])
     )
@@ -372,7 +384,8 @@ def compute_restaurant_composite_score(
             "raw_value": round(inspection_signal["inspection_component_score"], 2),
             "weight_percent": int(weights["inspection_hygiene"] * 100),
             "weighted_contribution": round(
-                inspection_signal["inspection_component_score"] * weights["inspection_hygiene"],
+                inspection_signal["inspection_component_score"]
+                * weights["inspection_hygiene"],
                 2,
             ),
             "description": (

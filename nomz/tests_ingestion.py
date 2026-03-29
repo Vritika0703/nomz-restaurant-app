@@ -50,7 +50,9 @@ class InspectionFeedNormalizationTests(SimpleTestCase):
             normalized["inspection_key"],
             "12345|2025-02-01|Cycle Inspection / Initial Inspection|Violations were cited in the following area(s).",
         )
-        self.assertEqual(normalized["violation_description"], ["Food from unapproved source."])
+        self.assertEqual(
+            normalized["violation_description"], ["Food from unapproved source."]
+        )
 
     def test_stream_inspection_rows_groups_same_inspection(self):
         rows = [
@@ -129,7 +131,9 @@ class IngestionPersistenceTests(TestCase):
         writer.ingest(record)
 
         self.assertEqual(writer.stats.records_failed, 0)
-        self.assertEqual(Restaurant.objects.filter(name="Duplicate Name Bistro").count(), 1)
+        self.assertEqual(
+            Restaurant.objects.filter(name="Duplicate Name Bistro").count(), 1
+        )
         self.assertTrue(
             Restaurant.objects.filter(id=existing.id, street="W 31 ST").exists()
         )
