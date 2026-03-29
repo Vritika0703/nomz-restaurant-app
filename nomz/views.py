@@ -21,6 +21,7 @@ from .forms import (
     UserPreferenceForm,
     ReviewForm,
     ModerationReportForm,
+    RestaurantCommunicationSettingsForm,
 )
 from django.contrib.auth.models import User
 from .models import (
@@ -1501,18 +1502,32 @@ def restaurant_detail(request, restaurant_id):
 
 @login_required(login_url="landing")
 def message_inbox(request):
+    from django.db.models import Count, Q
+
     if is_restaurant_owner(request.user):
         conversations = (
             Conversation.objects.filter(restaurant__owner=request.user)
             .select_related("restaurant", "diner")
-            .prefetch_related("messages")
+            .annotate(
+                unread_count=Count(
+                    "messages",
+                    filter=Q(messages__is_read=False)
+                    & ~Q(messages__sender=request.user),
+                )
+            )
             .order_by("-updated_at")
         )
     else:
         conversations = (
             Conversation.objects.filter(diner=request.user)
             .select_related("restaurant", "diner")
-            .prefetch_related("messages")
+            .annotate(
+                unread_count=Count(
+                    "messages",
+                    filter=Q(messages__is_read=False)
+                    & ~Q(messages__sender=request.user),
+                )
+            )
             .order_by("-updated_at")
         )
 
@@ -1545,6 +1560,14 @@ def message_restaurant(request, restaurant_id):
         )
         return redirect("restaurant_detail", restaurant_id=restaurant_id)
 
+    # Issue #62: respect the restaurant's messaging toggle
+    if not restaurant.messaging_enabled:
+        messages.error(
+            request,
+            f"{restaurant.name} has messaging disabled and is not accepting new messages at this time.",
+        )
+        return redirect("restaurant_detail", restaurant_id=restaurant_id)
+
     conversation, _ = Conversation.objects.get_or_create(
         restaurant=restaurant,
         diner=request.user,
@@ -1562,7 +1585,20 @@ def conversation_detail(request, conversation_id):
     if not conversation.can_access(request.user):
         return HttpResponseForbidden("Permission denied")
 
+    messaging_disabled = not conversation.restaurant.messaging_enabled
+    # Mark unread messages from other party as read
+    Message.objects.filter(conversation=conversation, is_read=False).exclude(
+        sender=request.user
+    ).update(is_read=True)
+
     if request.method == "POST":
+        # Issue #62: block sending when messaging is disabled (only for diners)
+        if messaging_disabled and not is_restaurant_owner(request.user):
+            messages.error(
+                request,
+                "This restaurant has messaging disabled and is not accepting messages.",
+            )
+            return redirect("conversation_detail", conversation_id=conversation.id)
         text = (request.POST.get("message") or "").strip()
         if not text:
             messages.error(request, "Message cannot be empty.")
@@ -1586,5 +1622,46 @@ def conversation_detail(request, conversation_id):
             "title": "Conversation",
             "conversation": conversation,
             "thread_messages": thread_messages,
+            "messaging_disabled": messaging_disabled,
         },
     )
+
+
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def manage_communication_settings(request):
+    """
+    Allow restaurant owners to manage their communication settings:
+    toggle messaging on/off and set available response hours. (Issue #62)
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(
+            request, "You do not have permission to manage communication settings."
+        )
+        return redirect("profile")
+
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+
+    if request.method == "POST":
+        form = RestaurantCommunicationSettingsForm(request.POST, instance=restaurant)
+        if form.is_valid():
+            form.save()
+            if restaurant.messaging_enabled:
+                messages.success(
+                    request, "Messaging is now enabled for your restaurant."
+                )
+            else:
+                messages.warning(
+                    request,
+                    "Messaging has been disabled. Diners will not be able to send you new messages.",
+                )
+            return redirect("profile")
+    else:
+        form = RestaurantCommunicationSettingsForm(instance=restaurant)
+
+    context = {
+        "title": "Communication Settings",
+        "form": form,
+        "restaurant": restaurant,
+    }
+    return render(request, "nomz/manage_communication_settings.html", context)

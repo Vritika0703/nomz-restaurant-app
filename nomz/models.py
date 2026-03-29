@@ -134,6 +134,22 @@ class Restaurant(models.Model):
     unavailable_reason = models.CharField(max_length=500, blank=True, null=True)
     unavailable_until = models.DateTimeField(blank=True, null=True)
 
+    # Communication settings (Issue #62)
+    messaging_enabled = models.BooleanField(
+        default=True,
+        help_text="Allow diners to send messages to this restaurant",
+    )
+    response_hours_start = models.TimeField(
+        blank=True,
+        null=True,
+        help_text="Earliest time the restaurant responds to messages",
+    )
+    response_hours_end = models.TimeField(
+        blank=True,
+        null=True,
+        help_text="Latest time the restaurant responds to messages",
+    )
+
     # Legacy compatibility fields expected by existing views/admin/forms
     neighborhood = models.CharField(max_length=100, blank=True, default="")
     cuisine = models.CharField(max_length=100, blank=True, default="")
@@ -850,6 +866,7 @@ class Message(models.Model):
         related_name="sent_messages",
     )
     body = models.TextField()
+    is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

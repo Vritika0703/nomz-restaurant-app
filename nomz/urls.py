@@ -63,6 +63,11 @@ urlpatterns = [
         name="manage_availability",
     ),
     path("restaurant/activate/", views.manage_activation, name="manage_activation"),
+    path(
+        "restaurant/communication/",
+        views.manage_communication_settings,
+        name="manage_communication_settings",
+    ),
     # Restaurant Photo Management
     path("restaurant/photos/", views.restaurant_photos, name="restaurant_photos"),
     path("restaurant/photos/upload/", views.upload_photo, name="upload_photo"),

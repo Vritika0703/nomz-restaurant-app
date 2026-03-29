@@ -20,6 +20,9 @@
                                     {% else %}
                                         {{ conversation.restaurant.name }}
                                     {% endif %}
+                                    {% if conversation.unread_count > 0 %}
+                                        <span class="badge bg-danger ms-2">NEW</span>
+                                    {% endif %}
                                 </h6>
                                 <small class="text-muted">{{ conversation.updated_at|date:"M d, Y H:i" }}</small>
                             </div>

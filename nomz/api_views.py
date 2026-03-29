@@ -288,6 +288,13 @@ def start_conversation(request):
             "Restaurant must have an owner to receive messages.", status=400
         )
 
+    # Issue #62: respect the restaurant's messaging toggle
+    if not restaurant.messaging_enabled:
+        return _json_error(
+            "This restaurant has messaging disabled and is not accepting messages.",
+            status=403,
+        )
+
     conversation, _ = Conversation.objects.get_or_create(
         restaurant=restaurant,
         diner=request.user,

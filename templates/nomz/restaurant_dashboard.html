@@ -44,6 +44,11 @@
                         Open Messages
                     </a>
                 </div>
+                <div class="col-12 mb-3">
+                    <a href="{% url 'manage_communication_settings' %}" class="btn w-100" style="background-color: #96A99E; color: white; border: none;">
+                        <i class="bi bi-chat-dots"></i> Communication Settings
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -92,6 +97,17 @@
                             <h6 class="text-muted mb-1">Hours</h6>
                             <p class="mb-3"><strong>{{ restaurant.hours_open|time:"g:i A" }} - {{ restaurant.hours_close|time:"g:i A" }}</strong></p>
                             
+                            <h6 class="text-muted mb-1">Messaging Hours</h6>
+                            <p class="mb-3">
+                                <strong>
+                                    {% if restaurant.response_hours_start and restaurant.response_hours_end %}
+                                        {{ restaurant.response_hours_start|time:"g:i A" }} - {{ restaurant.response_hours_end|time:"g:i A" }}
+                                    {% else %}
+                                        Not set (Always available)
+                                    {% endif %}
+                                </strong>
+                            </p>
+
                             <h6 class="text-muted mb-1">Status</h6>
                             <p class="mb-0">
                                 {% if is_rejected %}
