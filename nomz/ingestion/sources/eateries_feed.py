@@ -6,6 +6,7 @@ from nomz.ingestion.sources.nyc_endpoints import EATERIES
 from nomz.ingestion.utils.normalization import (
     first_non_empty,
     normalize_text,
+    sanitize_nyc_coordinate_pair,
     to_decimal_str,
     to_str,
     split_list_fields,
@@ -20,8 +21,10 @@ def normalize_eateries_row(row: Dict) -> Dict:
     borough = to_str(row.get("boro"))
     phone = to_str(row.get("phone"))
 
-    lat = to_decimal_str(row.get("latitude"))
-    lon = to_decimal_str(row.get("longitude"))
+    lat, lon = sanitize_nyc_coordinate_pair(
+        to_decimal_str(row.get("latitude")),
+        to_decimal_str(row.get("longitude")),
+    )
     cuisines = split_list_fields(row.get("cuisine_description"))
 
     return {

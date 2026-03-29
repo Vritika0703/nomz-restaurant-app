@@ -8,6 +8,8 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db.models import Q, Avg
 from django.views.decorators.http import require_http_methods, require_POST
+from nomz.ingestion.utils.score import compute_restaurant_composite_score
+from nomz.scoring import refresh_restaurant_composite
 from .forms import (
     UserRegisterForm,
     AdminLoginForm,
@@ -19,12 +21,15 @@ from .forms import (
     UserPreferenceForm,
     ReviewForm,
     ModerationReportForm,
+    RestaurantCommunicationSettingsForm,
 )
 from django.contrib.auth.models import User
 from .models import (
+    Conversation,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
+    Message,
     UserPreference,
     UserProfile,
     LoginLog,
@@ -37,6 +42,214 @@ from .restaurant_sorting import (
     sort_restaurant_queryset,
     recommend_restaurants_for_user,
 )
+
+NYC_MIN_LAT = 40.0
+NYC_MAX_LAT = 41.5
+NYC_MIN_LON = -75.5
+NYC_MAX_LON = -72.0
+
+
+def _to_float(value):
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _refresh_restaurant_composite_fields(restaurant):
+    return refresh_restaurant_composite(restaurant)
+
+
+def _build_restaurant_score_insights(restaurant):
+    current_score_data = compute_restaurant_composite_score(restaurant)
+    composite_score_value = (
+        _to_float(restaurant.composite_score)
+        if restaurant.composite_score is not None
+        else _to_float(current_score_data.get("composite_score"))
+    )
+    grade_score_value = (
+        int(restaurant.grade_score_latest)
+        if restaurant.grade_score_latest is not None
+        else int(current_score_data.get("grade_score") or 0)
+    )
+    grade_value = (
+        restaurant.grade_latest or current_score_data.get("grade") or ""
+    ).strip()
+    last_inspection_date_value = (
+        restaurant.last_inspection_date
+        or current_score_data.get("last_inspection_date")
+    )
+
+    score_summary = {
+        "composite_score": composite_score_value,
+        "grade": grade_value or "N/A",
+        "grade_score": grade_score_value,
+        "last_inspection_date": last_inspection_date_value,
+        "review_count": int(current_score_data.get("review_count") or 0),
+        "review_confidence": round(
+            float(current_score_data.get("review_confidence") or 0.0) * 100, 1
+        ),
+    }
+
+    review_factor_averages = current_score_data.get("review_factor_averages", {})
+    review_factor_scores = current_score_data.get("review_factor_scores", {})
+    review_factor_breakdown = [
+        {
+            "label": "Overall",
+            "average_rating": review_factor_averages.get("overall_rating"),
+            "score_100": review_factor_scores.get("overall_rating", 0),
+        },
+        {
+            "label": "Food Quality",
+            "average_rating": review_factor_averages.get("food_quality_rating"),
+            "score_100": review_factor_scores.get("food_quality_rating", 0),
+        },
+        {
+            "label": "Service Quality",
+            "average_rating": review_factor_averages.get("service_quality_rating"),
+            "score_100": review_factor_scores.get("service_quality_rating", 0),
+        },
+        {
+            "label": "Ambience",
+            "average_rating": review_factor_averages.get("ambience_rating"),
+            "score_100": review_factor_scores.get("ambience_rating", 0),
+        },
+        {
+            "label": "Location",
+            "average_rating": review_factor_averages.get("location_rating"),
+            "score_100": review_factor_scores.get("location_rating", 0),
+        },
+        {
+            "label": "Value",
+            "average_rating": review_factor_averages.get("value_rating"),
+            "score_100": review_factor_scores.get("value_rating", 0),
+        },
+        {
+            "label": "Dietary Accommodation",
+            "average_rating": review_factor_averages.get(
+                "dietary_accommodation_rating"
+            ),
+            "score_100": review_factor_scores.get("dietary_accommodation_rating", 0),
+        },
+        {
+            "label": "Cleanliness",
+            "average_rating": review_factor_averages.get("cleanliness_rating"),
+            "score_100": review_factor_scores.get("cleanliness_rating", 0),
+        },
+    ]
+
+    score_breakdown = current_score_data.get("score_breakdown", [])
+
+    trend_rows = list(restaurant.inspections.order_by("-inspection_date", "-id")[:8])
+    trend_rows.reverse()
+    trend_points = []
+    for inspection in trend_rows:
+        point_score = compute_restaurant_composite_score(
+            restaurant,
+            as_of_date=inspection.inspection_date,
+        )
+        trend_points.append(
+            {
+                "date": inspection.inspection_date.isoformat(),
+                "label": inspection.inspection_date.strftime("%b %d, %Y"),
+                "composite_score": _to_float(point_score.get("composite_score")) or 0.0,
+                "grade": (inspection.grade or "").strip().upper() or "N/A",
+                "grade_score": int(point_score.get("grade_score") or 0),
+                "critical_violations": int(inspection.critical_violations or 0),
+                "noncritical_violations": int(inspection.noncritical_violations or 0),
+                "inspection_type": inspection.inspection_type or "",
+                "review_count": int(point_score.get("review_count") or 0),
+            }
+        )
+
+    trend_summary = {
+        "direction": "flat",
+        "delta": 0.0,
+        "has_data": bool(trend_points),
+    }
+    if len(trend_points) >= 2:
+        delta = round(
+            trend_points[-1]["composite_score"] - trend_points[0]["composite_score"], 2
+        )
+        trend_summary["delta"] = delta
+        if delta > 1:
+            trend_summary["direction"] = "up"
+        elif delta < -1:
+            trend_summary["direction"] = "down"
+
+    location_scope = ""
+    peers = Restaurant.objects.filter(is_active=True, composite_score__isnull=False)
+    if restaurant.neighborhood:
+        peers = peers.filter(neighborhood__iexact=restaurant.neighborhood)
+        location_scope = restaurant.neighborhood
+    elif restaurant.borough:
+        peers = peers.filter(borough__iexact=restaurant.borough)
+        location_scope = restaurant.borough
+    elif restaurant.zip_code:
+        peers = peers.filter(zip_code__startswith=(restaurant.zip_code or "")[:5])
+        location_scope = (restaurant.zip_code or "")[:5]
+    else:
+        location_scope = "citywide"
+
+    peer_rows = list(peers.values("id", "composite_score"))
+    peer_count = len(peer_rows)
+    neighborhood_comparison = {
+        "location_scope": location_scope,
+        "peer_count": peer_count,
+        "rank": None,
+        "percentile": None,
+        "average_score": None,
+        "delta_vs_average": None,
+    }
+
+    if composite_score_value is not None and peer_count > 0:
+        sorted_rows = sorted(
+            peer_rows,
+            key=lambda item: float(item["composite_score"]),
+            reverse=True,
+        )
+        restaurant_rank = next(
+            (
+                index + 1
+                for index, item in enumerate(sorted_rows)
+                if item["id"] == restaurant.id
+            ),
+            None,
+        )
+        if restaurant_rank is None:
+            restaurant_rank = (
+                sum(
+                    1
+                    for item in sorted_rows
+                    if float(item["composite_score"]) > composite_score_value
+                )
+                + 1
+            )
+
+        average_score = round(
+            sum(float(item["composite_score"]) for item in peer_rows) / peer_count,
+            2,
+        )
+        percentile = round(((peer_count - restaurant_rank + 1) / peer_count) * 100, 1)
+        neighborhood_comparison.update(
+            {
+                "rank": restaurant_rank,
+                "percentile": percentile,
+                "average_score": average_score,
+                "delta_vs_average": round(composite_score_value - average_score, 2),
+            }
+        )
+
+    return {
+        "score_summary": score_summary,
+        "score_breakdown": score_breakdown,
+        "review_factor_breakdown": review_factor_breakdown,
+        "trend_points": trend_points,
+        "trend_summary": trend_summary,
+        "neighborhood_comparison": neighborhood_comparison,
+    }
 
 
 def landing_page(request):
@@ -120,6 +333,10 @@ def map_view(request):
         is_active=True,
         latitude__isnull=False,
         longitude__isnull=False,
+        latitude__gte=NYC_MIN_LAT,
+        latitude__lte=NYC_MAX_LAT,
+        longitude__gte=NYC_MIN_LON,
+        longitude__lte=NYC_MAX_LON,
     )
     boroughs = sorted(
         {
@@ -350,6 +567,7 @@ def dashboard(request):
         context["active_claim"] = active_claim
         context["recent_claims"] = recent_claims
         if restaurant:
+            context.update(_build_restaurant_score_insights(restaurant))
             # Fetch reviews
             reviews = restaurant.reviews.all().order_by("-created_at")
             context["reviews"] = reviews
@@ -432,6 +650,8 @@ def restaurant_profile(request):
         "is_approved": request.user.userprofile.is_approved,
         "is_rejected": request.user.userprofile.is_rejected,
     }
+    if restaurant:
+        context.update(_build_restaurant_score_insights(restaurant))
     return render(request, "nomz/restaurant_dashboard.html", context)
 
 
@@ -1278,3 +1498,170 @@ def restaurant_detail(request, restaurant_id):
         "nomz/restaurant_detail.html",
         {"restaurant": restaurant, "reviews": reviews},
     )
+
+
+@login_required(login_url="landing")
+def message_inbox(request):
+    from django.db.models import Count, Q
+
+    if is_restaurant_owner(request.user):
+        conversations = (
+            Conversation.objects.filter(restaurant__owner=request.user)
+            .select_related("restaurant", "diner")
+            .annotate(
+                unread_count=Count(
+                    "messages",
+                    filter=Q(messages__is_read=False)
+                    & ~Q(messages__sender=request.user),
+                )
+            )
+            .order_by("-updated_at")
+        )
+    else:
+        conversations = (
+            Conversation.objects.filter(diner=request.user)
+            .select_related("restaurant", "diner")
+            .annotate(
+                unread_count=Count(
+                    "messages",
+                    filter=Q(messages__is_read=False)
+                    & ~Q(messages__sender=request.user),
+                )
+            )
+            .order_by("-updated_at")
+        )
+
+    return render(
+        request,
+        "nomz/message_inbox.html",
+        {
+            "title": "Messages",
+            "conversations": conversations,
+        },
+    )
+
+
+@login_required(login_url="landing")
+def message_restaurant(request, restaurant_id):
+    if is_restaurant_owner(request.user):
+        messages.error(
+            request,
+            "Restaurant owner accounts cannot start a diner-to-restaurant conversation.",
+        )
+        return redirect("restaurant_detail", restaurant_id=restaurant_id)
+
+    restaurant = get_object_or_404(
+        Restaurant.objects.select_related("owner"), id=restaurant_id
+    )
+    if not restaurant.owner_id:
+        messages.error(
+            request,
+            "This restaurant does not yet have an owner account for messaging.",
+        )
+        return redirect("restaurant_detail", restaurant_id=restaurant_id)
+
+    # Issue #62: respect the restaurant's messaging toggle
+    if not restaurant.messaging_enabled:
+        messages.error(
+            request,
+            f"{restaurant.name} has messaging disabled and is not accepting new messages at this time.",
+        )
+        return redirect("restaurant_detail", restaurant_id=restaurant_id)
+
+    conversation, _ = Conversation.objects.get_or_create(
+        restaurant=restaurant,
+        diner=request.user,
+    )
+    return redirect("conversation_detail", conversation_id=conversation.id)
+
+
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def conversation_detail(request, conversation_id):
+    conversation = get_object_or_404(
+        Conversation.objects.select_related("restaurant", "restaurant__owner", "diner"),
+        id=conversation_id,
+    )
+    if not conversation.can_access(request.user):
+        return HttpResponseForbidden("Permission denied")
+
+    messaging_disabled = not conversation.restaurant.messaging_enabled
+    # Mark unread messages from other party as read
+    Message.objects.filter(conversation=conversation, is_read=False).exclude(
+        sender=request.user
+    ).update(is_read=True)
+
+    if request.method == "POST":
+        # Issue #62: block sending when messaging is disabled (only for diners)
+        if messaging_disabled and not is_restaurant_owner(request.user):
+            messages.error(
+                request,
+                "This restaurant has messaging disabled and is not accepting messages.",
+            )
+            return redirect("conversation_detail", conversation_id=conversation.id)
+        text = (request.POST.get("message") or "").strip()
+        if not text:
+            messages.error(request, "Message cannot be empty.")
+            return redirect("conversation_detail", conversation_id=conversation.id)
+
+        Message.objects.create(
+            conversation=conversation,
+            sender=request.user,
+            body=text,
+        )
+        conversation.save(update_fields=["updated_at"])
+        return redirect("conversation_detail", conversation_id=conversation.id)
+
+    thread_messages = conversation.messages.select_related("sender").order_by(
+        "created_at"
+    )
+    return render(
+        request,
+        "nomz/conversation_detail.html",
+        {
+            "title": "Conversation",
+            "conversation": conversation,
+            "thread_messages": thread_messages,
+            "messaging_disabled": messaging_disabled,
+        },
+    )
+
+
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def manage_communication_settings(request):
+    """
+    Allow restaurant owners to manage their communication settings:
+    toggle messaging on/off and set available response hours. (Issue #62)
+    """
+    if not is_restaurant_owner(request.user):
+        messages.error(
+            request, "You do not have permission to manage communication settings."
+        )
+        return redirect("profile")
+
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+
+    if request.method == "POST":
+        form = RestaurantCommunicationSettingsForm(request.POST, instance=restaurant)
+        if form.is_valid():
+            form.save()
+            if restaurant.messaging_enabled:
+                messages.success(
+                    request, "Messaging is now enabled for your restaurant."
+                )
+            else:
+                messages.warning(
+                    request,
+                    "Messaging has been disabled. Diners will not be able to send you new messages.",
+                )
+            return redirect("profile")
+    else:
+        form = RestaurantCommunicationSettingsForm(instance=restaurant)
+
+    context = {
+        "title": "Communication Settings",
+        "form": form,
+        "restaurant": restaurant,
+    }
+    return render(request, "nomz/manage_communication_settings.html", context)

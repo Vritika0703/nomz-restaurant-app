@@ -551,6 +551,17 @@
                         </li>
                         {% endif %}
                     {% endif %}
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'message_inbox' %}">
+                            Messages
+                            {% if unread_messages_count > 0 %}
+                                <span class="badge rounded-pill bg-danger" style="font-size: 0.6rem; vertical-align: top; margin-left: -5px;">
+                                    {{ unread_messages_count }}
+                                </span>
+                            {% endif %}
+                        </a>
+                    </li>
                     {% endif %}
                     
                     {% if user.is_authenticated %}

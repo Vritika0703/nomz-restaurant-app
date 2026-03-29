@@ -108,6 +108,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "nomz.context_processors.unread_messages_count",
             ],
         },
     },
@@ -252,6 +253,10 @@ CSRF_TRUSTED_ORIGINS = list(
         cast=Csv(),
     )
 )
+
+# OpenStreetMap tile servers require a Referer/origin; this policy keeps a safe
+# origin-only referrer on cross-origin requests (including map tiles).
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # Security Settings for Production
 if not DEBUG:

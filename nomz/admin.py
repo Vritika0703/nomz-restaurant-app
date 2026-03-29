@@ -1,9 +1,11 @@
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 
+from .scoring import refresh_restaurant_composite
 from .models import (
     Restaurant,
     RestaurantOwnershipClaim,
+    Review,
     SystemAlert,
     SystemAuditLog,
     SystemPerformanceMetric,
@@ -15,6 +17,19 @@ from .models import (
 class RestaurantAdmin(admin.ModelAdmin):
     list_display = ("name", "neighborhood", "cuisine")
     search_fields = ("name", "neighborhood")
+    actions = ("recalculate_selected_scores",)
+
+    @admin.action(description="Recalculate composite score for selected restaurants")
+    def recalculate_selected_scores(self, request, queryset):
+        refreshed = 0
+        for restaurant in queryset:
+            refresh_restaurant_composite(restaurant)
+            refreshed += 1
+        self.message_user(
+            request,
+            f"Recalculated composite scores for {refreshed} restaurant(s).",
+            level=messages.SUCCESS,
+        )
 
 
 @admin.register(SystemPerformanceMetric)
@@ -130,3 +145,24 @@ class RestaurantOwnershipClaimAdmin(admin.ModelAdmin):
             claim.reject(reviewer=request.user, notes="Rejected via admin bulk action.")
             rejected_count += 1
         self.message_user(request, f"Rejected {rejected_count} claim(s).")
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "restaurant",
+        "user",
+        "rating",
+        "food_quality_rating",
+        "service_quality_rating",
+        "ambience_rating",
+        "location_rating",
+        "value_rating",
+        "created_at",
+        "is_flagged",
+        "is_deleted",
+    )
+    list_filter = ("is_flagged", "is_deleted", "created_at")
+    search_fields = ("restaurant__name", "user__username", "comment")
+    ordering = ("-created_at",)

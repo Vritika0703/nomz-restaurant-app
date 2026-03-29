@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.utils import timezone
 from django.db import models, transaction
 
@@ -132,6 +133,22 @@ class Restaurant(models.Model):
     )
     unavailable_reason = models.CharField(max_length=500, blank=True, null=True)
     unavailable_until = models.DateTimeField(blank=True, null=True)
+
+    # Communication settings (Issue #62)
+    messaging_enabled = models.BooleanField(
+        default=True,
+        help_text="Allow diners to send messages to this restaurant",
+    )
+    response_hours_start = models.TimeField(
+        blank=True,
+        null=True,
+        help_text="Earliest time the restaurant responds to messages",
+    )
+    response_hours_end = models.TimeField(
+        blank=True,
+        null=True,
+        help_text="Latest time the restaurant responds to messages",
+    )
 
     # Legacy compatibility fields expected by existing views/admin/forms
     neighborhood = models.CharField(max_length=100, blank=True, default="")
@@ -730,7 +747,46 @@ class Review(models.Model):
         Restaurant, on_delete=models.CASCADE, related_name="reviews"
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews")
-    rating = models.PositiveSmallIntegerField(help_text="Rating from 1 to 5", default=5)
+    rating = models.PositiveSmallIntegerField(
+        help_text="Overall rating from 1 to 5",
+        default=5,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+    )
+    food_quality_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Food quality rating from 1 to 5",
+    )
+    service_quality_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Service quality rating from 1 to 5",
+    )
+    ambience_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Ambience rating from 1 to 5",
+    )
+    location_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Location and accessibility rating from 1 to 5",
+    )
+    value_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Price-to-value rating from 1 to 5",
+    )
+    dietary_accommodation_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Dietary accommodation quality rating from 1 to 5",
+    )
+    cleanliness_rating = models.PositiveSmallIntegerField(
+        default=4,
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Cleanliness rating from 1 to 5",
+    )
     comment = models.TextField(blank=True, null=True)
     is_flagged = models.BooleanField(
         default=False, help_text="Flagged for moderation/fraud"
@@ -744,6 +800,84 @@ class Review(models.Model):
 
     def __str__(self):
         return f"Review by {self.user.username} for {self.restaurant.name} ({self.rating}/5)"
+
+    @property
+    def experience_rating(self):
+        weighted = (
+            (self.food_quality_rating * 0.30)
+            + (self.service_quality_rating * 0.20)
+            + (self.ambience_rating * 0.15)
+            + (self.location_rating * 0.10)
+            + (self.value_rating * 0.10)
+            + (self.dietary_accommodation_rating * 0.05)
+            + (self.cleanliness_rating * 0.10)
+        )
+        return round(weighted, 2)
+
+
+class Conversation(models.Model):
+    """
+    One-to-one messaging thread between a restaurant owner and a diner.
+    """
+
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="conversations",
+    )
+    diner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="diner_conversations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("restaurant", "diner")]
+        indexes = [
+            models.Index(fields=["restaurant", "updated_at"]),
+            models.Index(fields=["diner", "updated_at"]),
+        ]
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.restaurant.name} <-> {self.diner.username}"
+
+    def can_access(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        return self.diner_id == user.id or self.restaurant.owner_id == user.id
+
+
+class Message(models.Model):
+    """
+    Individual message belonging to a conversation.
+    """
+
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="sent_messages",
+    )
+    body = models.TextField()
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["conversation", "created_at"]),
+            models.Index(fields=["sender", "created_at"]),
+        ]
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Message {self.id} by {self.sender.username}"
 
 
 class ModerationReport(models.Model):
