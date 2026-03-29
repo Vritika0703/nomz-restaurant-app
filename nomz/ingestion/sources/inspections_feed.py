@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import OrderedDict
 from datetime import datetime
 from typing import Dict, Iterable
 
@@ -186,18 +185,26 @@ def _merge_inspection_records(base: Dict, row: Dict) -> None:
 
 
 def stream_inspection_rows(client) -> Iterable[Dict]:
-    grouped_rows: "OrderedDict[str, Dict]" = OrderedDict()
-    for row in client.fetch_all(INSPECTIONS):
+    current_key = None
+    current_record = None
+    for row in client.fetch_all(
+        INSPECTIONS,
+        limit=500,
+        order_by="camis,inspection_date,inspection_type,action",
+    ):
         normalized = normalize_inspection_row(row)
         if not normalized["name"] or not normalized["inspection_key"]:
             continue
 
-        existing = grouped_rows.get(normalized["inspection_key"])
-        if existing is None:
-            grouped_rows[normalized["inspection_key"]] = normalized
+        inspection_key = normalized["inspection_key"]
+        if inspection_key != current_key:
+            if current_record is not None:
+                yield current_record
+            current_key = inspection_key
+            current_record = normalized
             continue
 
-        _merge_inspection_records(existing, normalized)
+        _merge_inspection_records(current_record, normalized)
 
-    for record in grouped_rows.values():
-        yield record
+    if current_record is not None:
+        yield current_record

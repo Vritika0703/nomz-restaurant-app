@@ -1,16 +1,18 @@
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
+from nomz.ingestion.persistence import DbIngestionWriter
 from nomz.ingestion.sources.inspections_feed import (
     normalize_inspection_row,
     stream_inspection_rows,
 )
+from nomz.models import Restaurant
 
 
 class _FakeInspectionClient:
     def __init__(self, rows):
         self.rows = rows
 
-    def fetch_all(self, _resource):
+    def fetch_all(self, _resource, **_kwargs):
         for row in self.rows:
             yield row
 
@@ -91,3 +93,43 @@ class InspectionFeedNormalizationTests(SimpleTestCase):
         self.assertEqual(record["noncritical_violations"], 1)
         self.assertEqual(record["violation_count"], 2)
         self.assertEqual(len(record["violation_description"]), 2)
+
+
+class IngestionPersistenceTests(TestCase):
+    def test_existing_name_is_reused_when_name_is_already_taken(self):
+        existing = Restaurant.objects.create(
+            name="Duplicate Name Bistro",
+            display_name="Duplicate Name Bistro",
+            name_normalized="duplicate name bistro",
+            borough="MANHATTAN",
+            zip_code="10001",
+        )
+
+        writer = DbIngestionWriter(dry_run=False)
+        record = {
+            "source": "DOHMH",
+            "source_external_id": "12345678",
+            "name": "Duplicate Name Bistro",
+            "name_normalized": "duplicate name bistro",
+            "building": "10",
+            "street": "W 31 ST",
+            "borough": "MANHATTAN",
+            "zip_code": "10001",
+            "inspection_date": "2025-01-01",
+            "inspection_type": "Cycle Inspection / Initial Inspection",
+            "action": "No violations were recorded at the time of this inspection.",
+            "critical_violations": 0,
+            "noncritical_violations": 0,
+            "violation_count": 0,
+            "violation_description": [],
+            "inspection_key": "12345678|2025-01-01|Cycle Inspection / Initial Inspection|No violations were recorded at the time of this inspection.",
+            "raw_payload": {},
+        }
+
+        writer.ingest(record)
+
+        self.assertEqual(writer.stats.records_failed, 0)
+        self.assertEqual(Restaurant.objects.filter(name="Duplicate Name Bistro").count(), 1)
+        self.assertTrue(
+            Restaurant.objects.filter(id=existing.id, street="W 31 ST").exists()
+        )

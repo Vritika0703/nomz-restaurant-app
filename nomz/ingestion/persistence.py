@@ -5,9 +5,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from hashlib import sha1
+import time
 from typing import Any, Dict, Optional
 
-from django.db import transaction
+from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
 from nomz.ingestion.utils.normalization import normalize_text
@@ -118,6 +119,8 @@ class DbIngestionWriter:
         self.dry_run = dry_run
         self.stats = IngestionStats()
         self._source_link_cache: set[tuple[str, str]] = set()
+        self._sqlite_lock_retry_attempts = 5
+        self._sqlite_lock_retry_base_sleep = 0.05
 
     def ingest(self, record: Dict[str, Any]) -> None:
         source = record.get("source", "")
@@ -128,14 +131,26 @@ class DbIngestionWriter:
         self.stats.source_breakdown[source] += 1
         self.stats.records_processed += 1
 
-        try:
-            if source == "DOHMH":
-                self._handle_inspection_record(record)
-            else:
-                self._handle_restaurant_source_record(record)
-        except Exception:
-            self.stats.records_failed += 1
-            raise
+        attempts = 0
+        while True:
+            try:
+                if source == "DOHMH":
+                    self._handle_inspection_record(record)
+                else:
+                    self._handle_restaurant_source_record(record)
+                return
+            except OperationalError as exc:
+                is_sqlite_lock = "database is locked" in str(exc).lower()
+                if is_sqlite_lock and attempts < self._sqlite_lock_retry_attempts:
+                    attempts += 1
+                    sleep_for = self._sqlite_lock_retry_base_sleep * attempts
+                    time.sleep(sleep_for)
+                    continue
+                self.stats.records_failed += 1
+                raise
+            except Exception:
+                self.stats.records_failed += 1
+                raise
 
     def _handle_restaurant_source_record(self, record: Dict[str, Any]) -> None:
         with transaction.atomic():
@@ -254,11 +269,40 @@ class DbIngestionWriter:
                 "longitude": _to_decimal(record.get("longitude")),
             }
 
+            # Model currently enforces unique restaurant names. If another location
+            # has the same name, we enrich the existing row instead of failing writes.
+            exact_name_match = (
+                Restaurant.objects.filter(name__iexact=normalized_payload["name"])
+                .order_by("id")
+                .first()
+            )
+            if exact_name_match is not None:
+                if not self.dry_run:
+                    self._apply_restaurant_enrichment(exact_name_match, record)
+                    self._sync_restaurant_search(exact_name_match)
+                self.stats.records_matched += 1
+                self.stats.records_updated += 1
+                return exact_name_match
+
             if self.dry_run:
                 self.stats.records_created += 1
                 return Restaurant(**normalized_payload)
 
-            restaurant = Restaurant.objects.create(**normalized_payload)
+            try:
+                restaurant = Restaurant.objects.create(**normalized_payload)
+            except IntegrityError:
+                existing = (
+                    Restaurant.objects.filter(name__iexact=normalized_payload["name"])
+                    .order_by("id")
+                    .first()
+                )
+                if existing is None:
+                    raise
+                self._apply_restaurant_enrichment(existing, record)
+                self._sync_restaurant_search(existing)
+                self.stats.records_matched += 1
+                self.stats.records_updated += 1
+                return existing
             self.stats.records_created += 1
             self.stats.records_matched += 1
             self._sync_restaurant_search(restaurant)
@@ -463,14 +507,25 @@ class DbIngestionWriter:
             return value.date()
 
         value_text = str(value).strip()
-        for fmt in [
-            "%Y-%m-%d",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S.%f",
-            "%m/%d/%Y",
-        ]:
+        if not value_text:
+            return None
+
+        iso_candidate = value_text.replace("Z", "+00:00")
+        try:
+            return datetime.fromisoformat(iso_candidate).date()
+        except ValueError:
+            pass
+
+        if "T" in value_text:
+            date_part = value_text.split("T", 1)[0]
             try:
-                return datetime.strptime(value_text[: len(fmt)], fmt).date()
+                return datetime.strptime(date_part, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+            try:
+                return datetime.strptime(value_text, fmt).date()
             except ValueError:
                 continue
         return None
@@ -515,14 +570,22 @@ class DbIngestionWriter:
             )
         cuisine = cuisine[:100]
 
-        RestaurantSearch.objects.update_or_create(
-            name=(restaurant.name or "")[:200],
-            defaults={
-                "neighborhood": neighborhood,
-                "description": restaurant.description or "",
-                "cuisine": cuisine,
-            },
-        )
+        search_name = (restaurant.name or "")[:200]
+        defaults = {
+            "neighborhood": neighborhood,
+            "description": restaurant.description or "",
+            "cuisine": cuisine,
+        }
+
+        existing = RestaurantSearch.objects.filter(name=search_name).order_by("id")
+        primary = existing.first()
+        if primary is None:
+            RestaurantSearch.objects.create(name=search_name, **defaults)
+            return
+
+        for key, value in defaults.items():
+            setattr(primary, key, value)
+        primary.save(update_fields=list(defaults.keys()))
 
 
 class IngestionRunContext:
