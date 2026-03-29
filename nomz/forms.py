@@ -609,7 +609,9 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
             "messaging_enabled": "When disabled, diners will not be able to send you new messages.",
         }
         widgets = {
-            "messaging_enabled": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "messaging_enabled": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -634,4 +636,3 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
                 "Response hours start time must be before end time."
             )
         return cleaned_data
-

@@ -1511,7 +1511,8 @@ def message_inbox(request):
             .annotate(
                 unread_count=Count(
                     "messages",
-                    filter=Q(messages__is_read=False) & ~Q(messages__sender=request.user),
+                    filter=Q(messages__is_read=False)
+                    & ~Q(messages__sender=request.user),
                 )
             )
             .order_by("-updated_at")
@@ -1523,7 +1524,8 @@ def message_inbox(request):
             .annotate(
                 unread_count=Count(
                     "messages",
-                    filter=Q(messages__is_read=False) & ~Q(messages__sender=request.user),
+                    filter=Q(messages__is_read=False)
+                    & ~Q(messages__sender=request.user),
                 )
             )
             .order_by("-updated_at")
@@ -1585,9 +1587,9 @@ def conversation_detail(request, conversation_id):
 
     messaging_disabled = not conversation.restaurant.messaging_enabled
     # Mark unread messages from other party as read
-    Message.objects.filter(
-        conversation=conversation, is_read=False
-    ).exclude(sender=request.user).update(is_read=True)
+    Message.objects.filter(conversation=conversation, is_read=False).exclude(
+        sender=request.user
+    ).update(is_read=True)
 
     if request.method == "POST":
         # Issue #62: block sending when messaging is disabled (only for diners)
@@ -1633,7 +1635,9 @@ def manage_communication_settings(request):
     toggle messaging on/off and set available response hours. (Issue #62)
     """
     if not is_restaurant_owner(request.user):
-        messages.error(request, "You do not have permission to manage communication settings.")
+        messages.error(
+            request, "You do not have permission to manage communication settings."
+        )
         return redirect("profile")
 
     restaurant = get_object_or_404(Restaurant, owner=request.user)
@@ -1643,7 +1647,9 @@ def manage_communication_settings(request):
         if form.is_valid():
             form.save()
             if restaurant.messaging_enabled:
-                messages.success(request, "Messaging is now enabled for your restaurant.")
+                messages.success(
+                    request, "Messaging is now enabled for your restaurant."
+                )
             else:
                 messages.warning(
                     request,
