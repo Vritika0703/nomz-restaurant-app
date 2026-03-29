@@ -5,10 +5,7 @@
 {% block navbar %}{% endblock %} 
 
 {% block extra_css %}
-<<<<<<< HEAD
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&display=swap" rel="stylesheet">
-=======
->>>>>>> b0ff232 (changed ui)
 <style>
     /* 1. Set the background to match your new login page */
     html, body {
@@ -16,7 +13,7 @@
         overflow: hidden; /* Prevents scrolling */
         margin: 0;
         padding: 0;
-        background-color: #53646F; /* Dark blue-gray from your screenshot */
+        background: linear-gradient(135deg, #E8EBEF 0%, #DFE5EB 100%);
         display: flex;
         justify-content: center;
         align-items: center;
@@ -29,17 +26,14 @@
     
     /* 3. The new floating center card */
     .auth-card-container {
-        background-color: #FDFFF6; /* Cream color from your screenshot */
+        background-color: var(--light-color);
         width: 100%;
         max-width: 550px; /* Wide enough to fit the two columns */
         border-radius: 12px;
         padding: 2.5rem 3rem;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-<<<<<<< HEAD
         position: relative;
         z-index: 10;
-=======
->>>>>>> b0ff232 (changed ui)
     }
     
     .form-header {
@@ -48,7 +42,7 @@
     }
 
     .form-header h2 {
-        color: #465F6E; /* Dark slate text color */
+        color: var(--primary-color);
         font-size: 2rem;
         font-weight: bold;
         margin: 0;
@@ -71,7 +65,7 @@
     }
 
     .auth-card-container form label {
-        color: #465F6E;
+        color: var(--text-primary);
         display: block;
         margin-bottom: 0.3rem;
         font-size: 0.9rem; 
@@ -83,9 +77,9 @@
     .auth-card-container form input {
         width: 100%;
         padding: 0.8rem;
-        background-color: white;
-        color: #333;
-        border: 1px solid #ddd;
+        background-color: var(--light-color);
+        color: var(--text-primary);
+        border: 1px solid var(--muted-color);
         border-radius: 6px;
         font-family: 'Jersey 15', cursive;
     }
@@ -93,8 +87,8 @@
     .auth-card-container form select:focus,
     .auth-card-container form input:focus {
         outline: none;
-        border-color: #96A99E;
-        box-shadow: 0 0 0 2px rgba(150, 169, 158, 0.2);
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 2px rgba(255, 167, 127, 0.2);
     }
     
     .auth-card-container form select::placeholder,
@@ -102,9 +96,9 @@
         color: #aaa;
     }
 
-    /* The green submit button */
+    /* The accent submit button */
     .btn-submit {
-        background-color: #96A99E;
+        background-color: var(--accent-color);
         border: none;
         color: white;
         font-weight: bold;
@@ -115,19 +109,13 @@
         cursor: pointer;
         font-size: 1.2rem;
         transition: background-color 0.3s ease;
-<<<<<<< HEAD
         opacity: 1 !important;
         z-index: 20;
-=======
->>>>>>> b0ff232 (changed ui)
     }
 
     .btn-submit:hover {
-        background-color: #7a8a81;
-<<<<<<< HEAD
+        background-color: #FF8860;
         opacity: 1 !important;
-=======
->>>>>>> b0ff232 (changed ui)
     }
 
     .invalid-feedback {
@@ -141,20 +129,20 @@
     .auth-links {
         text-align: center;
         margin-top: 1.5rem;
-        color: #465F6E;
+        color: var(--text-secondary);
         font-size: 0.9rem;
     }
 
     .auth-links a {
-        color: #96A99E;
+        color: var(--accent-color);
         text-decoration: none;
         font-weight: bold;
-        border-bottom: 1px solid #96A99E; /* Adds the underline effect from your screenshot */
+        border-bottom: 1px solid var(--accent-color);
     }
 
     .auth-links a:hover {
-        color: #7a8a81;
-        border-bottom-color: #7a8a81;
+        color: #FF8860;
+        border-bottom-color: #FF8860;
     }
 
     /* Alert Styling for global form errors */
@@ -242,7 +230,7 @@
             <div class="form-group full-width">
                 <label for="{{ form.role.id_for_label }}">I am a...</label>
                 {{ form.role }}
-                <small style="color: #465F6E; display: block; margin-top: 0.25rem;">
+                <small class="text-muted d-block mt-2">
                     Restaurant owners can claim an existing listing right after signup.
                 </small>
                 {% if form.role.errors %}

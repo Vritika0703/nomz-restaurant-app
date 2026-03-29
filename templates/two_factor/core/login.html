@@ -7,76 +7,76 @@
 {% block extra_title %}{% trans "Login" %}{% endblock %}
 
 {% block extra_css %}
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital@1&display=swap" rel="stylesheet">
 <style>
     body {
-        background-color: #465F6E;
+        background: linear-gradient(135deg, #E8EBEF 0%, #DFE5EB 100%);
         overflow: hidden;
+        position: relative;
+    }
+    
+    body::before {
+        content: 'nomz';
+        position: fixed;
+        font-size: 15rem;
+        font-family: Jersey 15, cursive;
+        color: rgba(255, 255, 255, 0.05);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 0;
+        pointer-events: none;
+        white-space: nowrap;
+        letter-spacing: -10px;
     }
 </style>
 {% endblock %}
 
 {% block two_factor_content %}
-<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; background-color: #465F6E; padding: 0; margin: 0; overflow: hidden;">
-    <!-- Watermark background -->
-    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: flex-start; z-index: 1; pointer-events: none; opacity: 0.08; padding: 1rem 0;">
-        {% for i in "x"|rjust:"30" %}
-        <div style="display: flex; justify-content: space-around; font-size: 2rem; font-family: 'Cormorant Garamond', serif; font-style: italic; color: white; width: 100%; gap: 0.2rem; padding: 0 1rem; margin-bottom: 0.5rem;">
-            {% if forloop.counter|divisibleby:2 %}
-            <span>nomz</span>
-            {% endif %}
-            <span>nomz</span>
-            <span>nomz</span>
-            <span>nomz</span>
-            <span>nomz</span>
-            <span>nomz</span>
-            <span>nomz</span>
-            <span>nomz</span>
-            <span>nomz</span>
-            <span>nomz</span>
-            <span>nomz</span>
-        </div>
-        {% endfor %}
-    </div>
-    
+<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; padding: 0; margin: 0; overflow: hidden; z-index: 1;">
     <!-- Login form card -->
-    <div style="max-width: 400px; width: 100%; padding: 2rem; background: #FDFFF6; border-radius: 1rem; box-shadow: 0 4px 15px rgba(0,0,0,0.2); position: relative; z-index: 10;">
-        <h2 style="text-align: center; margin-bottom: 2rem; color: #465F6E; font-size: 1.75rem; font-weight: bold;">Sign In</h2>
+    <div class="auth-card">
+        <div class="card-header">
+            <h2>Sign In</h2>
+        </div>
         
-        <form action="" method="post" novalidate>
-            {% csrf_token %}
-            {{ wizard.management_form }}
+        <div class="card-body">
+            <form action="" method="post" novalidate>
+                {% csrf_token %}
+                {{ wizard.management_form }}
 
-            {% for field in wizard.form %}
-            <div class="form-group">
-                <label for="{{ field.id_for_label }}" class="form-label" style="color: #465F6E;">{{ field.label }}</label>
-                {{ field.errors }}
-                <input type="{{ field.field.widget.input_type|default:'text' }}"
-                    class="form-control {% if field.errors %}is-invalid{% endif %}" id="{{ field.id_for_label }}"
-                    name="{{ field.html_name }}" placeholder="{{ field.label }}" {% if field.value %}value="{{ field.value }}"
-                    {% endif %} required>
-                {% if field.help_text %}
-                <div class="form-text">{{ field.help_text|safe }}</div>
-                {% endif %}
+                {% for field in wizard.form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field.errors }}
+                    <input type="{{ field.field.widget.input_type|default:'text' }}"
+                        class="form-control {% if field.errors %}is-invalid{% endif %}" id="{{ field.id_for_label }}"
+                        name="{{ field.html_name }}" placeholder="{{ field.label }}" {% if field.value %}value="{{ field.value }}"
+                        {% endif %} required>
+                    {% if field.help_text %}
+                    <div class="form-text">{{ field.help_text|safe }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+
+                {# hidden submit button to enable [enter] key #}
+                <input type="submit" value="" class="d-none" />
+
+                <div class="d-flex gap-2 mt-3">
+                    {% if wizard.steps.prev %}
+                    <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" class="btn btn-secondary flex-grow-1">{% trans
+                        "Back" %}</button>
+                    {% endif %}
+
+                    <button type="submit" class="btn btn-primary {% if not wizard.steps.prev %}w-100{% else %}flex-grow-1{% endif %}">
+                        {% trans "Next" %}
+                    </button>
+                </div>
+            </form>
+
+            <div class="auth-links">
+                <p class="mb-0">Don't have an account? <a href="{% url 'register' %}">Register here</a></p>
+                <p class="mt-2"><a href="{% url 'password_reset' %}">Forgot password?</a></p>
             </div>
-            {% endfor %}
-
-            {# hidden submit button to enable [enter] key #}
-            <input type="submit" value="" class="d-none" />
-
-            {% if wizard.steps.prev %}
-            <button name="wizard_goto_step" type="submit" value="{{ wizard.steps.prev }}" class="btn btn-secondary">{% trans
-                "Back" %}</button>
-            {% endif %}
-
-            <button type="submit" class="btn btn-lg w-100 mt-4" style="background-color: #96A99E; border: none; color: white; font-weight: bold; opacity: 1 !important;">
-                {% trans "Next" %}
-            </button>
-        </form>
-
-        <div class="auth-links text-center mt-3">
-            <p class="mb-0" style="color: #465F6E;">Don't have an account? <a href="{% url 'register' %}" style="color: #96A99E; font-weight: bold;">Register here</a></p>
-            <p class="mt-2" style="color: #465F6E;"><a href="{% url 'password_reset' %}" style="color: #96A99E; font-weight: bold;">Forgot password?</a></p>
         </div>
     </div>
 </div>
