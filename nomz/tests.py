@@ -14,7 +14,9 @@ from unittest.mock import patch
 from django.test.utils import override_settings
 
 from .models import (
+    Conversation,
     InspectionRecord,
+    Message,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
@@ -885,3 +887,184 @@ class CompositeScoreAutomationTests(TestCase):
         other.refresh_from_db()
         self.assertIsNotNone(self.restaurant.composite_score)
         self.assertIsNone(other.composite_score)
+
+
+class MessagingApiTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(
+            username="restaurant_owner",
+            email="owner@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.owner, role="restaurant", is_approved=True)
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Message Bistro",
+            cuisine_type="other",
+            price_range="$$",
+            is_active=True,
+        )
+
+        self.diner_a = User.objects.create_user(
+            username="diner_a",
+            email="diner_a@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.diner_a, role="diner")
+
+        self.diner_b = User.objects.create_user(
+            username="diner_b",
+            email="diner_b@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.diner_b, role="diner")
+
+    def test_diner_can_start_conversation_and_restaurant_can_reply(self):
+        self.client.login(username="diner_a", password="pass12345")
+        start_response = self.client.post(
+            reverse("api_conversation_start"),
+            data='{"restaurant_id": %d, "message": "Do you offer vegan options?"}'
+            % self.restaurant.id,
+            content_type="application/json",
+        )
+        self.assertEqual(start_response.status_code, 201)
+        conversation_id = start_response.json()["conversation_id"]
+
+        conversation = Conversation.objects.get(id=conversation_id)
+        self.assertEqual(conversation.diner_id, self.diner_a.id)
+        self.assertEqual(conversation.restaurant_id, self.restaurant.id)
+        self.assertEqual(conversation.messages.count(), 1)
+
+        self.client.logout()
+        self.client.login(username="restaurant_owner", password="pass12345")
+        reply_response = self.client.post(
+            reverse("api_send_message", args=[conversation_id]),
+            data='{"message": "Yes, we have vegan pasta and salad."}',
+            content_type="application/json",
+        )
+        self.assertEqual(reply_response.status_code, 201)
+        self.assertEqual(conversation.messages.count(), 2)
+
+    def test_conversation_history_is_stored_in_order(self):
+        conversation = Conversation.objects.create(
+            restaurant=self.restaurant,
+            diner=self.diner_a,
+        )
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.diner_a,
+            body="Can I reserve for 8 pm?",
+        )
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.owner,
+            body="Yes, table for two is available.",
+        )
+
+        self.client.login(username="restaurant_owner", password="pass12345")
+        response = self.client.get(reverse("api_conversation_messages", args=[conversation.id]))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["messages"]), 2)
+        self.assertEqual(payload["messages"][0]["body"], "Can I reserve for 8 pm?")
+        self.assertEqual(payload["messages"][1]["body"], "Yes, table for two is available.")
+
+    def test_unauthorized_user_cannot_access_other_conversation(self):
+        conversation = Conversation.objects.create(
+            restaurant=self.restaurant,
+            diner=self.diner_a,
+        )
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.diner_a,
+            body="Do you have gluten-free bread?",
+        )
+
+        self.client.login(username="diner_b", password="pass12345")
+        response = self.client.get(reverse("api_conversation_messages", args=[conversation.id]))
+        self.assertEqual(response.status_code, 403)
+
+        post_response = self.client.post(
+            reverse("api_send_message", args=[conversation.id]),
+            data='{"message": "I should not be able to send this."}',
+            content_type="application/json",
+        )
+        self.assertEqual(post_response.status_code, 403)
+
+    def test_restaurant_conversation_list_only_includes_its_threads(self):
+        other_owner = User.objects.create_user(
+            username="restaurant_owner_2",
+            email="owner2@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=other_owner, role="restaurant", is_approved=True)
+        other_restaurant = Restaurant.objects.create(
+            owner=other_owner,
+            name="Other Bistro",
+            cuisine_type="other",
+            price_range="$$",
+            is_active=True,
+        )
+        Conversation.objects.create(restaurant=self.restaurant, diner=self.diner_a)
+        Conversation.objects.create(restaurant=other_restaurant, diner=self.diner_a)
+
+        self.client.login(username="restaurant_owner", password="pass12345")
+        response = self.client.get(reverse("api_conversation_list"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["restaurant_id"], self.restaurant.id)
+
+
+class MessagingWebsiteTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(
+            username="web_owner",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.owner, role="restaurant", is_approved=True)
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Web Message Bistro",
+            cuisine_type="other",
+            price_range="$$",
+            is_active=True,
+        )
+        self.diner = User.objects.create_user(
+            username="web_diner",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.diner, role="diner")
+
+    def test_diner_can_open_thread_from_restaurant_page(self):
+        self.client.login(username="web_diner", password="pass12345")
+        response = self.client.get(reverse("message_restaurant", args=[self.restaurant.id]))
+        self.assertEqual(response.status_code, 302)
+        conversation = Conversation.objects.get(
+            restaurant=self.restaurant,
+            diner=self.diner,
+        )
+        self.assertIn(str(conversation.id), response.url)
+
+    def test_restaurant_can_view_inbox_and_thread(self):
+        conversation = Conversation.objects.create(
+            restaurant=self.restaurant,
+            diner=self.diner,
+        )
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.diner,
+            body="Do you have outdoor seating?",
+        )
+        self.client.login(username="web_owner", password="pass12345")
+        inbox_response = self.client.get(reverse("message_inbox"))
+        self.assertEqual(inbox_response.status_code, 200)
+        self.assertContains(inbox_response, "web_diner")
+
+        detail_response = self.client.get(
+            reverse("conversation_detail", args=[conversation.id])
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, "Do you have outdoor seating?")

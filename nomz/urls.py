@@ -18,6 +18,26 @@ urlpatterns = [
         api_views.map_restaurant_data,
         name="api_restaurants_map",
     ),
+    path(
+        "api/messages/conversations/",
+        api_views.list_conversations,
+        name="api_conversation_list",
+    ),
+    path(
+        "api/messages/conversations/start/",
+        api_views.start_conversation,
+        name="api_conversation_start",
+    ),
+    path(
+        "api/messages/conversations/<int:conversation_id>/",
+        api_views.conversation_messages,
+        name="api_conversation_messages",
+    ),
+    path(
+        "api/messages/conversations/<int:conversation_id>/send/",
+        api_views.send_message,
+        name="api_send_message",
+    ),
     path("register/", views.register, name="register"),  # Removed <str:role>
     path("logout/", views.user_logout, name="logout"),
     path("profile/", views.dashboard, name="profile"),
@@ -141,6 +161,17 @@ urlpatterns = [
         "restaurant/<int:restaurant_id>/",
         views.restaurant_detail,
         name="restaurant_detail",
+    ),
+    path("messages/", views.message_inbox, name="message_inbox"),
+    path(
+        "messages/restaurant/<int:restaurant_id>/",
+        views.message_restaurant,
+        name="message_restaurant",
+    ),
+    path(
+        "messages/conversations/<int:conversation_id>/",
+        views.conversation_detail,
+        name="conversation_detail",
     ),
     path(
         "restaurant/<int:restaurant_id>/review/",

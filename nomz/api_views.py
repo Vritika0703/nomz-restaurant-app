@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
 from django.db.models import Q
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
+from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
+from django.contrib.auth.decorators import login_required
 
-from .models import Restaurant
+from .models import Conversation, Message, Restaurant
 from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 NYC_MIN_LAT = 40.0
@@ -147,3 +151,197 @@ def map_restaurant_data(request):
         )
 
     return JsonResponse({"count": len(points), "results": points})
+
+
+def _is_restaurant_owner(user):
+    if not user or not user.is_authenticated:
+        return False
+    if not hasattr(user, "userprofile"):
+        return False
+    return user.userprofile.role == "restaurant"
+
+
+def _is_diner(user):
+    if not user or not user.is_authenticated:
+        return False
+    if not hasattr(user, "userprofile"):
+        return False
+    return user.userprofile.role == "diner"
+
+
+def _json_error(message, status=400):
+    return JsonResponse({"error": message}, status=status)
+
+
+@login_required(login_url="landing")
+@require_GET
+def list_conversations(request):
+    user = request.user
+
+    if _is_restaurant_owner(user):
+        queryset = (
+            Conversation.objects.filter(restaurant__owner=user)
+            .select_related("restaurant", "diner")
+            .prefetch_related("messages")
+            .order_by("-updated_at")
+        )
+    else:
+        queryset = (
+            Conversation.objects.filter(diner=user)
+            .select_related("restaurant", "diner")
+            .prefetch_related("messages")
+            .order_by("-updated_at")
+        )
+
+    payload = []
+    for conversation in queryset:
+        last_message = conversation.messages.order_by("-created_at").first()
+        payload.append(
+            {
+                "id": conversation.id,
+                "restaurant_id": conversation.restaurant_id,
+                "restaurant_name": conversation.restaurant.name,
+                "diner_id": conversation.diner_id,
+                "diner_username": conversation.diner.username,
+                "updated_at": conversation.updated_at.isoformat(),
+                "last_message": (
+                    {
+                        "id": last_message.id,
+                        "sender_id": last_message.sender_id,
+                        "body": last_message.body,
+                        "created_at": last_message.created_at.isoformat(),
+                    }
+                    if last_message
+                    else None
+                ),
+            }
+        )
+
+    return JsonResponse({"count": len(payload), "results": payload})
+
+
+@login_required(login_url="landing")
+@require_GET
+def conversation_messages(request, conversation_id):
+    conversation = get_object_or_404(
+        Conversation.objects.select_related("restaurant", "diner", "restaurant__owner"),
+        id=conversation_id,
+    )
+
+    if not conversation.can_access(request.user):
+        return HttpResponseForbidden("Permission denied")
+
+    messages = list(
+        conversation.messages.select_related("sender")
+        .order_by("created_at")
+        .values("id", "sender_id", "sender__username", "body", "created_at")
+    )
+    serialized_messages = [
+        {
+            "id": row["id"],
+            "sender_id": row["sender_id"],
+            "sender_username": row["sender__username"],
+            "body": row["body"],
+            "created_at": row["created_at"].isoformat(),
+        }
+        for row in messages
+    ]
+    return JsonResponse(
+        {
+            "id": conversation.id,
+            "restaurant_id": conversation.restaurant_id,
+            "restaurant_name": conversation.restaurant.name,
+            "diner_id": conversation.diner_id,
+            "diner_username": conversation.diner.username,
+            "messages": serialized_messages,
+        }
+    )
+
+
+@csrf_exempt
+@login_required(login_url="landing")
+def start_conversation(request):
+    if request.method != "POST":
+        return _json_error("Method not allowed.", status=405)
+
+    if not _is_diner(request.user):
+        return HttpResponseForbidden("Only diners can start conversations.")
+
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON payload.")
+
+    restaurant_id = payload.get("restaurant_id")
+    first_message = (payload.get("message") or "").strip()
+    if not restaurant_id:
+        return _json_error("restaurant_id is required.")
+    if not first_message:
+        return _json_error("message is required.")
+
+    restaurant = get_object_or_404(
+        Restaurant.objects.select_related("owner"),
+        id=restaurant_id,
+    )
+    if not restaurant.owner_id:
+        return _json_error("Restaurant must have an owner to receive messages.", status=400)
+
+    conversation, _ = Conversation.objects.get_or_create(
+        restaurant=restaurant,
+        diner=request.user,
+    )
+    Message.objects.create(
+        conversation=conversation,
+        sender=request.user,
+        body=first_message,
+    )
+    conversation.save(update_fields=["updated_at"])
+    return JsonResponse({"conversation_id": conversation.id, "created": True}, status=201)
+
+
+@csrf_exempt
+@login_required(login_url="landing")
+def send_message(request, conversation_id):
+    if request.method != "POST":
+        return _json_error("Method not allowed.", status=405)
+
+    conversation = get_object_or_404(
+        Conversation.objects.select_related("restaurant", "restaurant__owner", "diner"),
+        id=conversation_id,
+    )
+    if not conversation.can_access(request.user):
+        return HttpResponseForbidden("Permission denied")
+
+    if request.user.id == conversation.restaurant.owner_id:
+        if not _is_restaurant_owner(request.user):
+            return HttpResponseForbidden("Only restaurant owners can send as restaurant.")
+    elif request.user.id == conversation.diner_id:
+        if not _is_diner(request.user):
+            return HttpResponseForbidden("Only diners can send as diner.")
+
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON payload.")
+
+    body = (payload.get("message") or "").strip()
+    if not body:
+        return _json_error("message is required.")
+
+    message = Message.objects.create(
+        conversation=conversation,
+        sender=request.user,
+        body=body,
+    )
+    Conversation.objects.filter(id=conversation.id).update(updated_at=message.created_at)
+
+    return JsonResponse(
+        {
+            "id": message.id,
+            "conversation_id": conversation.id,
+            "sender_id": message.sender_id,
+            "body": message.body,
+            "created_at": message.created_at.isoformat(),
+        },
+        status=201,
+    )

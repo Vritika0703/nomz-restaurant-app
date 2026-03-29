@@ -24,9 +24,11 @@ from .forms import (
 )
 from django.contrib.auth.models import User
 from .models import (
+    Conversation,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
+    Message,
     UserPreference,
     UserProfile,
     LoginLog,
@@ -1494,4 +1496,91 @@ def restaurant_detail(request, restaurant_id):
         request,
         "nomz/restaurant_detail.html",
         {"restaurant": restaurant, "reviews": reviews},
+    )
+
+
+@login_required(login_url="landing")
+def message_inbox(request):
+    if is_restaurant_owner(request.user):
+        conversations = (
+            Conversation.objects.filter(restaurant__owner=request.user)
+            .select_related("restaurant", "diner")
+            .prefetch_related("messages")
+            .order_by("-updated_at")
+        )
+    else:
+        conversations = (
+            Conversation.objects.filter(diner=request.user)
+            .select_related("restaurant", "diner")
+            .prefetch_related("messages")
+            .order_by("-updated_at")
+        )
+
+    return render(
+        request,
+        "nomz/message_inbox.html",
+        {
+            "title": "Messages",
+            "conversations": conversations,
+        },
+    )
+
+
+@login_required(login_url="landing")
+def message_restaurant(request, restaurant_id):
+    if is_restaurant_owner(request.user):
+        messages.error(
+            request,
+            "Restaurant owner accounts cannot start a diner-to-restaurant conversation.",
+        )
+        return redirect("restaurant_detail", restaurant_id=restaurant_id)
+
+    restaurant = get_object_or_404(Restaurant.objects.select_related("owner"), id=restaurant_id)
+    if not restaurant.owner_id:
+        messages.error(
+            request,
+            "This restaurant does not yet have an owner account for messaging.",
+        )
+        return redirect("restaurant_detail", restaurant_id=restaurant_id)
+
+    conversation, _ = Conversation.objects.get_or_create(
+        restaurant=restaurant,
+        diner=request.user,
+    )
+    return redirect("conversation_detail", conversation_id=conversation.id)
+
+
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def conversation_detail(request, conversation_id):
+    conversation = get_object_or_404(
+        Conversation.objects.select_related("restaurant", "restaurant__owner", "diner"),
+        id=conversation_id,
+    )
+    if not conversation.can_access(request.user):
+        return HttpResponseForbidden("Permission denied")
+
+    if request.method == "POST":
+        text = (request.POST.get("message") or "").strip()
+        if not text:
+            messages.error(request, "Message cannot be empty.")
+            return redirect("conversation_detail", conversation_id=conversation.id)
+
+        Message.objects.create(
+            conversation=conversation,
+            sender=request.user,
+            body=text,
+        )
+        conversation.save(update_fields=["updated_at"])
+        return redirect("conversation_detail", conversation_id=conversation.id)
+
+    thread_messages = conversation.messages.select_related("sender").order_by("created_at")
+    return render(
+        request,
+        "nomz/conversation_detail.html",
+        {
+            "title": "Conversation",
+            "conversation": conversation,
+            "thread_messages": thread_messages,
+        },
     )

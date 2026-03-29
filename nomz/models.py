@@ -799,6 +799,70 @@ class Review(models.Model):
         return round(weighted, 2)
 
 
+class Conversation(models.Model):
+    """
+    One-to-one messaging thread between a restaurant owner and a diner.
+    """
+
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="conversations",
+    )
+    diner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="diner_conversations",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = [("restaurant", "diner")]
+        indexes = [
+            models.Index(fields=["restaurant", "updated_at"]),
+            models.Index(fields=["diner", "updated_at"]),
+        ]
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.restaurant.name} <-> {self.diner.username}"
+
+    def can_access(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        return self.diner_id == user.id or self.restaurant.owner_id == user.id
+
+
+class Message(models.Model):
+    """
+    Individual message belonging to a conversation.
+    """
+
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="sent_messages",
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["conversation", "created_at"]),
+            models.Index(fields=["sender", "created_at"]),
+        ]
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Message {self.id} by {self.sender.username}"
+
+
 class ModerationReport(models.Model):
     """
     Tracks reports made by users against reviews or other user accounts.
