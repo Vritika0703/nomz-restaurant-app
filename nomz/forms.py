@@ -455,10 +455,59 @@ class ReviewForm(forms.ModelForm):
 
     class Meta:
         model = Review
-        fields = ["rating", "comment"]
+        fields = [
+            "rating",
+            "food_quality_rating",
+            "service_quality_rating",
+            "ambience_rating",
+            "location_rating",
+            "value_rating",
+            "dietary_accommodation_rating",
+            "cleanliness_rating",
+            "comment",
+        ]
+        labels = {
+            "rating": "Overall rating",
+            "food_quality_rating": "Food quality",
+            "service_quality_rating": "Service quality",
+            "ambience_rating": "Ambience",
+            "location_rating": "Location & accessibility",
+            "value_rating": "Price-to-value",
+            "dietary_accommodation_rating": "Dietary accommodation",
+            "cleanliness_rating": "Cleanliness",
+            "comment": "Written review",
+        }
         widgets = {
             "rating": forms.Select(
                 choices=[(i, f"{i} Star{'s' if i > 1 else ''}") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "food_quality_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "service_quality_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "ambience_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "location_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "value_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "dietary_accommodation_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
+                attrs={"class": "form-control"},
+            ),
+            "cleanliness_rating": forms.Select(
+                choices=[(i, f"{i} / 5") for i in range(1, 6)],
                 attrs={"class": "form-control"},
             ),
             "comment": forms.Textarea(
@@ -489,3 +538,101 @@ class ModerationReportForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class RestaurantCommunicationSettingsForm(forms.ModelForm):
+    """
+    Form for restaurant owners to manage their communication settings.
+    Controls the messaging on/off toggle and available response hours.
+    """
+
+    response_hours_start = forms.TimeField(
+        required=False,
+        input_formats=[
+            "%H:%M:%S",
+            "%H:%M",
+            "%H",
+            "%I:%M %p",
+            "%I:%M%p",
+            "%I %p",
+            "%I%p",
+            "%I:%M %P",
+            "%I:%M%P",
+            "%I %P",
+            "%I%P",
+        ],
+        label="Response Hours Start",
+        help_text="Earliest time you typically respond to messages (optional).",
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "e.g. 11:00 AM or 11pm",
+            }
+        ),
+    )
+    response_hours_end = forms.TimeField(
+        required=False,
+        input_formats=[
+            "%H:%M:%S",
+            "%H:%M",
+            "%H",
+            "%I:%M %p",
+            "%I:%M%p",
+            "%I %p",
+            "%I%p",
+            "%I:%M %P",
+            "%I:%M%P",
+            "%I %P",
+            "%I%P",
+        ],
+        label="Response Hours End",
+        help_text="Latest time you typically respond to messages (optional).",
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "e.g. 4:00 PM or 4pm",
+            }
+        ),
+    )
+
+    class Meta:
+        model = Restaurant
+        fields = [
+            "messaging_enabled",
+            "response_hours_start",
+            "response_hours_end",
+        ]
+        labels = {
+            "messaging_enabled": "Enable Messaging",
+        }
+        help_texts = {
+            "messaging_enabled": "When disabled, diners will not be able to send you new messages.",
+        }
+        widgets = {
+            "messaging_enabled": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Format initial time values as 12-hour AM/PM strings for display
+        if self.instance:
+            if self.instance.response_hours_start:
+                self.initial["response_hours_start"] = (
+                    self.instance.response_hours_start.strftime("%I:%M %p")
+                )
+            if self.instance.response_hours_end:
+                self.initial["response_hours_end"] = (
+                    self.instance.response_hours_end.strftime("%I:%M %p")
+                )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start = cleaned_data.get("response_hours_start")
+        end = cleaned_data.get("response_hours_end")
+        if start and end and start >= end:
+            raise forms.ValidationError(
+                "Response hours start time must be before end time."
+            )
+        return cleaned_data

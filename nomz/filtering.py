@@ -6,7 +6,6 @@ from django.db.models import Q, QuerySet
 
 from .models import Restaurant
 
-
 DIETARY_OPTIONS = [
     "vegan",
     "vegetarian",

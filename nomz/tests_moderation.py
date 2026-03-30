@@ -35,13 +35,31 @@ class ModerationTests(TestCase):
     def test_add_review(self):
         self.client.login(username="diner", password="password")
         url = reverse("add_review", args=[self.restaurant.id])
-        response = self.client.post(url, {"rating": 5, "comment": "Great place!"})
+        response = self.client.post(
+            url,
+            {
+                "rating": 5,
+                "food_quality_rating": 5,
+                "service_quality_rating": 4,
+                "ambience_rating": 4,
+                "location_rating": 5,
+                "value_rating": 4,
+                "dietary_accommodation_rating": 4,
+                "cleanliness_rating": 5,
+                "comment": "Great place!",
+            },
+        )
 
         self.assertEqual(response.status_code, 302)  # Redirects after success
         self.assertEqual(Review.objects.count(), 1)
         review = Review.objects.first()
         self.assertEqual(review.comment, "Great place!")
         self.assertEqual(review.user, self.diner_user)
+        self.assertEqual(review.food_quality_rating, 5)
+
+        self.restaurant.refresh_from_db()
+        self.assertIsNotNone(self.restaurant.composite_score)
+        self.assertIsNotNone(self.restaurant.composite_score_calculated_at)
 
     def test_report_review(self):
         # Create a review first
@@ -93,6 +111,8 @@ class ModerationTests(TestCase):
         # Check review updated
         review.refresh_from_db()
         self.assertTrue(review.is_deleted)
+        self.restaurant.refresh_from_db()
+        self.assertIsNotNone(self.restaurant.composite_score)
 
         # Check audit log
         self.assertEqual(

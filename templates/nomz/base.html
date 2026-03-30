@@ -8,11 +8,23 @@
     <link href="https://fonts.googleapis.com/css2?family=Jersey+15&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #465F6E;
-            --secondary-color: #96A99E;
-            --dark-color: #203440;
-            --light-color: #FDFFF6;
-            --accent-color: #D3DBC0;
+            --primary-color: #556270;     /* slate gray-blue, calm but not cold */
+            --accent-color: #FFA77F;      /* soft peach, warm highlight */
+            --dark-color: #2C3E50;        /* deep charcoal, for text & navbar */
+            --light-color: #FDFDFD;       /* main card background, clean */
+            --bg-color: #F6F7F9;          /* page background, soft */
+            --muted-color: #CBD2D9;       /* borders/dividers/subtle secondary elements */
+            --text-primary: #2C3E50;
+            --text-secondary: #556270;
+            --success-color: #48bb78;
+            --warning-color: #ed8936;
+            --danger-color: #f56565;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
         html {
@@ -20,16 +32,19 @@
         }
 
         body {
-            background-color: var(--dark-color);
+            background-color: var(--bg-color);
             font-family: 'Jersey 15', cursive;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
+            color: var(--text-primary);
         }
 
+        /* NAVBAR & HEADER */
         .navbar {
             background-color: var(--light-color);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-bottom: 1px solid var(--muted-color);
         }
 
         .navbar-brand {
@@ -39,86 +54,170 @@
         }
 
         .nav-link {
-            color: var(--dark-color) !important;
+            color: var(--text-secondary) !important;
             margin-left: 1rem;
             transition: color 0.3s ease;
+            font-weight: 500;
         }
 
         .nav-link:hover {
-            color: var(--accent-color) !important;
+            color: var(--primary-color) !important;
         }
 
         .nav-link.active {
-            color: var(--accent-color) !important;
+            color: var(--primary-color) !important;
             font-weight: bold;
         }
 
-        /* Ensure all buttons are fully opaque */
+        /* BUTTONS */
         button, input[type="submit"], .btn {
             opacity: 1 !important;
             background-image: none !important;
+            transition: all 0.2s ease;
         }
 
         .btn-primary {
             background-color: var(--primary-color);
             border-color: var(--primary-color);
-            opacity: 1 !important;
+            color: white;
+            font-weight: 600;
         }
 
         .btn-primary:hover {
-            background-color: #3d4d5b;
-            border-color: #3d4d5b;
-            opacity: 1 !important;
+            background-color: #475360;
+            border-color: #475360;
         }
 
         .btn-secondary {
-            background-color: var(--secondary-color);
-            border-color: var(--secondary-color);
-            opacity: 1 !important;
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: white;
+            font-weight: 600;
         }
 
         .btn-secondary:hover {
-            background-color: #7a8a81;
-            border-color: #7a8a81;
-            opacity: 1 !important;
+            background-color: #FF8860;
+            border-color: #FF8860;
         }
 
+        .btn-outline-secondary {
+            color: var(--dark-color);
+            border-color: var(--muted-color);
+        }
+
+        .btn-outline-secondary:hover {
+            background-color: var(--bg-color);
+            border-color: var(--primary-color);
+        }
+
+        /* CARDS & PROFILE PAGES */
         .card {
-            border: none;
-            background-color: var(--accent-color);
-            color: #000000;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid var(--muted-color);
+            background-color: var(--light-color);
+            color: var(--text-primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            transition: box-shadow 0.3s ease;
         }
 
         .card:hover {
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
 
-        .form-control {
+        .card-header {
+            background-color: var(--primary-color);
+            color: white;
+            border-bottom: 1px solid var(--muted-color);
+            padding: 1.25rem;
+            font-weight: 600;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        .card-footer {
+            background-color: var(--bg-color);
+            border-top: 1px solid var(--muted-color);
+            padding: 1.5rem;
+        }
+
+        /* PROFILE PAGE PANEL */
+        .profile-sidebar {
+            background-color: var(--light-color);
             border-radius: 0.5rem;
-            border: 1px solid #ddd;
+            padding: 1.5rem;
+            border: 1px solid var(--muted-color);
+        }
+
+        .profile-info-item {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--muted-color);
+        }
+
+        .profile-info-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .profile-label {
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .profile-value {
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        /* FORMS */
+        .form-control {
+            border: 1px solid var(--muted-color);
+            border-radius: 0.5rem;
             padding: 0.75rem;
+            background-color: var(--light-color);
+            color: var(--text-primary);
+            transition: border-color 0.3s ease;
         }
 
         .form-control:focus {
-            border-color: #203440;
-            box-shadow: 0 0 0 0.2rem rgba(32, 52, 64, 0.25);
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(46, 196, 182, 0.1);
+            background-color: var(--light-color);
         }
 
-        .alert {
-            display: none;
+        .form-select {
+            border: 1px solid var(--muted-color);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            background-color: var(--light-color);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 44px;
         }
 
-        .alert-success {
-            display: none;
+        .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(46, 196, 182, 0.1);
         }
 
-        .alert-error,
-        .alert-danger {
-            display: none;
+        .form-group {
+            margin-bottom: 1.5rem;
         }
 
+        .form-group label {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        /* AUTH PAGES */
         .auth-container {
             position: fixed;
             top: 0;
@@ -135,75 +234,99 @@
         }
 
         .auth-card {
-            width: 100%;
-            max-width: 450px;
+            width: 90%;
+            max-width: 400px;
             background-color: var(--light-color);
+            border-radius: 1rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
         }
 
         .auth-card .card-header {
-            background-color: var(--primary-color);
-            color: white;
+            background: linear-gradient(135deg, var(--accent-color) 0%, #FF8F70 100%);
+            color: var(--dark-color);
             border: none;
-            padding: 2rem;
-            border-radius: 0.5rem 0.5rem 0 0;
+            padding: 1.5rem 2rem;
+            border-radius: 1rem 1rem 0 0;
         }
 
         .auth-card .card-header h2 {
             margin: 0;
-            font-size: 1.75rem;
+            font-size: 1.5rem;
             font-weight: bold;
+            color: var(--dark-color);
         }
 
         .auth-card .card-body {
             padding: 2rem;
             background-color: var(--light-color);
+            border-radius: 0 0 1rem 1rem;
         }
 
-        .auth-card .btn-primary {
-            background-color: #96A99E;
-            border-color: #96A99E;
-            opacity: 1 !important;
-        }
-
-        .auth-card .btn-primary:hover {
-            background-color: #7a8a81;
-            border-color: #7a8a81;
-            opacity: 1 !important;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            font-weight: 500;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
+        .auth-card .form-group {
+            margin-bottom: 1rem;
         }
 
         .auth-card .form-group label {
-            color: var(--primary-color);
+            color: var(--text-primary);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            display: block;
+            font-size: 0.9rem;
+        }
+
+        .auth-card .form-control {
+            width: 100%;
+            min-height: 44px;
+            padding: 0.75rem;
+        }
+
+        .auth-card .btn-primary {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            width: 100%;
+            font-weight: 600;
+            min-height: 44px;
+        }
+
+        .auth-card .btn-primary:hover {
+            background-color: #FF8860;
+            border-color: #FF8860;
+        }
+
+        .auth-card .btn-secondary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+            min-height: 44px;
+            font-weight: 600;
+        }
+
+        .auth-card .btn-secondary:hover {
+            background-color: #475360;
+            border-color: #475360;
         }
 
         .auth-links {
             text-align: center;
             margin-top: 1.5rem;
             padding-top: 1.5rem;
-            border-top: 1px solid #ddd;
-            color: var(--primary-color);
+            border-top: 1px solid var(--muted-color);
+            color: var(--text-secondary);
         }
 
         .auth-links a {
-            color: var(--secondary-color);
+            color: var(--primary-color);
             font-weight: bold;
+            text-decoration: none;
         }
 
         .auth-links a:hover {
             text-decoration: underline;
         }
 
+        /* HERO SECTION */
         .hero {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            background-color: #FF9F7F;
             color: white;
             padding: 5rem 2rem;
             text-align: center;
@@ -220,19 +343,54 @@
             margin-bottom: 2rem;
         }
 
+        /* ALERTS */
+        .alert {
+            border-radius: 0.5rem;
+            border: 1px solid;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background-color: #f0fdf4;
+            border-color: var(--success-color);
+            color: #166534;
+        }
+
+        .alert-warning {
+            background-color: #fffbeb;
+            border-color: var(--warning-color);
+            color: #92400e;
+        }
+
+        .alert-danger {
+            background-color: #fef2f2;
+            border-color: var(--danger-color);
+            color: #991b1b;
+        }
+
+        .alert-info {
+            background-color: #eff6ff;
+            border-color: #3b82f6;
+            color: #1e40af;
+        }
+
+        /* LAYOUT */
         main {
             flex: 1;
+            padding: 2rem;
         }
 
         footer {
             background-color: var(--dark-color);
             color: white;
             text-align: center;
-            padding: 0.75rem 2rem;
+            padding: 1.5rem 2rem;
             margin-top: auto;
             width: 100%;
         }
 
+        /* USER INFO */
         .user-info {
             display: flex;
             align-items: center;
@@ -243,12 +401,105 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background-color: var(--secondary-color);
+            background-color: var(--accent-color);
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        /* UTILITY CLASSES */
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+
+        .text-accent {
+            color: var(--accent-color) !important;
+        }
+
+        .text-muted {
+            color: var(--text-secondary) !important;
+        }
+
+        .border-muted {
+            border-color: var(--muted-color) !important;
+        }
+
+        .bg-light-subtle {
+            background-color: var(--bg-color) !important;
+        }
+
+        /* DASHBOARD & PROFILE CARDS */
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .profile-card {
+            background: var(--light-color);
+            border-radius: 0.5rem;
+            border: 1px solid var(--muted-color);
+            padding: 1.5rem;
+        }
+
+        .profile-sidebar-card {
+            position: sticky;
+            top: 2rem;
+        }
+
+        .info-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .info-section:last-child {
+            margin-bottom: 0;
+        }
+
+        .info-section h6 {
+            font-weight: 700;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .info-section p {
+            margin: 0;
+            color: var(--text-primary);
+        }
+
+        .quick-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .quick-actions .btn {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-weight: 500;
+        }
+
+        .badge-status {
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .profile-sidebar-card {
+                position: static;
+            }
+            
+            main {
+                padding: 1rem;
+            }
         }
     </style>
     {% block extra_css %}{% endblock %}
@@ -257,48 +508,80 @@
     {% block navbar %}
     <nav class="navbar navbar-expand-lg">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'landing' %}">nomz</a>
+            <span class="navbar-brand">nomz</span>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    {% if request.resolver_match.url_name != 'map' and user.userprofile.role != 'restaurant' %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'map' %}">Map</a>
-                    </li>
-                    {% endif %}
-                    {% if request.resolver_match.url_name == 'profile' %}
-                        {% if user.userprofile.role != 'restaurant' %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'home' %}">Home</a>
-                        </li>
+                    {% if not user.is_superuser and not user.is_staff %}
+                        {% if request.resolver_match.url_name == 'message_inbox' %}
+                            {# On messages page - show Map, Home, Profile, Logout #}
+                            {% if user.is_authenticated %}
+                            {% if user.userprofile.role != 'restaurant' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'map' %}">Map</a>
+                            </li>
+                            {% endif %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'home' %}">Home</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                            {# On all other user pages - show existing navbar + Messages link #}
+                            {% if request.resolver_match.url_name != 'map' and user.userprofile.role != 'restaurant' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'map' %}">Map</a>
+                            </li>
+                            {% endif %}
+                            {% if user.is_authenticated %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'message_inbox' %}">
+                                    Messages
+                                    {% if unread_messages_count > 0 %}
+                                        <span class="badge rounded-pill bg-danger" style="font-size: 0.6rem; vertical-align: top; margin-left: -5px;">
+                                            {{ unread_messages_count }}
+                                        </span>
+                                    {% endif %}
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% if request.resolver_match.url_name == 'profile' %}
+                                {# On profile page #}
+                                {% if user.is_authenticated %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                                </li>
+                                {% endif %}
+                            {% elif request.resolver_match.url_name == 'home' %}
+                                {% if user.is_authenticated %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                                </li>
+                                {% endif %}
+                            {% elif request.resolver_match.url_name == 'map' %}
+                                {% if user.is_authenticated %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'home' %}">Home</a>
+                                </li>
+                                {% endif %}
+                            {% elif request.resolver_match.url_name == 'restaurant_search' %}
+                                {% if user.is_authenticated %}
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
+                                </li>
+                                <li class="nav-item">
+                                    <a class="nav-link" href="{% url 'home' %}">Home</a>
+                                </li>
+                                {% endif %}
+                            {% endif %}
                         {% endif %}
-                    {% elif request.resolver_match.url_name == 'home' %}
-                        {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
-                        </li>
-                        {% endif %}
-                    {% elif request.resolver_match.url_name == 'map' %}
-                        {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'home' %}">Home</a>
-                        </li>
-                        {% endif %}
-                    {% elif request.resolver_match.url_name == 'restaurant_search' %}
-                        {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'profile' %}">Profile</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'home' %}">Home</a>
-                        </li>
-                        {% endif %}
-                    {% endif %}
                     
                     {% if user.is_authenticated %}
                     <li class="nav-item">
@@ -307,6 +590,17 @@
                             <button type="submit" class="nav-link" style="background: none; border: none; padding: 0.5rem 1rem; cursor: pointer;">Logout</button>
                         </form>
                     </li>
+                    {% endif %}
+                    {% else %}
+                    {# Admin users only see logout #}
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <form method="POST" action="{% url 'logout' %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="nav-link" style="background: none; border: none; padding: 0.5rem 1rem; cursor: pointer;">Logout</button>
+                        </form>
+                    </li>
+                    {% endif %}
                     {% endif %}
                 </ul>
             </div>
