@@ -43,7 +43,7 @@
                                 {% if not photo.is_primary %}
                                     <form method="post" action="{% url 'set_primary_photo' photo.id %}" class="d-inline">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm w-100" style="background-color: #96A99E; color: white; border: none;">
+                                        <button type="submit" class="btn btn-sm w-100 btn-secondary">
                                             <i class="bi bi-star"></i> Set as Main
                                         </button>
                                     </form>
@@ -83,7 +83,7 @@
 <style>
     .card {
         transition: transform 0.3s ease, box-shadow 0.3s ease;
-        border: 1px solid #ddd;
+        border: 1px solid var(--muted-color);
     }
 
     .card:hover {
@@ -92,15 +92,15 @@
     }
 
     .btn-outline-primary:hover {
-        background-color: #96A99E;
-        border-color: #96A99E;
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
         color: white;
         opacity: 1 !important;
     }
 
     .btn-outline-danger:hover {
-        background-color: #dc3545;
-        border-color: #dc3545;
+        background-color: var(--danger-color);
+        border-color: var(--danger-color);
         color: white;
         opacity: 1 !important;
     }

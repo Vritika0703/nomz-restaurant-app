@@ -7,7 +7,7 @@
 {% block extra_css %}
 <style>
     body {
-        background-color: #FDFFF6;
+        background-color: var(--light-color);
         overflow: hidden;
         margin: 0;
         padding: 0;
@@ -16,11 +16,11 @@
 {% endblock %}
 
 {% block content %}
-<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; flex-direction: column; background-color: #FDFFF6; padding: 0; margin: 0; cursor: pointer;" id="splashScreen">
-    <h1 style="font-size: 6rem; font-weight: bold; color: #203440; margin: 0; text-align: center;">
+<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100vh; display: flex; justify-content: center; align-items: center; flex-direction: column; background-color: var(--light-color); padding: 0; margin: 0; cursor: pointer;" id="splashScreen">
+    <h1 style="font-size: 6rem; font-weight: bold; color: var(--dark-color); margin: 0; text-align: center;">
         nomz
     </h1>
-    <p style="font-size: 0.8rem; color: #465F6E; margin-top: 1rem; text-align: center;">
+    <p style="font-size: 0.8rem; color: var(--primary-color); margin-top: 1rem; text-align: center;">
         Click to start
     </p>
 </div>
