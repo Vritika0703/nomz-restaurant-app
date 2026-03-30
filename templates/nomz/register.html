@@ -13,7 +13,7 @@
         overflow: hidden; /* Prevents scrolling */
         margin: 0;
         padding: 0;
-        background: linear-gradient(135deg, #E8EBEF 0%, #DFE5EB 100%);
+        background: #E8EBEF;
         display: flex;
         justify-content: center;
         align-items: center;
@@ -93,7 +93,7 @@
     
     .auth-card-container form select::placeholder,
     .auth-card-container form input::placeholder {
-        color: #aaa;
+        color: var(--muted-color);
     }
 
     /* The accent submit button */
@@ -114,12 +114,12 @@
     }
 
     .btn-submit:hover {
-        background-color: #7a8a81;
+        background-color: var(--primary-color);
         opacity: 1 !important;
     }
 
     .invalid-feedback {
-        color: #e74c3c;
+        color: var(--danger-color);
         font-size: 0.85rem;
         margin-top: 0.3rem;
         display: block;
@@ -141,8 +141,8 @@
     }
 
     .auth-links a:hover {
-        color: #FF8860;
-        border-bottom-color: #FF8860;
+        color: var(--accent-color);
+        border-bottom-color: var(--accent-color);
     }
 
     /* Alert Styling for global form errors */

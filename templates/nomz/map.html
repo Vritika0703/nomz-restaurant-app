@@ -9,7 +9,7 @@
 >
 <style>
     .map-controls-card {
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--muted-color);
         border-radius: 1rem;
     }
 
@@ -29,12 +29,12 @@
         height: 100%;
         min-height: 500px;
         width: 100%;
-        background: #eef2f7;
+        background: var(--bg-color);
     }
 
     .map-sidebar {
-        background: #ffffff;
-        border-left: 1px solid #e2e8f0;
+        background: var(--light-color);
+        border-left: 1px solid var(--muted-color);
         max-height: 68vh;
         overflow: auto;
         padding: 1rem;
@@ -87,12 +87,17 @@
         margin-right: 0.45rem;
     }
 
+    .legend-bubble-high { background: var(--success-color); }
+    .legend-bubble-mid { background: var(--warning-color); }
+    .legend-bubble-low { background: var(--danger-color); }
+    .legend-bubble-none { background: var(--muted-color); }
+
     .map-legend {
         display: flex;
         flex-wrap: wrap;
         gap: 1rem;
         align-items: center;
-        color: #334155;
+        color: var(--text-primary);
     }
 
     .score-pill {
@@ -104,10 +109,10 @@
     .score-pill-high { background: rgba(46, 204, 113, 0.14); color: #0f766e; }
     .score-pill-mid { background: rgba(243, 156, 18, 0.18); color: #7c2d12; }
     .score-pill-low { background: rgba(231, 76, 60, 0.15); color: #991b1b; }
-    .score-pill-none { background: #f1f5f9; color: #64748b; }
+    .score-pill-none { background: var(--bg-color); color: var(--text-secondary); }
 
     .map-footer {
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid var(--muted-color);
         margin-top: 0.7rem;
         padding-top: 0.7rem;
     }
@@ -127,7 +132,7 @@
 
         .map-sidebar {
             border-left: 0;
-            border-top: 1px solid #e2e8f0;
+            border-top: 1px solid var(--muted-color);
             max-height: 330px;
         }
     }
@@ -280,10 +285,10 @@
                             Click a row or marker to view details.
                         </p>
                         <div class="map-legend mb-3">
-                            <span><span class="legend-bubble" style="background:#27ae60;"></span>80+</span>
-                            <span><span class="legend-bubble" style="background:#f39c12;"></span>60-79</span>
-                            <span><span class="legend-bubble" style="background:#e74c3c;"></span>&lt;60</span>
-                            <span><span class="legend-bubble" style="background:#94a3b8;"></span>no score</span>
+                            <span><span class="legend-bubble legend-bubble-high"></span>80+</span>
+                            <span><span class="legend-bubble legend-bubble-mid"></span>60-79</span>
+                            <span><span class="legend-bubble legend-bubble-low"></span>&lt;60</span>
+                            <span><span class="legend-bubble legend-bubble-none"></span>no score</span>
                         </div>
                         <div id="restaurant-list" class="mt-2"></div>
                         <p id="list-empty-state" class="small text-muted d-none mb-0">

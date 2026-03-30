@@ -250,7 +250,7 @@
                             <span>{{ factor.raw_value|floatformat:1 }}</span>
                         </div>
                         <div class="progress" role="progressbar" aria-label="{{ factor.label }}" style="height: 10px;">
-                            <div class="progress-bar" style="width: {{ factor.raw_value|floatformat:0 }}%; background-color: var(--primary-color);"></div>
+                            <div class="progress-bar" style="width: {{ factor.raw_value|default:0|floatformat:0 }}%; background-color: var(--primary-color);"></div>
                         </div>
                         <p class="small text-muted mb-0 mt-1">{{ factor.description }} | Weighted contribution: {{ factor.weighted_contribution|floatformat:2 }}</p>
                     </div>
