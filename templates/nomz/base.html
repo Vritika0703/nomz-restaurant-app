@@ -592,8 +592,14 @@
                     </li>
                     {% endif %}
                     {% else %}
-                    {# Admin users only see logout #}
+                    {# Admin users - show Map, Search, and Logout #}
                     {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'map' %}">Map</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'restaurant_search' %}">Search</a>
+                    </li>
                     <li class="nav-item">
                         <form method="POST" action="{% url 'logout' %}" class="d-inline">
                             {% csrf_token %}
