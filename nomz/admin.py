@@ -5,7 +5,9 @@ from .scoring import refresh_restaurant_composite
 from .models import (
     Restaurant,
     RestaurantOwnershipClaim,
+    MessageNotification,
     Review,
+    ReviewResponse,
     SystemAlert,
     SystemAuditLog,
     SystemPerformanceMetric,
@@ -165,4 +167,41 @@ class ReviewAdmin(admin.ModelAdmin):
     )
     list_filter = ("is_flagged", "is_deleted", "created_at")
     search_fields = ("restaurant__name", "user__username", "comment")
+    ordering = ("-created_at",)
+
+
+@admin.register(ReviewResponse)
+class ReviewResponseAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "restaurant",
+        "review",
+        "responder",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = ("restaurant__name", "responder__username", "response_text")
+    ordering = ("-updated_at",)
+
+
+@admin.register(MessageNotification)
+class MessageNotificationAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "recipient",
+        "triggered_by",
+        "conversation",
+        "message",
+        "is_read",
+        "created_at",
+        "read_at",
+    )
+    list_filter = ("is_read", "created_at")
+    search_fields = (
+        "recipient__username",
+        "triggered_by__username",
+        "conversation__restaurant__name",
+        "conversation__diner__username",
+        "message__body",
+    )
     ordering = ("-created_at",)

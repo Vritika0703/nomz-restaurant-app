@@ -184,6 +184,11 @@ urlpatterns = [
         name="add_review",
     ),
     path(
+        "reviews/<int:review_id>/respond/",
+        views.respond_to_review,
+        name="respond_to_review",
+    ),
+    path(
         "report/<str:content_type>/<int:content_id>/",
         views.report_content,
         name="report_content",
