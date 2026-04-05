@@ -2,16 +2,16 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4" style="color: #FDFFF6;">Find a Restaurant</h2>
+    <h2 class="mb-4" style="color: var(--text-primary);">Find a Restaurant</h2>
     
-    <form method="GET" action="{% url 'restaurant_search' %}" class="row g-3 mb-5 p-4 rounded shadow-sm" style="background-color: #FDFFF6;">
+    <form method="GET" action="{% url 'restaurant_search' %}" class="row g-3 mb-5 p-4 rounded shadow-sm" style="background-color: var(--light-color);">
         <div class="col-md-4">
             <label class="form-label">Search</label>
-            <input type="text" name="q" class="form-control" placeholder="Pizza, Sushi, Burgers..." value="{{ query }}" style="height: 38px;">
+            <input type="text" name="q" class="form-control" placeholder="Pizza, Sushi, Burgers..." value="{{ query }}">
         </div>
         <div class="col-md-3">
             <label class="form-label">Neighborhood</label>
-            <select name="neighborhood" class="form-select" style="height: 38px;">
+            <select name="neighborhood" class="form-select">
                 <option value="">All Neighborhoods</option>
                 {% for nh in all_neighborhoods %}
                 <option value="{{ nh }}" {% if nh == neighborhood %}selected{% endif %}>{{ nh }}</option>
@@ -20,7 +20,7 @@
         </div>
         <div class="col-md-3">
             <label class="form-label">Sort by</label>
-            <select name="sort_by" class="form-select" style="height: 38px;">
+            <select name="sort_by" class="form-select">
                 <option value="composite_desc" {% if sort_by == 'composite_desc' %}selected{% endif %}>Composite: High → Low</option>
                 <option value="composite_asc" {% if sort_by == 'composite_asc' %}selected{% endif %}>Composite: Low → High</option>
                 <option value="rating_desc" {% if sort_by == 'rating_desc' %}selected{% endif %}>Rating: High → Low</option>
@@ -64,7 +64,7 @@
                     <p class="card-text">{{ restaurant.description|truncatewords:20 }}</p>
                 </div>
                 <div class="card-footer bg-transparent border-0 d-flex justify-content-between">
-                    <a href="{% url 'restaurant_detail' restaurant.id %}" class="btn btn-sm" style="background-color: #96A99E; color: white; border: none;">View Details</a>
+                    <a href="{% url 'restaurant_detail' restaurant.id %}" class="btn btn-sm btn-secondary">View Details</a>
                     <a href="{% url 'add_review' restaurant.id %}" class="btn btn-sm btn-primary">Write Review</a>
                 </div>
             </div>

@@ -14,7 +14,9 @@ from unittest.mock import patch
 from django.test.utils import override_settings
 
 from .models import (
+    Conversation,
     InspectionRecord,
+    Message,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
@@ -885,3 +887,474 @@ class CompositeScoreAutomationTests(TestCase):
         other.refresh_from_db()
         self.assertIsNotNone(self.restaurant.composite_score)
         self.assertIsNone(other.composite_score)
+
+
+class MessagingApiTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(
+            username="restaurant_owner",
+            email="owner@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.owner, role="restaurant", is_approved=True)
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Message Bistro",
+            cuisine_type="other",
+            price_range="$$",
+            is_active=True,
+        )
+
+        self.diner_a = User.objects.create_user(
+            username="diner_a",
+            email="diner_a@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.diner_a, role="diner")
+
+        self.diner_b = User.objects.create_user(
+            username="diner_b",
+            email="diner_b@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.diner_b, role="diner")
+
+    def test_diner_can_start_conversation_and_restaurant_can_reply(self):
+        self.client.login(username="diner_a", password="pass12345")
+        start_response = self.client.post(
+            reverse("api_conversation_start"),
+            data='{"restaurant_id": %d, "message": "Do you offer vegan options?"}'
+            % self.restaurant.id,
+            content_type="application/json",
+        )
+        self.assertEqual(start_response.status_code, 201)
+        conversation_id = start_response.json()["conversation_id"]
+
+        conversation = Conversation.objects.get(id=conversation_id)
+        self.assertEqual(conversation.diner_id, self.diner_a.id)
+        self.assertEqual(conversation.restaurant_id, self.restaurant.id)
+        self.assertEqual(conversation.messages.count(), 1)
+
+        self.client.logout()
+        self.client.login(username="restaurant_owner", password="pass12345")
+        reply_response = self.client.post(
+            reverse("api_send_message", args=[conversation_id]),
+            data='{"message": "Yes, we have vegan pasta and salad."}',
+            content_type="application/json",
+        )
+        self.assertEqual(reply_response.status_code, 201)
+        self.assertEqual(conversation.messages.count(), 2)
+
+    def test_conversation_history_is_stored_in_order(self):
+        conversation = Conversation.objects.create(
+            restaurant=self.restaurant,
+            diner=self.diner_a,
+        )
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.diner_a,
+            body="Can I reserve for 8 pm?",
+        )
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.owner,
+            body="Yes, table for two is available.",
+        )
+
+        self.client.login(username="restaurant_owner", password="pass12345")
+        response = self.client.get(
+            reverse("api_conversation_messages", args=[conversation.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["messages"]), 2)
+        self.assertEqual(payload["messages"][0]["body"], "Can I reserve for 8 pm?")
+        self.assertEqual(
+            payload["messages"][1]["body"], "Yes, table for two is available."
+        )
+
+    def test_unauthorized_user_cannot_access_other_conversation(self):
+        conversation = Conversation.objects.create(
+            restaurant=self.restaurant,
+            diner=self.diner_a,
+        )
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.diner_a,
+            body="Do you have gluten-free bread?",
+        )
+
+        self.client.login(username="diner_b", password="pass12345")
+        response = self.client.get(
+            reverse("api_conversation_messages", args=[conversation.id])
+        )
+        self.assertEqual(response.status_code, 403)
+
+        post_response = self.client.post(
+            reverse("api_send_message", args=[conversation.id]),
+            data='{"message": "I should not be able to send this."}',
+            content_type="application/json",
+        )
+        self.assertEqual(post_response.status_code, 403)
+
+    def test_restaurant_conversation_list_only_includes_its_threads(self):
+        other_owner = User.objects.create_user(
+            username="restaurant_owner_2",
+            email="owner2@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(
+            user=other_owner, role="restaurant", is_approved=True
+        )
+        other_restaurant = Restaurant.objects.create(
+            owner=other_owner,
+            name="Other Bistro",
+            cuisine_type="other",
+            price_range="$$",
+            is_active=True,
+        )
+        Conversation.objects.create(restaurant=self.restaurant, diner=self.diner_a)
+        Conversation.objects.create(restaurant=other_restaurant, diner=self.diner_a)
+
+        self.client.login(username="restaurant_owner", password="pass12345")
+        response = self.client.get(reverse("api_conversation_list"))
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["restaurant_id"], self.restaurant.id)
+
+
+class MessagingWebsiteTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.owner = User.objects.create_user(
+            username="web_owner",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.owner, role="restaurant", is_approved=True)
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Web Message Bistro",
+            cuisine_type="other",
+            price_range="$$",
+            is_active=True,
+        )
+        self.diner = User.objects.create_user(
+            username="web_diner",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.diner, role="diner")
+
+    def test_diner_can_open_thread_from_restaurant_page(self):
+        self.client.login(username="web_diner", password="pass12345")
+        response = self.client.get(
+            reverse("message_restaurant", args=[self.restaurant.id])
+        )
+        self.assertEqual(response.status_code, 302)
+        conversation = Conversation.objects.get(
+            restaurant=self.restaurant,
+            diner=self.diner,
+        )
+        self.assertIn(str(conversation.id), response.url)
+
+    def test_restaurant_can_view_inbox_and_thread(self):
+        conversation = Conversation.objects.create(
+            restaurant=self.restaurant,
+            diner=self.diner,
+        )
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.diner,
+            body="Do you have outdoor seating?",
+        )
+        self.client.login(username="web_owner", password="pass12345")
+        inbox_response = self.client.get(reverse("message_inbox"))
+        self.assertEqual(inbox_response.status_code, 200)
+        self.assertContains(inbox_response, "web_diner")
+
+        detail_response = self.client.get(
+            reverse("conversation_detail", args=[conversation.id])
+        )
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertContains(detail_response, "Do you have outdoor seating?")
+
+
+# =============================================================================
+# Issue #62: Restaurant Communication Settings Tests
+# =============================================================================
+
+
+class RestaurantCommunicationSettingsTests(TestCase):
+    """Tests for restaurant messaging on/off toggle, response hours, and UI enforcement."""
+
+    def setUp(self):
+        self.client = Client()
+
+        # Restaurant owner
+        self.owner = User.objects.create_user(
+            username="comm_owner", password="pass12345"
+        )
+        UserProfile.objects.create(user=self.owner, role="restaurant", is_approved=True)
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Comm Test Bistro",
+            cuisine_type="italian",
+            price_range="$$",
+            is_active=True,
+        )
+
+        # Diner
+        self.diner = User.objects.create_user(
+            username="comm_diner", password="pass12345"
+        )
+        UserProfile.objects.create(user=self.diner, role="diner")
+
+    # -------------------------------------------------------------------------
+    # Model defaults
+    # -------------------------------------------------------------------------
+
+    def test_messaging_enabled_default_is_true(self):
+        """messaging_enabled defaults to True on new Restaurant instances."""
+        self.assertTrue(self.restaurant.messaging_enabled)
+
+    def test_response_hours_default_to_none(self):
+        """Response hours are nullable by default."""
+        self.assertIsNone(self.restaurant.response_hours_start)
+        self.assertIsNone(self.restaurant.response_hours_end)
+
+    # -------------------------------------------------------------------------
+    # Settings page – access control
+    # -------------------------------------------------------------------------
+
+    def test_settings_page_requires_login(self):
+        """Unauthenticated user is redirected away from the settings page."""
+        response = self.client.get(reverse("manage_communication_settings"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_diner_cannot_access_settings_page(self):
+        """A diner is redirected when attempting to access the settings page."""
+        self.client.login(username="comm_diner", password="pass12345")
+        response = self.client.get(reverse("manage_communication_settings"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_owner_can_get_settings_page(self):
+        """Restaurant owner can load the communication settings page."""
+        self.client.login(username="comm_owner", password="pass12345")
+        response = self.client.get(reverse("manage_communication_settings"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("form", response.context)
+
+    # -------------------------------------------------------------------------
+    # Toggling messaging off/on
+    # -------------------------------------------------------------------------
+
+    def test_owner_can_disable_messaging(self):
+        """POST to settings page with messaging_enabled=False disables messaging."""
+        self.client.login(username="comm_owner", password="pass12345")
+        response = self.client.post(
+            reverse("manage_communication_settings"),
+            {"messaging_enabled": False},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.restaurant.refresh_from_db()
+        self.assertFalse(self.restaurant.messaging_enabled)
+
+    def test_owner_can_re_enable_messaging(self):
+        """Owner can turn messaging back on after disabling it."""
+        self.restaurant.messaging_enabled = False
+        self.restaurant.save(update_fields=["messaging_enabled"])
+
+        self.client.login(username="comm_owner", password="pass12345")
+        self.client.post(
+            reverse("manage_communication_settings"),
+            {"messaging_enabled": True},
+        )
+        self.restaurant.refresh_from_db()
+        self.assertTrue(self.restaurant.messaging_enabled)
+
+    # -------------------------------------------------------------------------
+    # Response hours
+    # -------------------------------------------------------------------------
+
+    def test_owner_can_set_response_hours(self):
+        """Owner can save response hours via the settings form."""
+        self.client.login(username="comm_owner", password="pass12345")
+        self.client.post(
+            reverse("manage_communication_settings"),
+            {
+                "messaging_enabled": True,
+                "response_hours_start": "09:00",
+                "response_hours_end": "17:00",
+            },
+        )
+        self.restaurant.refresh_from_db()
+        self.assertEqual(str(self.restaurant.response_hours_start), "09:00:00")
+        self.assertEqual(str(self.restaurant.response_hours_end), "17:00:00")
+
+    def test_response_hours_start_must_be_before_end(self):
+        """Form validation rejects start >= end for response hours."""
+        self.client.login(username="comm_owner", password="pass12345")
+        response = self.client.post(
+            reverse("manage_communication_settings"),
+            {
+                "messaging_enabled": True,
+                "response_hours_start": "18:00",
+                "response_hours_end": "09:00",
+            },
+        )
+        # Form is invalid → stays on the page (200) with errors
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context["form"],
+            None,
+            "Response hours start time must be before end time.",
+        )
+
+    # -------------------------------------------------------------------------
+    # Messaging enforcement for diners
+    # -------------------------------------------------------------------------
+
+    def test_diner_blocked_from_messaging_disabled_restaurant(self):
+        """Diner is redirected with an error when messaging is disabled."""
+        self.restaurant.messaging_enabled = False
+        self.restaurant.save(update_fields=["messaging_enabled"])
+
+        self.client.login(username="comm_diner", password="pass12345")
+        response = self.client.get(
+            reverse("message_restaurant", args=[self.restaurant.id])
+        )
+        self.assertEqual(response.status_code, 302)
+        # Redirect should go to restaurant detail, not conversation
+        self.assertIn("restaurant", response.url)
+
+    def test_diner_can_message_enabled_restaurant(self):
+        """Diner is redirected to conversation when messaging is enabled."""
+        self.client.login(username="comm_diner", password="pass12345")
+        response = self.client.get(
+            reverse("message_restaurant", args=[self.restaurant.id])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            Conversation.objects.filter(
+                restaurant=self.restaurant, diner=self.diner
+            ).exists()
+        )
+
+    def test_diner_cannot_send_message_in_disabled_conversation(self):
+        """Diner POST is blocked with an error when messaging is disabled mid-conversation."""
+        conversation = Conversation.objects.create(
+            restaurant=self.restaurant, diner=self.diner
+        )
+        # Disable messaging after conversation exists
+        self.restaurant.messaging_enabled = False
+        self.restaurant.save(update_fields=["messaging_enabled"])
+
+        self.client.login(username="comm_diner", password="pass12345")
+        response = self.client.post(
+            reverse("conversation_detail", args=[conversation.id]),
+            {"message": "Can I still message?"},
+        )
+        # Should redirect (no new message created)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Message.objects.filter(conversation=conversation).count(), 0)
+
+    def test_restaurant_owner_can_still_reply_when_messaging_disabled(self):
+        """Restaurant owner is not blocked by the messaging toggle — they can always reply."""
+        conversation = Conversation.objects.create(
+            restaurant=self.restaurant, diner=self.diner
+        )
+        self.restaurant.messaging_enabled = False
+        self.restaurant.save(update_fields=["messaging_enabled"])
+
+        self.client.login(username="comm_owner", password="pass12345")
+        response = self.client.post(
+            reverse("conversation_detail", args=[conversation.id]),
+            {"message": "Sorry, we are temporarily closed."},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Message.objects.filter(conversation=conversation).count(), 1)
+
+    # -------------------------------------------------------------------------
+    # API enforcement
+    # -------------------------------------------------------------------------
+
+    def test_api_start_conversation_blocked_when_messaging_disabled(self):
+        """JSON API returns 403 when diner tries to start conversation with disabled restaurant."""
+        import json
+
+        self.restaurant.messaging_enabled = False
+        self.restaurant.save(update_fields=["messaging_enabled"])
+
+        self.client.login(username="comm_diner", password="pass12345")
+        response = self.client.post(
+            reverse("api_conversation_start"),
+            data=json.dumps({"restaurant_id": self.restaurant.id, "message": "Hello!"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_api_start_conversation_succeeds_when_messaging_enabled(self):
+        """JSON API returns 201 when diner starts a conversation with an enabled restaurant."""
+        import json
+
+        self.client.login(username="comm_diner", password="pass12345")
+        response = self.client.post(
+            reverse("api_conversation_start"),
+            data=json.dumps({"restaurant_id": self.restaurant.id, "message": "Hello!"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+
+    def test_unread_message_count_and_alerts(self):
+        """Test that unread messages generate alerts and are correctly marked as read."""
+        # Logged in as diner
+        self.client.login(username="comm_diner", password="pass12345")
+
+        # Start a conversation
+        conv, _ = Conversation.objects.get_or_create(
+            restaurant=self.restaurant, diner=self.diner
+        )
+        # Send a message
+        self.client.post(
+            reverse("conversation_detail", args=[conv.id]), {"message": "Hello!"}
+        )
+
+        # Restaurant owner logs in
+        self.client.logout()
+        self.client.login(username="comm_owner", password="pass12345")
+
+        response = self.client.get(reverse("message_inbox"))
+        # Check that unread_count is annotated correctly
+        self.assertEqual(response.context["conversations"][0].unread_count, 1)
+        self.assertContains(response, "NEW")
+
+        # View conversation -> should mark as read
+        conv_id = response.context["conversations"][0].id
+        self.client.get(reverse("conversation_detail", args=[conv_id]))
+
+        # Check unread count again in inbox
+        response = self.client.get(reverse("message_inbox"))
+        self.assertEqual(response.context["conversations"][0].unread_count, 0)
+        self.assertNotContains(response, "NEW")
+
+    def test_global_unread_count_context_processor(self):
+        """Test the unread_messages_count context processor provides correct count globally."""
+        # Diner sends 2 messages (no client POST, just DB for speed)
+        conv, _ = Conversation.objects.get_or_create(
+            restaurant=self.restaurant, diner=self.diner
+        )
+        Message.objects.create(conversation=conv, sender=self.diner, body="Msg 1")
+        Message.objects.create(conversation=conv, sender=self.diner, body="Msg 2")
+
+        # Restaurant owner logs in
+        self.client.login(username="comm_owner", password="pass12345")
+
+        # Global nav bar should show "2" on any page (e.g., profile)
+        response = self.client.get(reverse("profile"))
+
+        # Context processors are available in template context
+        self.assertEqual(response.context["unread_messages_count"], 2)
+        # Check for the red badge in the HTML
+        self.assertContains(response, "badge rounded-pill bg-danger")
+        self.assertContains(response, "2")
