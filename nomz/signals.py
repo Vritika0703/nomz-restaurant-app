@@ -1,7 +1,7 @@
 from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
-from .models import InspectionRecord, LoginLog, Review
+from .models import InspectionRecord, LoginLog, Message, MessageNotification, Review
 from .scoring import refresh_restaurant_composite
 
 from django.utils import timezone
@@ -90,3 +90,29 @@ def refresh_score_on_inspection_save(sender, instance, raw=False, **kwargs):
 @receiver(post_delete, sender=InspectionRecord)
 def refresh_score_on_inspection_delete(sender, instance, **kwargs):
     refresh_restaurant_composite(instance.restaurant)
+
+
+@receiver(post_save, sender=Message)
+def create_message_notification(sender, instance, created, raw=False, **kwargs):
+    if raw or not created:
+        return
+
+    conversation = instance.conversation
+    if instance.sender_id == conversation.diner_id:
+        recipient = conversation.restaurant.owner
+    elif instance.sender_id == conversation.restaurant.owner_id:
+        recipient = conversation.diner
+    else:
+        return
+
+    if not recipient or recipient.id == instance.sender_id:
+        return
+
+    MessageNotification.objects.get_or_create(
+        message=instance,
+        defaults={
+            "recipient": recipient,
+            "conversation": conversation,
+            "triggered_by": instance.sender,
+        },
+    )

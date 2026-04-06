@@ -17,10 +17,12 @@ from .models import (
     Conversation,
     InspectionRecord,
     Message,
+    MessageNotification,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
     Review,
+    ReviewResponse,
     SystemAlert,
     SystemAuditLog,
     SystemPerformanceMetric,
@@ -946,6 +948,33 @@ class MessagingApiTests(TestCase):
         self.assertEqual(reply_response.status_code, 201)
         self.assertEqual(conversation.messages.count(), 2)
 
+    def test_api_message_flow_creates_and_clears_restaurant_notification(self):
+        self.client.login(username="diner_a", password="pass12345")
+        start_response = self.client.post(
+            reverse("api_conversation_start"),
+            data='{"restaurant_id": %d, "message": "Do you have outdoor seating?"}'
+            % self.restaurant.id,
+            content_type="application/json",
+        )
+        self.assertEqual(start_response.status_code, 201)
+        conversation_id = start_response.json()["conversation_id"]
+        message = Message.objects.get(conversation_id=conversation_id)
+
+        notification = MessageNotification.objects.get(message=message)
+        self.assertEqual(notification.recipient, self.owner)
+        self.assertFalse(notification.is_read)
+
+        self.client.logout()
+        self.client.login(username="restaurant_owner", password="pass12345")
+        history_response = self.client.get(
+            reverse("api_conversation_messages", args=[conversation_id])
+        )
+        self.assertEqual(history_response.status_code, 200)
+
+        notification.refresh_from_db()
+        self.assertTrue(notification.is_read)
+        self.assertIsNotNone(notification.read_at)
+
     def test_conversation_history_is_stored_in_order(self):
         conversation = Conversation.objects.create(
             restaurant=self.restaurant,
@@ -1358,3 +1387,163 @@ class RestaurantCommunicationSettingsTests(TestCase):
         # Check for the red badge in the HTML
         self.assertContains(response, "badge rounded-pill bg-danger")
         self.assertContains(response, "2")
+
+    def test_message_notification_created_and_visible_on_restaurant_dashboard(self):
+        """A new diner message creates a dashboard notification with the correct thread link."""
+        conversation, _ = Conversation.objects.get_or_create(
+            restaurant=self.restaurant, diner=self.diner
+        )
+        message = Message.objects.create(
+            conversation=conversation,
+            sender=self.diner,
+            body="Can you confirm today's specials?",
+        )
+
+        notification = MessageNotification.objects.get(message=message)
+        self.assertEqual(notification.recipient, self.owner)
+        self.assertEqual(notification.conversation, conversation)
+        self.assertFalse(notification.is_read)
+
+        self.client.login(username="comm_owner", password="pass12345")
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "New Message Alerts")
+        self.assertContains(response, "Can you confirm")
+        self.assertContains(
+            response, reverse("conversation_detail", args=[conversation.id])
+        )
+        self.assertEqual(response.context["unread_message_notifications_count"], 1)
+
+    def test_message_notification_clears_after_restaurant_reads_conversation(self):
+        """Opening the conversation marks both messages and notifications as read."""
+        conversation, _ = Conversation.objects.get_or_create(
+            restaurant=self.restaurant, diner=self.diner
+        )
+        message = Message.objects.create(
+            conversation=conversation,
+            sender=self.diner,
+            body="Please share your vegan menu options.",
+        )
+        notification = MessageNotification.objects.get(message=message)
+
+        self.client.login(username="comm_owner", password="pass12345")
+        self.client.get(reverse("conversation_detail", args=[conversation.id]))
+
+        message.refresh_from_db()
+        notification.refresh_from_db()
+        self.assertTrue(message.is_read)
+        self.assertTrue(notification.is_read)
+        self.assertIsNotNone(notification.read_at)
+
+        dashboard_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(
+            dashboard_response.context["unread_message_notifications_count"], 0
+        )
+        self.assertNotContains(dashboard_response, "vegan menu options")
+
+
+class ReviewResponseFeatureTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+        self.owner = User.objects.create_user(
+            username="review_owner",
+            email="review_owner@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.owner, role="restaurant", is_approved=True)
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Response Test Bistro",
+            cuisine_type="italian",
+            price_range="$$",
+            is_active=True,
+        )
+
+        self.diner = User.objects.create_user(
+            username="review_diner",
+            email="review_diner@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.diner, role="diner")
+        self.review = Review.objects.create(
+            restaurant=self.restaurant,
+            user=self.diner,
+            rating=4,
+            comment="Solid food and quick service.",
+        )
+
+        self.other_owner = User.objects.create_user(
+            username="other_owner",
+            email="other_owner@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(
+            user=self.other_owner, role="restaurant", is_approved=True
+        )
+
+    def test_restaurant_owner_can_post_public_response(self):
+        self.client.login(username="review_owner", password="pass12345")
+        response = self.client.post(
+            reverse("respond_to_review", args=[self.review.id]),
+            {
+                "response_text": "Thank you for your feedback!",
+                "next": reverse("profile"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            ReviewResponse.objects.filter(
+                review=self.review, responder=self.owner
+            ).exists()
+        )
+
+    def test_restaurant_owner_can_edit_existing_response(self):
+        ReviewResponse.objects.create(
+            review=self.review,
+            restaurant=self.restaurant,
+            responder=self.owner,
+            response_text="Initial response",
+        )
+
+        self.client.login(username="review_owner", password="pass12345")
+        self.client.post(
+            reverse("respond_to_review", args=[self.review.id]),
+            {"response_text": "Updated response text", "next": reverse("profile")},
+        )
+
+        self.assertEqual(ReviewResponse.objects.filter(review=self.review).count(), 1)
+        self.assertEqual(
+            ReviewResponse.objects.get(review=self.review).response_text,
+            "Updated response text",
+        )
+
+    def test_non_owner_cannot_post_response(self):
+        self.client.login(username="other_owner", password="pass12345")
+        response = self.client.post(
+            reverse("respond_to_review", args=[self.review.id]),
+            {"response_text": "Not allowed"},
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(ReviewResponse.objects.filter(review=self.review).exists())
+
+    def test_response_is_visible_on_restaurant_detail(self):
+        ReviewResponse.objects.create(
+            review=self.review,
+            restaurant=self.restaurant,
+            responder=self.owner,
+            response_text="We appreciate your visit and will keep improving.",
+        )
+
+        self.client.login(username="review_diner", password="pass12345")
+        response = self.client.get(
+            reverse("restaurant_detail", args=[self.restaurant.id])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Restaurant response")
+        self.assertContains(
+            response, "We appreciate your visit and will keep improving."
+        )

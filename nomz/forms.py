@@ -7,6 +7,7 @@ from .models import (
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
+    ReviewResponse,
     UserPreference,
     Review,
     ModerationReport,
@@ -537,6 +538,28 @@ class ModerationReportForm(forms.ModelForm):
                     "placeholder": "Provide more details about why you are reporting this...",
                 }
             ),
+        }
+
+
+class ReviewResponseForm(forms.ModelForm):
+    """
+    Form for restaurant owners to post or edit a public response to a review.
+    """
+
+    class Meta:
+        model = ReviewResponse
+        fields = ["response_text"]
+        labels = {
+            "response_text": "Public response",
+        }
+        widgets = {
+            "response_text": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": "Thank the customer, clarify concerns, or explain next steps.",
+                }
+            )
         }
 
 
