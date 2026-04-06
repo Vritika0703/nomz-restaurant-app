@@ -818,9 +818,11 @@ def edit_restaurant_profile(request):
         form = RestaurantProfileForm(request.POST, instance=restaurant)
         if form.is_valid():
             profile = request.user.userprofile
-            
-            major_fields = {'name', 'address', 'phone', 'website', 'email'}
-            requires_approval = any(field in major_fields for field in form.changed_data)
+
+            major_fields = {"name", "address", "phone", "website", "email"}
+            requires_approval = any(
+                field in major_fields for field in form.changed_data
+            )
 
             if requires_approval:
                 profile.is_approved = False
@@ -830,10 +832,8 @@ def edit_restaurant_profile(request):
                     request, "Restaurant profile updated and re-submitted for approval!"
                 )
             else:
-                messages.success(
-                    request, "Restaurant profile updated successfully!"
-                )
-            
+                messages.success(request, "Restaurant profile updated successfully!")
+
             form.save()
             return redirect("profile")
     else:
