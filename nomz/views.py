@@ -20,6 +20,7 @@ from .forms import (
     RestaurantPhotoForm,
     UserPreferenceForm,
     ReviewForm,
+    ReviewResponseForm,
     ModerationReportForm,
     RestaurantCommunicationSettingsForm,
 )
@@ -30,10 +31,12 @@ from .models import (
     RestaurantOwnershipClaim,
     RestaurantPhoto,
     Message,
+    MessageNotification,
     UserPreference,
     UserProfile,
     LoginLog,
     Review,
+    ReviewResponse,
     ModerationReport,
     SystemAuditLog,
 )
@@ -552,6 +555,17 @@ def dashboard(request):
     if role == "restaurant":
         # Get the restaurant profile for the restaurant owner
         restaurant = Restaurant.objects.filter(owner=request.user).first()
+        unread_notification_queryset = MessageNotification.objects.filter(
+            recipient=request.user,
+            is_read=False,
+        )
+        unread_message_notifications = unread_notification_queryset.select_related(
+            "conversation",
+            "conversation__restaurant",
+            "conversation__diner",
+            "triggered_by",
+            "message",
+        ).order_by("-created_at")[:8]
         active_claim = (
             RestaurantOwnershipClaim.objects.filter(
                 claimant=request.user,
@@ -564,12 +578,20 @@ def dashboard(request):
             claimant=request.user,
         ).select_related("restaurant")[:5]
         context["restaurant"] = restaurant
+        context["unread_message_notifications"] = unread_message_notifications
+        context["unread_message_notifications_count"] = (
+            unread_notification_queryset.count()
+        )
         context["active_claim"] = active_claim
         context["recent_claims"] = recent_claims
         if restaurant:
             context.update(_build_restaurant_score_insights(restaurant))
             # Fetch reviews
-            reviews = restaurant.reviews.all().order_by("-created_at")
+            reviews = (
+                restaurant.reviews.select_related("user", "restaurant_response")
+                .all()
+                .order_by("-created_at")
+            )
             context["reviews"] = reviews
 
             # Calculate average rating
@@ -796,13 +818,23 @@ def edit_restaurant_profile(request):
         form = RestaurantProfileForm(request.POST, instance=restaurant)
         if form.is_valid():
             profile = request.user.userprofile
-            profile.is_approved = False
-            profile.is_rejected = False
-            profile.save()
+            
+            major_fields = {'name', 'address', 'phone', 'website', 'email'}
+            requires_approval = any(field in major_fields for field in form.changed_data)
+
+            if requires_approval:
+                profile.is_approved = False
+                profile.is_rejected = False
+                profile.save()
+                messages.success(
+                    request, "Restaurant profile updated and re-submitted for approval!"
+                )
+            else:
+                messages.success(
+                    request, "Restaurant profile updated successfully!"
+                )
+            
             form.save()
-            messages.success(
-                request, "Restaurant profile updated and re-submitted for approval!"
-            )
             return redirect("profile")
     else:
         form = RestaurantProfileForm(instance=restaurant)
@@ -1344,6 +1376,68 @@ def add_review(request, restaurant_id):
 
 
 @login_required(login_url="landing")
+@require_POST
+def respond_to_review(request, review_id):
+    """
+    Allow a restaurant owner to create or edit one public response per review.
+    """
+    review = get_object_or_404(
+        Review.objects.select_related("restaurant", "restaurant__owner"),
+        id=review_id,
+    )
+    restaurant = review.restaurant
+
+    if restaurant.owner_id != request.user.id:
+        return HttpResponseForbidden(
+            "Only the owner of this restaurant can respond to this review."
+        )
+
+    if review.is_deleted:
+        messages.error(
+            request,
+            "You cannot respond to a review that was removed by moderation.",
+        )
+        return redirect("profile")
+
+    form = ReviewResponseForm(request.POST)
+    if form.is_valid():
+        response_text = form.cleaned_data["response_text"]
+        review_response, created = ReviewResponse.objects.get_or_create(
+            review=review,
+            defaults={
+                "restaurant": restaurant,
+                "responder": request.user,
+                "response_text": response_text,
+            },
+        )
+        if not created:
+            review_response.response_text = response_text
+            review_response.restaurant = restaurant
+            review_response.responder = request.user
+            review_response.save(
+                update_fields=[
+                    "response_text",
+                    "restaurant",
+                    "responder",
+                    "updated_at",
+                ]
+            )
+            messages.success(request, "Your public response has been updated.")
+        else:
+            messages.success(request, "Your public response has been posted.")
+    else:
+        messages.error(
+            request,
+            "Could not save response. Please make sure the response text is valid.",
+        )
+
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect("profile")
+
+
+@login_required(login_url="landing")
 def report_content(request, content_type, content_id):
     """
     Allow users to report a review or another user.
@@ -1492,7 +1586,11 @@ def restaurant_detail(request, restaurant_id):
     Public detail page for a restaurant to view info and reviews.
     """
     restaurant = get_object_or_404(Restaurant, id=restaurant_id)
-    reviews = restaurant.reviews.filter(is_deleted=False).order_by("-created_at")
+    reviews = (
+        restaurant.reviews.select_related("user", "restaurant_response")
+        .filter(is_deleted=False)
+        .order_by("-created_at")
+    )
     return render(
         request,
         "nomz/restaurant_detail.html",
@@ -1586,10 +1684,18 @@ def conversation_detail(request, conversation_id):
         return HttpResponseForbidden("Permission denied")
 
     messaging_disabled = not conversation.restaurant.messaging_enabled
-    # Mark unread messages from other party as read
-    Message.objects.filter(conversation=conversation, is_read=False).exclude(
-        sender=request.user
-    ).update(is_read=True)
+    unread_message_ids = list(
+        Message.objects.filter(conversation=conversation, is_read=False)
+        .exclude(sender=request.user)
+        .values_list("id", flat=True)
+    )
+    if unread_message_ids:
+        Message.objects.filter(id__in=unread_message_ids).update(is_read=True)
+        MessageNotification.objects.filter(
+            recipient=request.user,
+            message_id__in=unread_message_ids,
+            is_read=False,
+        ).update(is_read=True, read_at=timezone.now())
 
     if request.method == "POST":
         # Issue #62: block sending when messaging is disabled (only for diners)
