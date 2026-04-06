@@ -815,6 +815,49 @@ class Review(models.Model):
         return round(weighted, 2)
 
 
+class ReviewResponse(models.Model):
+    """
+    Public response from a restaurant owner to a specific review.
+    Exactly one response is allowed per review.
+    """
+
+    review = models.OneToOneField(
+        Review,
+        on_delete=models.CASCADE,
+        related_name="restaurant_response",
+    )
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="review_responses",
+    )
+    responder = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="review_responses",
+    )
+    response_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"Response by {self.responder.username} to review {self.review_id}"
+
+    def clean(self):
+        if self.review_id and self.restaurant_id != self.review.restaurant_id:
+            raise ValidationError(
+                "Review response restaurant does not match the review's restaurant."
+            )
+        if self.restaurant_id and self.responder_id:
+            if self.restaurant.owner_id != self.responder_id:
+                raise ValidationError(
+                    "Only the restaurant owner can submit a public response."
+                )
+
+
 class Conversation(models.Model):
     """
     One-to-one messaging thread between a restaurant owner and a diner.
@@ -878,6 +921,48 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message {self.id} by {self.sender.username}"
+
+
+class MessageNotification(models.Model):
+    """
+    Notification for a newly received message.
+    """
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="message_notifications",
+    )
+    conversation = models.ForeignKey(
+        Conversation,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    message = models.OneToOneField(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="notification",
+    )
+    triggered_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="triggered_message_notifications",
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["recipient", "is_read", "created_at"]),
+            models.Index(fields=["recipient", "conversation", "is_read"]),
+        ]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return (
+            f"Notification for {self.recipient.username} on message {self.message_id}"
+        )
 
 
 class ModerationReport(models.Model):

@@ -9,8 +9,9 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 
-from .models import Conversation, Message, Restaurant
+from .models import Conversation, Message, MessageNotification, Restaurant
 from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 NYC_MIN_LAT = 40.0
@@ -230,6 +231,19 @@ def conversation_messages(request, conversation_id):
 
     if not conversation.can_access(request.user):
         return HttpResponseForbidden("Permission denied")
+
+    unread_message_ids = list(
+        Message.objects.filter(conversation=conversation, is_read=False)
+        .exclude(sender=request.user)
+        .values_list("id", flat=True)
+    )
+    if unread_message_ids:
+        Message.objects.filter(id__in=unread_message_ids).update(is_read=True)
+        MessageNotification.objects.filter(
+            recipient=request.user,
+            message_id__in=unread_message_ids,
+            is_read=False,
+        ).update(is_read=True, read_at=timezone.now())
 
     messages = list(
         conversation.messages.select_related("sender")
