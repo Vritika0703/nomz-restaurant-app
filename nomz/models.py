@@ -589,8 +589,469 @@ class UserPreference(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # ===== NEW FIELDS FOR LEARNING =====
+    # Dynamic preference weights (adjusted by learning algorithm)
+    cuisine_weight = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=1.0,
+        validators=[MinValueValidator(0.5), MaxValueValidator(2.0)],
+        help_text="Weight multiplier for cuisine matching (0.5-2.0, adjusted by learning)",
+    )
+
+    dietary_weight = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=1.0,
+        validators=[MinValueValidator(0.5), MaxValueValidator(2.0)],
+        help_text="Weight multiplier for dietary restrictions matching",
+    )
+
+    price_weight = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=1.0,
+        validators=[MinValueValidator(0.5), MaxValueValidator(2.0)],
+        help_text="Weight multiplier for price range matching",
+    )
+
+    neighborhood_weight = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=1.0,
+        validators=[MinValueValidator(0.5), MaxValueValidator(2.0)],
+        help_text="Weight multiplier for neighborhood preference",
+    )
+
+    composite_score_weight = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=1.0,
+        validators=[MinValueValidator(0.5), MaxValueValidator(2.0)],
+        help_text="Weight multiplier for restaurant quality score",
+    )
+
+    historical_satisfaction_weight = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        default=0.5,
+        validators=[MinValueValidator(0.0), MaxValueValidator(2.0)],
+        help_text="Weight for historical user satisfaction with similar restaurants",
+    )
+
+    # Recommendation metrics
+    total_recommendations_received = models.IntegerField(
+        default=0, help_text="Total recommendations shown to this user"
+    )
+
+    successful_recommendations = models.IntegerField(
+        default=0, help_text="Number of recommendations user interacted with"
+    )
+
+    # Tracking model iterations
+    recommendation_model_version = models.IntegerField(
+        default=1, help_text="Which version of recommendation model is being used for this user"
+    )
+
+    # Timestamps for learning
+    last_recommendation_recalculated_at = models.DateTimeField(
+        null=True, blank=True, help_text="Last time recommendations were calculated for this user"
+    )
+
+    last_recommendation_improvement_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Last time preference weights were improved by learning algorithm",
+    )
+
+    last_weights_adjustment_reason = models.CharField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="Reason why weights were last adjusted (for debugging)",
+    )
+
+    # Learning confidence
+    learning_data_quality_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.0,
+        help_text="Confidence in learned weights (0-100%)",
+    )
+
+    minimum_interactions_for_learning = models.IntegerField(
+        default=3, help_text="Minimum number of interactions needed before weight adjustment"
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "-last_recommendation_recalculated_at"]),
+            models.Index(fields=["recommendation_model_version"]),
+        ]
+
     def __str__(self):
-        return f"Preferences for {self.user.username}"
+        return f"Preferences for {self.user.username} (v{self.recommendation_model_version})"
+
+    @property
+    def recommendation_success_rate(self):
+        """Calculate percentage of recommendations that led to interaction"""
+        if self.total_recommendations_received == 0:
+            return 0.0
+        return (self.successful_recommendations / self.total_recommendations_received) * 100
+
+    @property
+    def all_weights_sum(self):
+        """Verify weights are balanced"""
+        return (
+            self.cuisine_weight
+            + self.dietary_weight
+            + self.price_weight
+            + self.neighborhood_weight
+            + self.composite_score_weight
+            + self.historical_satisfaction_weight
+        )
+
+    def reset_learning_weights(self):
+        """Reset all learned weights back to defaults"""
+        self.cuisine_weight = 1.0
+        self.dietary_weight = 1.0
+        self.price_weight = 1.0
+        self.neighborhood_weight = 1.0
+        self.composite_score_weight = 1.0
+        self.historical_satisfaction_weight = 0.5
+        self.recommendation_model_version += 1
+        self.learning_data_quality_score = 0.0
+        self.save()
+
+    def has_enough_data_for_learning(self):
+        """Check if user has enough interaction history for meaningful learning"""
+        interaction_count = self.user.interaction_history.count()
+        return interaction_count >= self.minimum_interactions_for_learning
+
+
+class UserInteractionHistory(models.Model):
+    """
+    Tracks all user interactions with restaurants to build historical context
+    for machine learning and continuous recommendation refinement.
+    """
+
+    INTERACTION_TYPES = [
+        ("view", "Restaurant View"),
+        ("profile_view", "Profile Page View"),
+        ("search", "Search Query"),
+        ("review_submitted", "Review Submitted"),
+        ("rating_given", "Rating Provided"),
+        ("recommendation_viewed", "Recommendation Viewed"),
+        ("recommendation_clicked", "Recommendation Clicked"),
+        ("reservation", "Reservation Made"),
+        ("menu_viewed", "Menu Viewed"),
+        ("photo_viewed", "Photos Viewed"),
+        ("contact_clicked", "Contact Info Clicked"),
+    ]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="interaction_history"
+    )
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="user_interactions",
+        null=True,
+        blank=True,
+    )
+
+    # Interaction metadata
+    interaction_type = models.CharField(max_length=50, choices=INTERACTION_TYPES)
+
+    # Optional: search query if interaction_type='search'
+    search_query = models.CharField(max_length=500, blank=True, null=True)
+
+    # User satisfaction metrics (populated for review_submitted interactions)
+    satisfaction_score = models.IntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(-1), MaxValueValidator(5)],
+        help_text="User satisfaction: -1=bad, 0=neutral, 1-5=rating scale",
+    )
+
+    # Time spent on page/section (in seconds)
+    time_spent_seconds = models.IntegerField(null=True, blank=True)
+
+    # Engagement metrics
+    was_shared = models.BooleanField(default=False, help_text="Did user share this restaurant?")
+    was_saved = models.BooleanField(default=False, help_text="Did user save/favorite this restaurant?")
+    was_recommended = models.BooleanField(
+        default=False, help_text="Was this a recommended restaurant shown to user?"
+    )
+    recommendation_rank = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Position in recommendation list (1=first, 2=second, etc)",
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=False, default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="userinteract_user_date"),
+            models.Index(fields=["restaurant", "-created_at"], name="userinteract_rest_date"),
+            models.Index(
+                fields=["user", "restaurant", "-created_at"], name="userinteract_user_rest_date"
+            ),
+            models.Index(fields=["interaction_type", "-created_at"], name="userinteract_type_date"),
+        ]
+        verbose_name = "User Interaction History"
+        verbose_name_plural = "User Interaction Histories"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_interaction_type_display()} - {self.created_at}"
+
+    @property
+    def days_since_interaction(self):
+        """Calculate days since this interaction occurred"""
+        return (timezone.now() - self.created_at).days
+
+    @property
+    def interaction_weight(self):
+        """
+        Calculate time-based weight for this interaction.
+        Recent = higher weight, older = lower weight
+        """
+        days_old = self.days_since_interaction
+        if days_old <= 30:
+            return 2.0  # Recent activity (last 30 days)
+        elif days_old <= 90:
+            return 1.5  # Medium-term (30-90 days)
+        else:
+            return 1.0  # Older activity
+
+
+class RecalculatedRecommendation(models.Model):
+    """
+    Stores recommendation snapshots to track model accuracy and learn from outcomes.
+    Helps measure whether recommendations lead to user interactions and satisfaction.
+    """
+
+    ACCURACY_CHOICES = [
+        (1, "Great Match - User Loved It"),
+        (0, "Okay Match - User Indifferent"),
+        (-1, "Poor Match - User Disliked It"),
+    ]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="calculated_recommendations"
+    )
+    restaurant = models.ForeignKey(
+        Restaurant, on_delete=models.CASCADE, related_name="calculated_for_users"
+    )
+
+    # Score at time of recommendation
+    recommendation_score = models.DecimalField(max_digits=5, decimal_places=2)
+
+    # Component scores for analysis
+    cuisine_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    price_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    dietary_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    neighborhood_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    quality_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    historical_satisfaction_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+
+    # Learning/Accuracy metrics
+    accuracy_feedback = models.IntegerField(
+        null=True,
+        blank=True,
+        choices=ACCURACY_CHOICES,
+        help_text="Manual or inferred feedback on recommendation quality",
+    )
+
+    # Interaction tracking
+    user_interacted = models.BooleanField(
+        default=False, help_text="Did user click/view this recommended restaurant?"
+    )
+    days_to_interaction = models.IntegerField(
+        null=True, blank=True, help_text="Days until user interacted with this restaurant"
+    )
+    interaction_type = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Type of interaction (view, review, reservation, etc)",
+    )
+    recommendation_rank = models.IntegerField(
+        null=True, blank=True, help_text="Position in recommendation list at time of generation"
+    )
+
+    # Timestamps
+    calculated_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    interaction_detected_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-calculated_at"]
+        indexes = [
+            models.Index(fields=["user", "-calculated_at"], name="rec_user_date"),
+            models.Index(fields=["user_interacted", "-calculated_at"], name="rec_interacted_date"),
+            models.Index(fields=["accuracy_feedback", "-created_at"], name="rec_accuracy_date"),
+        ]
+        verbose_name = "Recalculated Recommendation"
+        verbose_name_plural = "Recalculated Recommendations"
+
+    def __str__(self):
+        return f"Rec: {self.user.username} → {self.restaurant.name} (score: {self.recommendation_score})"
+
+    @property
+    def is_accurate(self):
+        """Returns True if recommendation was accurate (user interacted positively)"""
+        return self.accuracy_feedback in [1, 0]  # Great or okay, not poor
+
+    def calculate_accuracy_from_interactions(self):
+        """
+        Automatically infer accuracy based on user interactions after recommendation.
+        Call this periodically to update accuracy_feedback.
+        """
+        # Check if user reviewed this restaurant after recommendation
+        recent_review = self.user.reviews.filter(
+            restaurant=self.restaurant, created_at__gte=self.calculated_at, is_deleted=False
+        ).first()
+
+        if recent_review:
+            self.interaction_type = "review_submitted"
+            self.user_interacted = True
+            self.interaction_detected_at = recent_review.created_at
+            self.days_to_interaction = (recent_review.created_at - self.calculated_at).days
+
+            # Infer accuracy from review rating
+            if recent_review.rating >= 4:
+                self.accuracy_feedback = 1
+            elif recent_review.rating >= 3:
+                self.accuracy_feedback = 0
+            else:
+                self.accuracy_feedback = -1
+
+            self.save(
+                update_fields=[
+                    "user_interacted",
+                    "interaction_type",
+                    "interaction_detected_at",
+                    "days_to_interaction",
+                    "accuracy_feedback",
+                ]
+            )
+            return
+
+        # Check if user viewed this restaurant after recommendation
+        recent_view = self.user.interaction_history.filter(
+            restaurant=self.restaurant,
+            interaction_type__in=["view", "profile_view"],
+            created_at__gte=self.calculated_at,
+        ).first()
+
+        if recent_view:
+            self.interaction_type = "view"
+            self.user_interacted = True
+            self.interaction_detected_at = recent_view.created_at
+            self.days_to_interaction = (recent_view.created_at - self.calculated_at).days
+            self.accuracy_feedback = 0  # Neutral - just viewed
+            self.save(
+                update_fields=[
+                    "user_interacted",
+                    "interaction_type",
+                    "interaction_detected_at",
+                    "days_to_interaction",
+                    "accuracy_feedback",
+                ]
+            )
+
+
+class RecommendationModelMetric(models.Model):
+    """
+    Tracks system-wide recommendation quality metrics daily.
+    Helps monitor whether the continuous refinement is improving recommendations.
+    """
+
+    metric_date = models.DateField(auto_now_add=True)
+
+    # Volume metrics
+    total_recommendations_given = models.IntegerField(default=0)
+    total_users_with_recommendations = models.IntegerField(default=0)
+
+    # Accuracy metrics
+    successful_recommendations = models.IntegerField(
+        default=0, help_text="Number of recommendations that led to user interaction"
+    )
+    avg_recommendation_accuracy = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Percentage (0-100) of recommendations leading to interaction",
+    )
+
+    # Interaction timing
+    avg_days_to_interaction = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Average days between recommendation and user interaction",
+    )
+
+    # Success rates by preference type
+    cuisine_match_success_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    price_match_success_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    dietary_match_success_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    neighborhood_match_success_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+
+    # Model quality
+    avg_recommendation_score = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    recommendations_with_perfect_score = models.IntegerField(default=0)
+
+    # Learning indicators
+    recommendations_updated_from_learning = models.IntegerField(
+        default=0, help_text="How many recommendation weights were adjusted based on learning"
+    )
+    users_with_improved_weights = models.IntegerField(
+        default=0, help_text="Number of users whose preference weights improved accuracy"
+    )
+
+    last_recalculated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-metric_date"]
+        indexes = [
+            models.Index(fields=["-metric_date"], name="metric_date_idx"),
+        ]
+        verbose_name = "Recommendation Model Metric"
+        verbose_name_plural = "Recommendation Model Metrics"
+
+    def __str__(self):
+        return f"Recommendation Metrics - {self.metric_date} (Accuracy: {self.avg_recommendation_accuracy}%)"
+
+    @property
+    def month_over_month_improvement(self):
+        """Calculate month-over-month accuracy improvement"""
+        from datetime import timedelta
+
+        prev_month = self.metric_date - timedelta(days=30)
+        prev_metric = RecommendationModelMetric.objects.filter(
+            metric_date__lte=prev_month
+        ).order_by("-metric_date").first()
+
+        if not prev_metric or not prev_metric.avg_recommendation_accuracy:
+            return None
+
+        if not self.avg_recommendation_accuracy:
+            return None
+
+        improvement = float(self.avg_recommendation_accuracy) - float(
+            prev_metric.avg_recommendation_accuracy
+        )
+        return improvement
 
 
 class SystemAuditLog(models.Model):
