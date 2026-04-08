@@ -650,12 +650,15 @@ class UserPreference(models.Model):
 
     # Tracking model iterations
     recommendation_model_version = models.IntegerField(
-        default=1, help_text="Which version of recommendation model is being used for this user"
+        default=1,
+        help_text="Which version of recommendation model is being used for this user",
     )
 
     # Timestamps for learning
     last_recommendation_recalculated_at = models.DateTimeField(
-        null=True, blank=True, help_text="Last time recommendations were calculated for this user"
+        null=True,
+        blank=True,
+        help_text="Last time recommendations were calculated for this user",
     )
 
     last_recommendation_improvement_at = models.DateTimeField(
@@ -680,7 +683,8 @@ class UserPreference(models.Model):
     )
 
     minimum_interactions_for_learning = models.IntegerField(
-        default=3, help_text="Minimum number of interactions needed before weight adjustment"
+        default=3,
+        help_text="Minimum number of interactions needed before weight adjustment",
     )
 
     class Meta:
@@ -697,7 +701,9 @@ class UserPreference(models.Model):
         """Calculate percentage of recommendations that led to interaction"""
         if self.total_recommendations_received == 0:
             return 0.0
-        return (self.successful_recommendations / self.total_recommendations_received) * 100
+        return (
+            self.successful_recommendations / self.total_recommendations_received
+        ) * 100
 
     @property
     def all_weights_sum(self):
@@ -778,8 +784,12 @@ class UserInteractionHistory(models.Model):
     time_spent_seconds = models.IntegerField(null=True, blank=True)
 
     # Engagement metrics
-    was_shared = models.BooleanField(default=False, help_text="Did user share this restaurant?")
-    was_saved = models.BooleanField(default=False, help_text="Did user save/favorite this restaurant?")
+    was_shared = models.BooleanField(
+        default=False, help_text="Did user share this restaurant?"
+    )
+    was_saved = models.BooleanField(
+        default=False, help_text="Did user save/favorite this restaurant?"
+    )
     was_recommended = models.BooleanField(
         default=False, help_text="Was this a recommended restaurant shown to user?"
     )
@@ -797,11 +807,17 @@ class UserInteractionHistory(models.Model):
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["user", "-created_at"], name="userinteract_user_date"),
-            models.Index(fields=["restaurant", "-created_at"], name="userinteract_rest_date"),
             models.Index(
-                fields=["user", "restaurant", "-created_at"], name="userinteract_user_rest_date"
+                fields=["restaurant", "-created_at"], name="userinteract_rest_date"
             ),
-            models.Index(fields=["interaction_type", "-created_at"], name="userinteract_type_date"),
+            models.Index(
+                fields=["user", "restaurant", "-created_at"],
+                name="userinteract_user_rest_date",
+            ),
+            models.Index(
+                fields=["interaction_type", "-created_at"],
+                name="userinteract_type_date",
+            ),
         ]
         verbose_name = "User Interaction History"
         verbose_name_plural = "User Interaction Histories"
@@ -852,11 +868,21 @@ class RecalculatedRecommendation(models.Model):
     recommendation_score = models.DecimalField(max_digits=5, decimal_places=2)
 
     # Component scores for analysis
-    cuisine_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    price_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    dietary_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    neighborhood_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    quality_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    cuisine_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    price_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    dietary_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    neighborhood_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    quality_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
     historical_satisfaction_score = models.DecimalField(
         max_digits=5, decimal_places=2, null=True, blank=True
     )
@@ -874,7 +900,9 @@ class RecalculatedRecommendation(models.Model):
         default=False, help_text="Did user click/view this recommended restaurant?"
     )
     days_to_interaction = models.IntegerField(
-        null=True, blank=True, help_text="Days until user interacted with this restaurant"
+        null=True,
+        blank=True,
+        help_text="Days until user interacted with this restaurant",
     )
     interaction_type = models.CharField(
         max_length=50,
@@ -883,7 +911,9 @@ class RecalculatedRecommendation(models.Model):
         help_text="Type of interaction (view, review, reservation, etc)",
     )
     recommendation_rank = models.IntegerField(
-        null=True, blank=True, help_text="Position in recommendation list at time of generation"
+        null=True,
+        blank=True,
+        help_text="Position in recommendation list at time of generation",
     )
 
     # Timestamps
@@ -895,8 +925,12 @@ class RecalculatedRecommendation(models.Model):
         ordering = ["-calculated_at"]
         indexes = [
             models.Index(fields=["user", "-calculated_at"], name="rec_user_date"),
-            models.Index(fields=["user_interacted", "-calculated_at"], name="rec_interacted_date"),
-            models.Index(fields=["accuracy_feedback", "-created_at"], name="rec_accuracy_date"),
+            models.Index(
+                fields=["user_interacted", "-calculated_at"], name="rec_interacted_date"
+            ),
+            models.Index(
+                fields=["accuracy_feedback", "-created_at"], name="rec_accuracy_date"
+            ),
         ]
         verbose_name = "Recalculated Recommendation"
         verbose_name_plural = "Recalculated Recommendations"
@@ -916,14 +950,18 @@ class RecalculatedRecommendation(models.Model):
         """
         # Check if user reviewed this restaurant after recommendation
         recent_review = self.user.reviews.filter(
-            restaurant=self.restaurant, created_at__gte=self.calculated_at, is_deleted=False
+            restaurant=self.restaurant,
+            created_at__gte=self.calculated_at,
+            is_deleted=False,
         ).first()
 
         if recent_review:
             self.interaction_type = "review_submitted"
             self.user_interacted = True
             self.interaction_detected_at = recent_review.created_at
-            self.days_to_interaction = (recent_review.created_at - self.calculated_at).days
+            self.days_to_interaction = (
+                recent_review.created_at - self.calculated_at
+            ).days
 
             # Infer accuracy from review rating
             if recent_review.rating >= 4:
@@ -955,7 +993,9 @@ class RecalculatedRecommendation(models.Model):
             self.interaction_type = "view"
             self.user_interacted = True
             self.interaction_detected_at = recent_view.created_at
-            self.days_to_interaction = (recent_view.created_at - self.calculated_at).days
+            self.days_to_interaction = (
+                recent_view.created_at - self.calculated_at
+            ).days
             self.accuracy_feedback = 0  # Neutral - just viewed
             self.save(
                 update_fields=[
@@ -1002,21 +1042,33 @@ class RecommendationModelMetric(models.Model):
     )
 
     # Success rates by preference type
-    cuisine_match_success_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
-    price_match_success_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
-    dietary_match_success_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
-    neighborhood_match_success_rate = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    cuisine_match_success_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True
+    )
+    price_match_success_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True
+    )
+    dietary_match_success_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True
+    )
+    neighborhood_match_success_rate = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True
+    )
 
     # Model quality
-    avg_recommendation_score = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    avg_recommendation_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True
+    )
     recommendations_with_perfect_score = models.IntegerField(default=0)
 
     # Learning indicators
     recommendations_updated_from_learning = models.IntegerField(
-        default=0, help_text="How many recommendation weights were adjusted based on learning"
+        default=0,
+        help_text="How many recommendation weights were adjusted based on learning",
     )
     users_with_improved_weights = models.IntegerField(
-        default=0, help_text="Number of users whose preference weights improved accuracy"
+        default=0,
+        help_text="Number of users whose preference weights improved accuracy",
     )
 
     last_recalculated_at = models.DateTimeField(auto_now=True)
@@ -1038,9 +1090,11 @@ class RecommendationModelMetric(models.Model):
         from datetime import timedelta
 
         prev_month = self.metric_date - timedelta(days=30)
-        prev_metric = RecommendationModelMetric.objects.filter(
-            metric_date__lte=prev_month
-        ).order_by("-metric_date").first()
+        prev_metric = (
+            RecommendationModelMetric.objects.filter(metric_date__lte=prev_month)
+            .order_by("-metric_date")
+            .first()
+        )
 
         if not prev_metric or not prev_metric.avg_recommendation_accuracy:
             return None

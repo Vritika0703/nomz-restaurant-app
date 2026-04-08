@@ -4,10 +4,10 @@ Shared restaurant list ordering for map API and search views.
 
 from __future__ import annotations
 
-from decimal import Decimal
-from django.db.models import Case, Count, F, IntegerField, QuerySet, When, Avg
-from django.utils import timezone
 from datetime import timedelta
+from decimal import Decimal
+from django.db.models import Case, Count, F, IntegerField, QuerySet, When
+from django.utils import timezone
 
 # Backward-compatible aliases (map UI historically used score_* / name_*).
 _SORT_ALIASES: dict[str, str] = {
@@ -74,22 +74,25 @@ def sort_restaurant_queryset(queryset: QuerySet, sort_by: str) -> QuerySet:
 def recommend_restaurants_for_user(user, limit=10, use_learning=True):
     """
     Return a list of recommended restaurants based on user preferences with continuous refinement.
-    
+
     ENHANCEMENTS:
     - Incorporates historical user interactions for learning
     - Uses time-weighted satisfaction scores
     - Dynamically adjusts recommendation weights based on past accuracy
     - Tracks recommendations for future accuracy measurement
-    
+
     Args:
         user: User object to generate recommendations for
         limit: Maximum number of recommendations to return
         use_learning: Whether to use learned weights (default True)
-    
+
     Returns:
         List of Restaurant objects ranked by recommendation score
     """
-    from .models import Restaurant, UserPreference, UserInteractionHistory, RecalculatedRecommendation
+    from .models import (
+        Restaurant,
+        UserPreference,
+    )
 
     try:
         prefs = user.preferences
@@ -112,14 +115,14 @@ def recommend_restaurants_for_user(user, limit=10, use_learning=True):
         """Enhanced scoring that incorporates historical learning"""
         score = 0
         matched = False
-        
+
         component_scores = {
-            'cuisine': 0,
-            'price': 0,
-            'dietary': 0,
-            'neighborhood': 0,
-            'quality': 0,
-            'historical_satisfaction': 0,
+            "cuisine": 0,
+            "price": 0,
+            "dietary": 0,
+            "neighborhood": 0,
+            "quality": 0,
+            "historical_satisfaction": 0,
         }
 
         # 1. CUISINE MATCHING (weighted by learned weight)
@@ -129,14 +132,14 @@ def recommend_restaurants_for_user(user, limit=10, use_learning=True):
         ):
             cuisine_score = 5 * float(prefs.cuisine_weight)
             score += cuisine_score
-            component_scores['cuisine'] = cuisine_score
+            component_scores["cuisine"] = cuisine_score
             matched = True
 
         # 2. PRICE MATCHING (weighted by learned weight)
         if prefs.price_preference and restaurant.price_range == prefs.price_preference:
             price_score = 3 * float(prefs.price_weight)
             score += price_score
-            component_scores['price'] = price_score
+            component_scores["price"] = price_score
             matched = True
 
         # 3. NEIGHBORHOOD MATCHING (weighted by learned weight)
@@ -147,7 +150,7 @@ def recommend_restaurants_for_user(user, limit=10, use_learning=True):
             ) or (restaurant.borough and restaurant.borough.lower() == pref_nh):
                 neighborhood_score = 2 * float(prefs.neighborhood_weight)
                 score += neighborhood_score
-                component_scores['neighborhood'] = neighborhood_score
+                component_scores["neighborhood"] = neighborhood_score
                 matched = True
 
         # 4. DIETARY RESTRICTIONS MATCHING (weighted by learned weight)
@@ -179,7 +182,7 @@ def recommend_restaurants_for_user(user, limit=10, use_learning=True):
                 matched = True
 
             score += dietary_score * float(prefs.dietary_weight)
-            component_scores['dietary'] = dietary_score * float(prefs.dietary_weight)
+            component_scores["dietary"] = dietary_score * float(prefs.dietary_weight)
 
         # If no preference matches, return 0
         if not matched:
@@ -190,7 +193,9 @@ def recommend_restaurants_for_user(user, limit=10, use_learning=True):
             try:
                 quality_score = float(restaurant.composite_score) / 10.0
                 score += quality_score * float(prefs.composite_score_weight)
-                component_scores['quality'] = quality_score * float(prefs.composite_score_weight)
+                component_scores["quality"] = quality_score * float(
+                    prefs.composite_score_weight
+                )
             except (TypeError, ValueError):
                 pass
 
@@ -204,7 +209,7 @@ def recommend_restaurants_for_user(user, limit=10, use_learning=True):
                     prefs.historical_satisfaction_weight
                 )
                 score += satisfaction_boost
-                component_scores['historical_satisfaction'] = satisfaction_boost
+                component_scores["historical_satisfaction"] = satisfaction_boost
 
         # ===== NEW: TIME-WEIGHTED INTERACTION BOOST =====
         if use_learning:
@@ -246,10 +251,10 @@ def recommend_restaurants_for_user(user, limit=10, use_learning=True):
 def calculate_historical_satisfaction_for_restaurant(user, restaurant):
     """
     Calculate satisfaction boost based on user's historical reviews of similar restaurants.
-    
+
     If user rated similar restaurants highly, boost this restaurant's score.
     If user rated similar restaurants poorly, reduce this restaurant's score.
-    
+
     Returns:
         Float: satisfaction bonus (-2 to +2)
     """
@@ -293,10 +298,10 @@ def calculate_historical_satisfaction_for_restaurant(user, restaurant):
 def calculate_time_weighted_interaction_boost(user, restaurant):
     """
     Calculate boost based on recent interactions with this specific restaurant.
-    
+
     Recent positive interactions (reviews, saves) boost score.
     Time-weighted so recent interactions matter more.
-    
+
     Returns:
         Float: interaction boost (0 to +1)
     """
@@ -321,16 +326,20 @@ def calculate_time_weighted_interaction_boost(user, restaurant):
     return min(boost, 1.0)
 
 
-def record_recommendations_for_accuracy_tracking(user, recommendations, scored_restaurants):
+def record_recommendations_for_accuracy_tracking(
+    user, recommendations, scored_restaurants
+):
     """
     Record recommendations for later accuracy measurement.
-    
+
     This allows us to track whether these recommendations led to user interactions
     and satisfaction, enabling continuous model improvement.
     """
     from .models import RecalculatedRecommendation
 
-    for rank, (score_tuple, restaurant) in enumerate(scored_restaurants[:len(recommendations)], 1):
+    for rank, (score_tuple, restaurant) in enumerate(
+        scored_restaurants[: len(recommendations)], 1
+    ):
         recommendation_score = Decimal(str(score_tuple[0]))
         component_scores = score_tuple[1]
 
@@ -344,7 +353,9 @@ def record_recommendations_for_accuracy_tracking(user, recommendations, scored_r
                 "cuisine_score": Decimal(str(component_scores.get("cuisine", 0))),
                 "price_score": Decimal(str(component_scores.get("price", 0))),
                 "dietary_score": Decimal(str(component_scores.get("dietary", 0))),
-                "neighborhood_score": Decimal(str(component_scores.get("neighborhood", 0))),
+                "neighborhood_score": Decimal(
+                    str(component_scores.get("neighborhood", 0))
+                ),
                 "quality_score": Decimal(str(component_scores.get("quality", 0))),
                 "historical_satisfaction_score": Decimal(
                     str(component_scores.get("historical_satisfaction", 0))

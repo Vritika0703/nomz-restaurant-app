@@ -12,7 +12,9 @@ from django.db import models
 
 
 class Command(BaseCommand):
-    help = "Recalculate recommendation models for all users based on interaction history"
+    help = (
+        "Recalculate recommendation models for all users based on interaction history"
+    )
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -110,9 +112,7 @@ class Command(BaseCommand):
                 "total_users_with_recommendations": unique_users,
                 "successful_recommendations": successful_recs,
                 "avg_recommendation_accuracy": Decimal(str(accuracy)),
-                "avg_days_to_interaction": Decimal(str(avg_days))
-                if avg_days
-                else None,
+                "avg_days_to_interaction": Decimal(str(avg_days)) if avg_days else None,
             },
         )
 

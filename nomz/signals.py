@@ -2,7 +2,16 @@ from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 from django.db import models
-from .models import InspectionRecord, LoginLog, Message, MessageNotification, Review, UserInteractionHistory, RecalculatedRecommendation, UserPreference
+from .models import (
+    InspectionRecord,
+    LoginLog,
+    Message,
+    MessageNotification,
+    Review,
+    UserInteractionHistory,
+    RecalculatedRecommendation,
+    UserPreference,
+)
 from .scoring import refresh_restaurant_composite
 
 from django.utils import timezone
@@ -71,10 +80,12 @@ def log_user_login_failed(sender, credentials, request, **kwargs):
 
 
 @receiver(post_save, sender=Review)
-def handle_review_for_recommendation_learning(sender, instance, created, raw=False, **kwargs):
+def handle_review_for_recommendation_learning(
+    sender, instance, created, raw=False, **kwargs
+):
     """
     Enhanced handler: When user submits a review, trigger recommendation learning.
-    
+
     Steps:
     1. Record interaction in UserInteractionHistory
     2. Extract satisfaction score from review
@@ -96,11 +107,15 @@ def handle_review_for_recommendation_learning(sender, instance, created, raw=Fal
     )
 
     # 2. Check if this restaurant was previously recommended to this user
-    recommendation_history = RecalculatedRecommendation.objects.filter(
-        user=instance.user,
-        restaurant=instance.restaurant,
-        calculated_at__lt=instance.created_at,
-    ).order_by("-calculated_at").first()
+    recommendation_history = (
+        RecalculatedRecommendation.objects.filter(
+            user=instance.user,
+            restaurant=instance.restaurant,
+            calculated_at__lt=instance.created_at,
+        )
+        .order_by("-calculated_at")
+        .first()
+    )
 
     if recommendation_history:
         # Update accuracy tracking
@@ -116,13 +131,13 @@ def handle_review_for_recommendation_learning(sender, instance, created, raw=Fal
 def recalculate_user_recommendation_model(user_id):
     """
     Task to recalculate and improve user's recommendation model based on recent interactions.
-    
+
     This function:
     1. Analyzes user's interaction history
     2. Calculates success rates for different preference combinations
     3. Adjusts UserPreference weights to maximize future accuracy
     4. Updates the recommendation model version
-    
+
     Should be called:
     - After every review/rating (synchronously)
     - Nightly as a batch job for all users
@@ -178,7 +193,7 @@ def recalculate_user_recommendation_model(user_id):
 def _adjust_weights_for_better_accuracy(user, prefs, recent_recommendations):
     """
     Analyze recommendation accuracy and adjust preference weights.
-    
+
     Strategy:
     1. Find which recommendations were successful (led to positive interactions)
     2. Identify common characteristics (cuisine, price, etc.)
@@ -195,14 +210,10 @@ def _adjust_weights_for_better_accuracy(user, prefs, recent_recommendations):
 
     # Calculate average score for successful vs unsuccessful
     successful_avg_cuisine_score = Decimal(
-        str(
-            successful_recs.aggregate(avg=models.Avg("cuisine_score"))["avg"] or 0
-        )
+        str(successful_recs.aggregate(avg=models.Avg("cuisine_score"))["avg"] or 0)
     )
     unsuccessful_avg_cuisine_score = Decimal(
-        str(
-            unsuccessful_recs.aggregate(avg=models.Avg("cuisine_score"))["avg"] or 0
-        )
+        str(unsuccessful_recs.aggregate(avg=models.Avg("cuisine_score"))["avg"] or 0)
     )
 
     successful_avg_price_score = Decimal(
@@ -238,14 +249,10 @@ def _adjust_weights_for_better_accuracy(user, prefs, recent_recommendations):
 
     # Adjust price weight
     if successful_avg_price_score > unsuccessful_avg_price_score:
-        prefs.price_weight = min(
-            prefs.price_weight + adjustment_factor, Decimal("2.0")
-        )
+        prefs.price_weight = min(prefs.price_weight + adjustment_factor, Decimal("2.0"))
         adjustments_made.append(f"price_weight +{adjustment_factor}")
     else:
-        prefs.price_weight = max(
-            prefs.price_weight - adjustment_factor, Decimal("0.5")
-        )
+        prefs.price_weight = max(prefs.price_weight - adjustment_factor, Decimal("0.5"))
         adjustments_made.append(f"price_weight -{adjustment_factor}")
 
     # Adjust dietary weight

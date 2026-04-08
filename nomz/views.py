@@ -297,14 +297,18 @@ def home(request):
     recommended_restaurants = []
     recommendation_message = ""
 
-    if request.user.is_authenticated and not (request.user.is_staff or request.user.is_superuser):
+    if request.user.is_authenticated and not (
+        request.user.is_staff or request.user.is_superuser
+    ):
         try:
             preferences = request.user.preferences
         except UserPreference.DoesNotExist:
             preferences = None
 
         if preferences:
-            recommended_restaurants = recommend_restaurants_for_user(request.user, limit=4)
+            recommended_restaurants = recommend_restaurants_for_user(
+                request.user, limit=4
+            )
             if not recommended_restaurants:
                 recommendation_message = (
                     "No restaurants currently match your saved preferences. "
