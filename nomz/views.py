@@ -294,8 +294,31 @@ def home(request):
             if request.user.userprofile.role == "restaurant":
                 return redirect("profile")
 
+    recommended_restaurants = []
+    recommendation_message = ""
+
+    if request.user.is_authenticated and not (request.user.is_staff or request.user.is_superuser):
+        try:
+            preferences = request.user.preferences
+        except UserPreference.DoesNotExist:
+            preferences = None
+
+        if preferences:
+            recommended_restaurants = recommend_restaurants_for_user(request.user, limit=4)
+            if not recommended_restaurants:
+                recommendation_message = (
+                    "No restaurants currently match your saved preferences. "
+                    "Try updating your preferences."
+                )
+        else:
+            recommendation_message = (
+                "Set your dining preferences so we can recommend restaurants for you."
+            )
+
     context = {
         "title": "Home",
+        "recommended_restaurants": recommended_restaurants,
+        "recommendation_message": recommendation_message,
     }
     return render(request, "nomz/home.html", context)
 
