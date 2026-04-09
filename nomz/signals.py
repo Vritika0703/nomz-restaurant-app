@@ -155,7 +155,6 @@ def recalculate_user_recommendation_model(user_id):
         return
 
     # Get recent interactions (last 90 days)
-    ninety_days_ago = timezone.now() - timedelta(days=90)
     recent_recommendations = RecalculatedRecommendation.objects.filter(
         user=user,
         # calculated_at__gte=ninety_days_ago,  # Temporarily remove for test
