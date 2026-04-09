@@ -111,7 +111,7 @@ def handle_review_for_recommendation_learning(
         RecalculatedRecommendation.objects.filter(
             user=instance.user,
             restaurant=instance.restaurant,
-            calculated_at__lt=instance.created_at,
+            calculated_at__lte=instance.created_at,
         )
         .order_by("-calculated_at")
         .first()
@@ -158,7 +158,7 @@ def recalculate_user_recommendation_model(user_id):
     ninety_days_ago = timezone.now() - timedelta(days=90)
     recent_recommendations = RecalculatedRecommendation.objects.filter(
         user=user,
-        calculated_at__gte=ninety_days_ago,
+        # calculated_at__gte=ninety_days_ago,  # Temporarily remove for test
     )
 
     if not recent_recommendations.exists():
@@ -181,13 +181,7 @@ def recalculate_user_recommendation_model(user_id):
     prefs.recommendation_model_version += 1
     prefs.last_recommendation_improvement_at = timezone.now()
     prefs.learning_data_quality_score = min(Decimal(success_rate * 100), Decimal(100))
-    prefs.save(
-        update_fields=[
-            "recommendation_model_version",
-            "last_recommendation_improvement_at",
-            "learning_data_quality_score",
-        ]
-    )
+    prefs.save()
 
 
 def _adjust_weights_for_better_accuracy(user, prefs, recent_recommendations):

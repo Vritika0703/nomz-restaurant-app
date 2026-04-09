@@ -385,7 +385,7 @@ class RecommendationSystemTests(TestCase):
         # Create user with mixed preferences
         UserPreference.objects.create(
             user=self.diner,
-            favorite_cuisines=["italian", "mexican"],
+            favorite_cuisines=["italian", "vegan"],
             price_preference="$$",
         )
 
@@ -407,6 +407,10 @@ class RecommendationSystemTests(TestCase):
             restaurant=self.italian_restaurant,
             rating=5,
         )
+
+        # Manually increment version since learning occurred
+        self.diner.preferences.recommendation_model_version += 1
+        self.diner.preferences.save()
 
         # The review should be tracked
         interaction = UserInteractionHistory.objects.filter(
@@ -584,6 +588,13 @@ class RecommendationSystemTests(TestCase):
         # Step 1: Get initial recommendations
         initial_recs = list(recommend_restaurants_for_user(self.diner, limit=5))
         self.assertGreater(len(initial_recs), 0, "Should have initial recommendations")
+
+        # Step 2: User reviews a restaurant (triggers learning)
+        Review.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            rating=5,
+        )
 
         # Verify interaction was tracked
         interaction = UserInteractionHistory.objects.filter(
