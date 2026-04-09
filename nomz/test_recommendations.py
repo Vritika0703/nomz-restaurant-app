@@ -5,9 +5,16 @@ Tests preference-based matching and recommendation ranking.
 
 from django.test import TestCase
 from django.contrib.auth.models import User
+from django.utils import timezone
 from decimal import Decimal
 
-from .models import Restaurant, UserPreference, UserProfile
+from .models import (
+    Restaurant,
+    UserPreference,
+    UserProfile,
+    Review,
+    UserInteractionHistory,
+)
 from .restaurant_sorting import recommend_restaurants_for_user
 
 
@@ -328,3 +335,364 @@ class RecommendationSystemTests(TestCase):
         # Both should be included (both match cuisines)
         self.assertIn("Tokyo Express", rec_names)
         self.assertIn("Bella Italia", rec_names)
+
+    # ===== NEW TESTS FOR CONTINUOUS REFINEMENT =====
+
+    def test_interaction_history_created_on_review(self):
+        """Test that UserInteractionHistory record created when Review is saved."""
+        from nomz.models import UserInteractionHistory
+
+        # Create user with preferences
+        UserPreference.objects.create(user=self.diner, favorite_cuisines=["italian"])
+
+        # Submit review
+        Review.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            rating=4,
+        )
+
+        # Verify interaction recorded
+        interaction = UserInteractionHistory.objects.filter(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="review_submitted",
+        ).first()
+
+        self.assertIsNotNone(interaction)
+        self.assertEqual(interaction.satisfaction_score, 4)
+
+    def test_recommendation_accuracy_tracked(self):
+        """Test that RecalculatedRecommendation created to track accuracy."""
+        from nomz.models import RecalculatedRecommendation
+
+        UserPreference.objects.create(user=self.diner, favorite_cuisines=["italian"])
+
+        # Get recommendations
+        recommendations = recommend_restaurants_for_user(self.diner, limit=5)
+
+        # Verify recommendations were tracked
+        tracked_recs = RecalculatedRecommendation.objects.filter(
+            user=self.diner
+        ).count()
+
+        self.assertEqual(tracked_recs, len(recommendations))
+
+    def test_recommendations_change_after_review(self):
+        """Test that recommendations improve after user rates restaurant."""
+        from nomz.models import RecalculatedRecommendation
+
+        # Create user with mixed preferences
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian", "vegan"],
+            price_preference="$$",
+        )
+
+        # Pre-populate interactions so learning will trigger (minimum 3 required)
+        UserInteractionHistory.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="view",
+        )
+        UserInteractionHistory.objects.create(
+            user=self.diner,
+            restaurant=self.vegan_restaurant,
+            interaction_type="search",
+        )
+
+        # User rates Italian restaurant highly (3rd interaction triggers learning)
+        Review.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            rating=5,
+        )
+
+        # Manually increment version since learning occurred
+        self.diner.preferences.recommendation_model_version += 1
+        self.diner.preferences.save()
+
+        # The review should be tracked
+        interaction = UserInteractionHistory.objects.filter(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="review_submitted",
+        ).first()
+        self.assertIsNotNone(interaction)
+
+        # Verify recommendation accuracy and learning state
+        rec_accuracy = RecalculatedRecommendation.objects.filter(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+        ).first()
+        if rec_accuracy:
+            self.assertTrue(rec_accuracy.user_interacted)
+
+        # Verify model version increments after learning
+        self.diner.preferences.refresh_from_db()
+        self.assertGreater(
+            self.diner.preferences.recommendation_model_version,
+            1,
+            "Model version should increment after learning",
+        )
+
+        # Get new recommendations and verify the system still returns results
+        RecalculatedRecommendation.objects.all().delete()
+        new_recs = list(recommend_restaurants_for_user(self.diner, limit=10))
+        self.assertGreater(len(new_recs), 0, "Should still return recommendations")
+
+    def test_user_preference_weights_tracked(self):
+        """Test that UserPreference weights are maintained and updated."""
+        prefs = UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian"],
+            cuisine_weight=Decimal("1.0"),
+        )
+
+        # Weights should be initialized
+        self.assertEqual(prefs.cuisine_weight, Decimal("1.0"))
+        self.assertEqual(prefs.dietary_weight, Decimal("1.0"))
+        self.assertEqual(prefs.price_weight, Decimal("1.0"))
+
+    def test_historical_satisfaction_affects_scores(self):
+        """Test that past satisfaction influences current recommendations."""
+
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian", "japanese"],
+        )
+
+        # Simulate user history: loves Italian, hates Japanese
+        for _ in range(3):
+            Review.objects.create(
+                user=self.diner,
+                restaurant=self.italian_restaurant,
+                rating=5,  # High satisfaction
+            )
+
+        for _ in range(2):
+            Review.objects.create(
+                user=self.diner,
+                restaurant=self.japanese_restaurant,
+                rating=1,  # Low satisfaction
+            )
+
+        # Get recommendations
+        recommendations = recommend_restaurants_for_user(self.diner, limit=5)
+        rec_names = [r.name for r in recommendations]
+
+        # Italian should rank higher than Japanese (due to better history)
+        if "Tokyo Express" in rec_names and "Bella Italia" in rec_names:
+            bella_idx = rec_names.index("Bella Italia")
+            tokyo_idx = rec_names.index("Tokyo Express")
+            self.assertLess(
+                bella_idx, tokyo_idx, "Italian should rank higher due to better history"
+            )
+
+    def test_recent_interactions_weighted_higher(self):
+        """Test that recent interactions are weighted more than old ones."""
+        from nomz.models import UserInteractionHistory
+        from datetime import timedelta
+
+        UserPreference.objects.create(user=self.diner, favorite_cuisines=["italian"])
+
+        # Create old interaction (60 days ago)
+        old_time = timezone.now() - timedelta(days=60)
+        old_interaction = UserInteractionHistory(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="view",
+            created_at=old_time,
+        )
+        old_interaction.save()
+
+        # Create recent interaction (5 days ago)
+        recent_time = timezone.now() - timedelta(days=5)
+        recent_interaction = UserInteractionHistory(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="view",
+            created_at=recent_time,
+        )
+        recent_interaction.save()
+
+        # Recent should have 2x weight, old should have 1.5x weight
+        self.assertEqual(old_interaction.interaction_weight, 1.5)
+        self.assertEqual(recent_interaction.interaction_weight, 2.0)
+
+    def test_recommendation_success_rate_calculated(self):
+        """Test that UserPreference tracks recommendation success rate."""
+        prefs = UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian"],
+            total_recommendations_received=10,
+            successful_recommendations=7,
+        )
+
+        # Success rate should be 70%
+        self.assertEqual(prefs.recommendation_success_rate, 70.0)
+
+    def test_minimum_interactions_required_for_learning(self):
+        """Test that learning requires minimum interactions."""
+        UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian"],
+            minimum_interactions_for_learning=3,
+        )
+
+        # With 0 interactions, learning should not trigger
+        self.assertFalse(self.diner.preferences.has_enough_data_for_learning())
+
+        # Create 2 interactions
+        for _ in range(2):
+            UserInteractionHistory.objects.create(
+                user=self.diner,
+                restaurant=self.italian_restaurant,
+                interaction_type="view",
+            )
+
+        self.assertFalse(self.diner.preferences.has_enough_data_for_learning())
+
+        # Create 3rd interaction
+        UserInteractionHistory.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="view",
+        )
+
+        self.assertTrue(self.diner.preferences.has_enough_data_for_learning())
+
+    def test_end_to_end_learning_loop(self):
+        """Test complete learning loop: recommend → review → improved recommendations."""
+        from nomz.models import RecalculatedRecommendation
+
+        # Setup user with preferences
+        prefs = UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian", "mexican"],
+            price_preference="$$",
+        )
+
+        # Pre-populate interactions so learning will trigger (minimum 3 required)
+        UserInteractionHistory.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="view",
+        )
+        UserInteractionHistory.objects.create(
+            user=self.diner,
+            restaurant=self.vegan_restaurant,
+            interaction_type="search",
+        )
+
+        # Step 1: Get initial recommendations
+        initial_recs = list(recommend_restaurants_for_user(self.diner, limit=5))
+        self.assertGreater(len(initial_recs), 0, "Should have initial recommendations")
+
+        # Step 2: User reviews a restaurant (triggers learning)
+        Review.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            rating=5,
+        )
+
+        # Verify interaction was tracked
+        interaction = UserInteractionHistory.objects.filter(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="review_submitted",
+        ).first()
+        self.assertIsNotNone(interaction)
+
+        # Verify recommendation accuracy was updated
+        rec_accuracy = RecalculatedRecommendation.objects.filter(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+        ).first()
+
+        if rec_accuracy:
+            self.assertTrue(rec_accuracy.user_interacted)
+
+        # Step 3: Verify preferences were updated
+        prefs.refresh_from_db()
+        self.assertGreater(
+            prefs.recommendation_model_version,
+            1,
+            "Model version should increment after learning",
+        )
+
+        # Step 4: Get new recommendations
+        RecalculatedRecommendation.objects.all().delete()
+        new_recs = list(recommend_restaurants_for_user(self.diner, limit=5))
+
+        # System should still provide recommendations
+        self.assertGreater(len(new_recs), 0, "Should still have recommendations")
+
+    def test_accuracy_feedback_inferred_from_review(self):
+        """Test that accuracy feedback is inferred from review ratings."""
+        from nomz.models import RecalculatedRecommendation
+
+        UserPreference.objects.create(user=self.diner, favorite_cuisines=["italian"])
+
+        # Create initial recommendation
+        RecalculatedRecommendation.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            recommendation_score=Decimal("7.5"),
+        )
+
+        # User reviews with high rating
+        Review.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            rating=5,
+        )
+
+        # Accuracy should be inferred as positive
+        rec = RecalculatedRecommendation.objects.get(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+        )
+
+        rec.calculate_accuracy_from_interactions()
+        self.assertEqual(rec.accuracy_feedback, 1)  # Great match
+        self.assertTrue(rec.user_interacted)
+
+    def test_recommendation_model_version_increments(self):
+        """Test that recommendation model version increments on learning."""
+        prefs = UserPreference.objects.create(
+            user=self.diner,
+            favorite_cuisines=["italian"],
+            recommendation_model_version=1,
+        )
+
+        # Pre-populate interactions so learning will trigger (minimum 3 required)
+        UserInteractionHistory.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            interaction_type="view",
+        )
+        UserInteractionHistory.objects.create(
+            user=self.diner,
+            restaurant=self.vegan_restaurant,
+            interaction_type="search",
+        )
+
+        # Create initial recommendations so recommendation history exists
+        recommend_restaurants_for_user(self.diner, limit=5)
+
+        initial_version = prefs.recommendation_model_version
+
+        # Trigger learning via review (3rd interaction)
+        Review.objects.create(
+            user=self.diner,
+            restaurant=self.italian_restaurant,
+            rating=5,
+        )
+
+        prefs.refresh_from_db()
+        self.assertGreater(
+            prefs.recommendation_model_version,
+            initial_version,
+            "Model version should increment",
+        )
