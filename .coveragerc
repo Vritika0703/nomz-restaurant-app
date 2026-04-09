@@ -4,11 +4,16 @@ source = .
 omit =
     */tests.py
     */test_*.py
+    */tests_*.py
     manage.py
     setup.py
     */settings.py
     */migrations/*
+    */asgi.py
+    */wsgi.py
     */venv/*
+    .venv/*
+    */site-packages/*
     */__pycache__/*
 
 [report]
