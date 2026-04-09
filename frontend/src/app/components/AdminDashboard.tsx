@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Footer } from "./Footer";
+import { apiFetch } from "../api";
 
 export function AdminDashboard({ 
   onLogout, 
@@ -15,15 +17,39 @@ export function AdminDashboard({
   onViewPendingUsers: () => void;
   onViewLogs: () => void;
 }) {
-  // Mock data
-  const stats = {
-    totalUsers: 1243,
-    totalRestaurants: 287,
-    pendingReports: 12,
-    pendingApprovals: 5,
-    suspiciousAccounts: 3,
-    flaggedContent: 8
-  };
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalRestaurants: 0,
+    pendingReports: 0,
+    pendingApprovals: 0,
+    suspiciousAccounts: 0,
+    flaggedContent: 0,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch("/api/admin/dashboard-summary/");
+        if (!r.ok) return;
+        const d = await r.json();
+        if (cancelled) return;
+        setStats({
+          totalUsers: d.total_users ?? 0,
+          totalRestaurants: d.total_restaurants ?? 0,
+          pendingReports: d.pending_reports ?? 0,
+          pendingApprovals: d.pending_approvals ?? 0,
+          suspiciousAccounts: d.suspicious_accounts ?? 0,
+          flaggedContent: d.flagged_content ?? 0,
+        });
+      } catch {
+        /* keep zeros */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="size-full flex flex-col overflow-y-auto" style={{ backgroundColor: '#FFF9F5' }}>

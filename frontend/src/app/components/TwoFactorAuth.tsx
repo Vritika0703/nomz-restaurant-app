@@ -1,13 +1,14 @@
 import { useState } from 'react';
+import { apiFetch } from '../api';
 
-export function TwoFactorAuth({ onBack, onVerify, onResend }: { onBack: () => void; onVerify: (code: string) => void; onResend?: () => void }) {
+export function TwoFactorAuth({ onBack, onVerify, onResend }: { onBack: () => void; onVerify: (data: { username: string; role?: string; is_staff?: boolean }) => void; onResend?: () => void }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [resendCount, setResendCount] = useState(0);
   const [showResendOption, setShowResendOption] = useState(false);
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -22,16 +23,23 @@ export function TwoFactorAuth({ onBack, onVerify, onResend }: { onBack: () => vo
     }
 
     setIsVerifying(true);
-    // Simulate API call - in real app, this would verify the code with backend
-    setTimeout(() => {
-      // For demo, accept any 6+ digit code
-      if (/^\d{6,}$/.test(code)) {
-        onVerify(code);
+    try {
+      const r = await apiFetch('/api/auth/2fa/verify/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: code }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.authenticated) {
+        onVerify({ username: data.username, role: data.role, is_staff: data.is_staff });
       } else {
-        setError('Invalid code format. Please try again.');
+        setError(data.error || 'Invalid authentication code.');
       }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
       setIsVerifying(false);
-    }, 500);
+    }
   };
 
   const handleResend = () => {

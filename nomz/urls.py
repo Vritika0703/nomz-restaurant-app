@@ -1,5 +1,5 @@
 from django.urls import path
-from . import api_views, views
+from . import api_views, spa_api, views
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 
@@ -37,6 +37,116 @@ urlpatterns = [
         "api/messages/conversations/<int:conversation_id>/send/",
         api_views.send_message,
         name="api_send_message",
+    ),
+    path(
+        "api/restaurant-claim/",
+        api_views.restaurant_claim_api,
+        name="api_restaurant_claim",
+    ),
+    path("api/auth/session/", spa_api.auth_session, name="api_auth_session"),
+    path("api/auth/register/", spa_api.auth_register, name="api_auth_register"),
+    path("api/auth/login/", spa_api.auth_login, name="api_auth_login"),
+    path("api/auth/logout/", spa_api.auth_logout, name="api_auth_logout"),
+    path("api/auth/2fa/verify/", spa_api.auth_2fa_verify, name="api_auth_2fa_verify"),
+    path(
+        "api/auth/password-reset/",
+        spa_api.auth_password_reset_request,
+        name="api_auth_password_reset",
+    ),
+    path(
+        "api/auth/password-reset/confirm/",
+        spa_api.auth_password_reset_confirm,
+        name="api_auth_password_reset_confirm",
+    ),
+    path(
+        "api/restaurant/photos/data/",
+        spa_api.restaurant_photos_data,
+        name="api_restaurant_photos_data",
+    ),
+    path(
+        "api/restaurant/photos/upload/",
+        spa_api.restaurant_photo_upload,
+        name="api_restaurant_photo_upload",
+    ),
+    path(
+        "api/restaurant/photos/<int:photo_id>/delete/",
+        spa_api.restaurant_photo_delete,
+        name="api_restaurant_photo_delete",
+    ),
+    path(
+        "api/restaurant/photos/<int:photo_id>/set-primary/",
+        spa_api.restaurant_photo_set_primary,
+        name="api_restaurant_photo_set_primary",
+    ),
+    path(
+        "api/restaurant/activation/",
+        spa_api.restaurant_activation_api,
+        name="api_restaurant_activation",
+    ),
+    path(
+        "api/diner/preferences/",
+        spa_api.diner_preferences_api,
+        name="api_diner_preferences",
+    ),
+    path(
+        "api/admin/dashboard-summary/",
+        spa_api.admin_dashboard_summary,
+        name="api_admin_dashboard_summary",
+    ),
+    path(
+        "api/admin/pending-approvals/",
+        spa_api.admin_pending_approvals_data,
+        name="api_admin_pending_approvals_data",
+    ),
+    path(
+        "api/admin/approve/<int:user_id>/",
+        spa_api.admin_approve_user_api,
+        name="api_admin_approve_user",
+    ),
+    path(
+        "api/admin/reject/<int:user_id>/",
+        spa_api.admin_reject_user_api,
+        name="api_admin_reject_user",
+    ),
+    path(
+        "api/admin/moderation/",
+        spa_api.admin_moderation_data,
+        name="api_admin_moderation_data",
+    ),
+    path(
+        "api/admin/moderation/reports/<int:report_id>/resolve/",
+        spa_api.admin_resolve_report_api,
+        name="api_admin_resolve_report_api",
+    ),
+    path(
+        "api/admin/users/",
+        spa_api.admin_users_data,
+        name="api_admin_users_data",
+    ),
+    path(
+        "api/admin/users/<int:user_id>/toggle-active/",
+        spa_api.admin_toggle_user_active_api,
+        name="api_admin_toggle_user_active",
+    ),
+    path(
+        "api/admin/login-logs/",
+        spa_api.admin_login_logs_data,
+        name="api_admin_login_logs_data",
+    ),
+    path(
+        "api/restaurants/<int:restaurant_id>/",
+        spa_api.restaurant_detail_data,
+        name="api_restaurant_detail",
+    ),
+    path(
+        "api/restaurants/<int:restaurant_id>/review/",
+        spa_api.restaurant_add_review,
+        name="api_restaurant_add_review",
+    ),
+    path(
+        "api/report/",
+        spa_api.report_content_api,
+        name="api_report_content",
     ),
     path("register/", views.register, name="register"),  # Removed <str:role>
     path("logout/", views.user_logout, name="logout"),

@@ -1,15 +1,69 @@
 import { useState } from 'react';
 import { Footer } from './Footer';
+import { apiFetch } from '../api';
 
-export function SignUp({ onBackClick, onSignUp }: { onBackClick: () => void; onSignUp: (accountType: 'diner' | 'restaurant', username: string) => void }) {
+export function SignUp({
+  onBackClick,
+  onSignUp,
+}: {
+  onBackClick: () => void;
+  onSignUp: (accountType: 'diner' | 'restaurant' | 'admin', username: string) => void;
+}) {
   const [accountType, setAccountType] = useState<'diner' | 'restaurant' | ''>('');
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const usernameInput = document.getElementById('username') as HTMLInputElement;
-    const username = usernameInput?.value || 'User';
-    if (accountType && accountType !== '') {
-      onSignUp(accountType, username);
+    setError(null);
+    if (!accountType) {
+      setError('Select an account type.');
+      return;
+    }
+    const username = (document.getElementById('username') as HTMLInputElement)?.value?.trim() ?? '';
+    const email = (document.getElementById('email') as HTMLInputElement)?.value?.trim() ?? '';
+    const password = (document.getElementById('password') as HTMLInputElement)?.value ?? '';
+    const password2 = (document.getElementById('confirmPassword') as HTMLInputElement)?.value ?? '';
+    if (!username || !email || !password) {
+      setError('Fill in username, email, and password.');
+      return;
+    }
+    if (password !== password2) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const r = await apiFetch('/api/auth/register/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username,
+          email,
+          role: accountType,
+          password1: password,
+          password2,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const errs = data.errors as Record<string, string[]> | undefined;
+        const msg = errs
+          ? Object.values(errs)
+              .flat()
+              .join(' ')
+          : 'Registration failed.';
+        setError(msg);
+        return;
+      }
+      let role: 'diner' | 'restaurant' | 'admin' = 'diner';
+      if (data.is_staff) role = 'admin';
+      else if (data.role === 'restaurant') role = 'restaurant';
+      onSignUp(role, data.username);
+    } catch {
+      setError('Network error. Is Django running (and VITE_API_BASE_URL / proxy set)?');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -64,7 +118,13 @@ export function SignUp({ onBackClick, onSignUp }: { onBackClick: () => void; onS
             Create Your Account
           </h2>
           
-          <form className="flex flex-col gap-5">
+          {error && (
+            <p className="text-sm mb-4 text-center" style={{ fontFamily: 'Montserrat, sans-serif', color: '#b91c1c' }}>
+              {error}
+            </p>
+          )}
+
+          <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
             {/* Two column layout for user details */}
             <div className="grid grid-cols-2 gap-5">
               <div className="flex flex-col gap-2">
@@ -207,16 +267,18 @@ export function SignUp({ onBackClick, onSignUp }: { onBackClick: () => void; onS
             
             <button
               type="submit"
-              onClick={handleSubmit}
+              disabled={loading}
               className="py-2.5 rounded-lg text-white transition-all text-sm"
-              style={{ 
-                backgroundColor: '#E06E7F', 
-                fontFamily: 'Montserrat, sans-serif'
+              style={{
+                backgroundColor: loading ? '#ccc' : '#E06E7F',
+                fontFamily: 'Montserrat, sans-serif',
+                border: 'none',
+                cursor: loading ? 'wait' : 'pointer',
               }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+              onMouseEnter={(e) => !loading && (e.currentTarget.style.transform = 'translateY(-2px)')}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
             >
-              Sign Up
+              {loading ? 'Creating account…' : 'Sign Up'}
             </button>
           </form>
           

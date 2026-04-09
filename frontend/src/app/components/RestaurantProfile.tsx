@@ -1,7 +1,7 @@
 import { Footer } from "./Footer";
 import { useState } from "react";
 
-export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPhotoManagement, onNavigateMap, onNavigateRestaurantMap, onBack, onManageActivation }: { onLogout: () => void; username: string; onNavigateMessages: () => void; onPhotoManagement: () => void; onNavigateMap: () => void; onNavigateRestaurantMap?: () => void; onBack: () => void; onManageActivation?: () => void }) {
+export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPhotoManagement, onNavigateMap, onNavigateRestaurantMap, onBack, onManageActivation, onClaimListing }: { onLogout: () => void; username: string; onNavigateMessages: () => void; onPhotoManagement: () => void; onNavigateMap: () => void; onNavigateRestaurantMap?: () => void; onBack: () => void; onManageActivation?: () => void; onClaimListing?: () => void }) {
   const [showLogoutText, setShowLogoutText] = useState(false);
   const [showMapTooltip, setShowMapTooltip] = useState(false);
   const [showMessagesTooltip, setShowMessagesTooltip] = useState(false);
@@ -209,6 +209,22 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
               }}>
                 Your restaurant business account is undergoing security review. Most accounts are verified within 24-48 hours.
               </p>
+              {onClaimListing && (
+                <button
+                  type="button"
+                  onClick={onClaimListing}
+                  className="mt-4 px-5 py-2 rounded-lg text-sm transition-all"
+                  style={{
+                    fontFamily: 'Montserrat, sans-serif',
+                    backgroundColor: '#E06E7F',
+                    color: 'white',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Claim an existing listing
+                </button>
+              )}
             </div>
           </div>
 

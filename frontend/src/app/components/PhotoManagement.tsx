@@ -1,179 +1,217 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { apiFetch } from "../api";
 
 interface Photo {
-  id: string;
+  id: number;
   url: string;
-  isMain: boolean;
+  caption: string;
+  is_primary: boolean;
 }
 
 export function PhotoManagement({ onBack }: { onBack: () => void }) {
-  const [photos, setPhotos] = useState<Photo[]>([
-    { id: '1', url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=500', isMain: true },
-    { id: '2', url: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=500', isMain: false },
-    { id: '3', url: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=500', isMain: false },
-    { id: '4', url: 'https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?w=500', isMain: false },
-  ]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleSetMainPhoto = (photoId: string) => {
-    setPhotos(photos.map(photo => ({
-      ...photo,
-      isMain: photo.id === photoId
-    })));
+  const loadPhotos = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await apiFetch("/api/restaurant/photos/data/");
+      if (!r.ok) {
+        setError(`Could not load photos (${r.status}).`);
+        setPhotos([]);
+        return;
+      }
+      const data = await r.json();
+      setPhotos((data.photos ?? []) as Photo[]);
+    } catch {
+      setError("Network error loading photos.");
+      setPhotos([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPhotos();
+  }, [loadPhotos]);
+
+  const handleSetMainPhoto = async (photoId: number) => {
+    setError(null);
+    try {
+      const r = await apiFetch(`/api/restaurant/photos/${photoId}/set-primary/`, { method: "POST" });
+      if (!r.ok) {
+        setError("Could not update main photo.");
+        return;
+      }
+      await loadPhotos();
+    } catch {
+      setError("Network error.");
+    }
   };
 
-  const handleDeletePhoto = (photoId: string) => {
-    setPhotos(photos.filter(photo => photo.id !== photoId));
+  const handleDeletePhoto = async (photoId: number) => {
+    setError(null);
+    try {
+      const r = await apiFetch(`/api/restaurant/photos/${photoId}/delete/`, { method: "POST" });
+      if (!r.ok) {
+        setError("Could not delete photo.");
+        return;
+      }
+      await loadPhotos();
+    } catch {
+      setError("Network error.");
+    }
   };
 
-  const handleUploadPhoto = () => {
-    // In a real app, this would open a file picker
-    const newPhoto: Photo = {
-      id: Date.now().toString(),
-      url: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=500',
-      isMain: false
-    };
-    setPhotos([...photos, newPhoto]);
+  const handleUploadClick = () => fileRef.current?.click();
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setError(null);
+    const fd = new FormData();
+    fd.append("photo", file);
+    fd.append("caption", "");
+    fd.append("is_primary", photos.length === 0 ? "on" : "");
+    try {
+      const r = await apiFetch("/api/restaurant/photos/upload/", {
+        method: "POST",
+        body: fd,
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setError(typeof d.errors === "object" ? "Upload failed." : "Upload failed.");
+        return;
+      }
+      await loadPhotos();
+    } catch {
+      setError("Network error during upload.");
+    }
   };
 
   return (
-    <div className="size-full flex flex-col overflow-y-auto" style={{ backgroundColor: '#FFF9F5' }}>
-      {/* Navigation Bar */}
+    <div className="size-full flex flex-col overflow-y-auto" style={{ backgroundColor: "#FFF9F5" }}>
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => void onFileChange(e)} />
+
       <nav className="w-full px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
             className="text-xl transition-all p-2 rounded-lg"
-            style={{ 
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#E06E7F'
+            style={{
+              backgroundColor: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "#E06E7F",
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            type="button"
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(224, 110, 127, 0.1)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
           >
             ←
           </button>
-          <h1 className="text-2xl" style={{ 
-            fontFamily: 'Montserrat, sans-serif',
-            color: '#E06E7F'
-          }}>
+          <h1 className="text-2xl" style={{ fontFamily: "Montserrat, sans-serif", color: "#E06E7F" }}>
             nomz
           </h1>
         </div>
       </nav>
 
-      {/* Main Content */}
       <div className="flex-1 px-8 py-6">
-        {/* Header Section */}
         <div className="mb-8">
-          <h2 className="text-3xl mb-2" style={{ 
-            fontFamily: 'Montserrat, sans-serif',
-            color: '#333'
-          }}>
+          <h2 className="text-3xl mb-2" style={{ fontFamily: "Montserrat, sans-serif", color: "#333" }}>
             Manage Photos
           </h2>
-          <p className="text-sm" style={{ 
-            fontFamily: 'Montserrat, sans-serif',
-            color: '#666'
-          }}>
-            Upload, delete, and manage your restaurant photos. Set a main profile photo to showcase your business.
+          <p className="text-sm" style={{ fontFamily: "Montserrat, sans-serif", color: "#666" }}>
+            Upload, delete, and manage photos for your restaurant (Django session required).
           </p>
+          {error && (
+            <p className="text-sm mt-2" style={{ color: "#b91c1c" }}>
+              {error}
+            </p>
+          )}
+          {loading && <p className="text-xs mt-2" style={{ color: "#999" }}>Loading…</p>}
         </div>
 
-        {/* Upload Button */}
         <div className="mb-8">
           <button
-            onClick={handleUploadPhoto}
+            onClick={handleUploadClick}
             className="py-3 px-8 rounded-lg text-sm transition-all"
-            style={{ 
-              backgroundColor: '#E06E7F',
-              color: 'white',
-              fontFamily: 'Montserrat, sans-serif',
-              border: 'none'
+            style={{
+              backgroundColor: "#E06E7F",
+              color: "white",
+              fontFamily: "Montserrat, sans-serif",
+              border: "none",
+              cursor: "pointer",
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#C85B6D'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E06E7F'}
+            type="button"
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#C85B6D")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#E06E7F")}
           >
             📸 Upload New Photo
           </button>
         </div>
 
-        {/* Photos Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {photos.map((photo) => (
             <div
               key={photo.id}
               className="rounded-lg overflow-hidden relative group"
-              style={{ 
-                backgroundColor: 'white',
-                border: photo.isMain ? '3px solid #E06E7F' : '2px solid rgba(224, 110, 127, 0.2)'
+              style={{
+                backgroundColor: "white",
+                border: photo.is_primary ? "3px solid #E06E7F" : "2px solid rgba(224, 110, 127, 0.2)",
               }}
             >
-              {/* Photo */}
-              <div className="aspect-[4/3] overflow-hidden">
-                <img
-                  src={photo.url}
-                  alt="Restaurant"
-                  className="w-full h-full object-cover"
-                />
+              <div className="aspect-[4/3] overflow-hidden bg-neutral-100">
+                {photo.url ? (
+                  <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                ) : null}
               </div>
 
-              {/* Main Badge */}
-              {photo.isMain && (
+              {photo.is_primary && (
                 <div
                   className="absolute top-3 left-3 px-3 py-1 rounded text-xs"
-                  style={{ 
-                    backgroundColor: '#E06E7F',
-                    color: 'white',
-                    fontFamily: 'Montserrat, sans-serif'
+                  style={{
+                    backgroundColor: "#E06E7F",
+                    color: "white",
+                    fontFamily: "Montserrat, sans-serif",
                   }}
                 >
                   ⭐ Main Photo
                 </div>
               )}
 
-              {/* Action Buttons */}
               <div className="p-4 flex gap-2">
-                {!photo.isMain && (
+                {!photo.is_primary && (
                   <button
-                    onClick={() => handleSetMainPhoto(photo.id)}
+                    onClick={() => void handleSetMainPhoto(photo.id)}
                     className="flex-1 py-2 px-4 rounded-lg text-xs transition-all"
-                    style={{ 
-                      backgroundColor: 'white',
-                      color: '#E06E7F',
-                      border: '2px solid rgba(224, 110, 127, 0.3)',
-                      fontFamily: 'Montserrat, sans-serif'
+                    style={{
+                      backgroundColor: "white",
+                      color: "#E06E7F",
+                      border: "2px solid rgba(224, 110, 127, 0.3)",
+                      fontFamily: "Montserrat, sans-serif",
+                      cursor: "pointer",
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
-                      e.currentTarget.style.borderColor = '#E06E7F';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'white';
-                      e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)';
-                    }}
+                    type="button"
                   >
                     Set as Main
                   </button>
                 )}
                 <button
-                  onClick={() => handleDeletePhoto(photo.id)}
+                  onClick={() => void handleDeletePhoto(photo.id)}
                   className="py-2 px-4 rounded-lg text-xs transition-all"
-                  style={{ 
-                    backgroundColor: 'white',
-                    color: '#E06E7F',
-                    border: '2px solid rgba(224, 110, 127, 0.3)',
-                    fontFamily: 'Montserrat, sans-serif'
+                  style={{
+                    backgroundColor: "white",
+                    color: "#E06E7F",
+                    border: "2px solid rgba(224, 110, 127, 0.3)",
+                    fontFamily: "Montserrat, sans-serif",
+                    cursor: "pointer",
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
-                    e.currentTarget.style.borderColor = '#E06E7F';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'white';
-                    e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)';
-                  }}
+                  type="button"
                 >
                   🗑️ Delete
                 </button>
@@ -182,19 +220,12 @@ export function PhotoManagement({ onBack }: { onBack: () => void }) {
           ))}
         </div>
 
-        {/* Empty State */}
-        {photos.length === 0 && (
+        {!loading && photos.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-xl mb-2" style={{ 
-              fontFamily: 'Montserrat, sans-serif',
-              color: '#666'
-            }}>
+            <p className="text-xl mb-2" style={{ fontFamily: "Montserrat, sans-serif", color: "#666" }}>
               No photos yet
             </p>
-            <p className="text-sm" style={{ 
-              fontFamily: 'Montserrat, sans-serif',
-              color: '#999'
-            }}>
+            <p className="text-sm" style={{ fontFamily: "Montserrat, sans-serif", color: "#999" }}>
               Upload your first photo to get started
             </p>
           </div>

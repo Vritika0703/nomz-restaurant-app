@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { apiFetch } from '../api';
 
 export function PasswordResetForm({ onBack, onSubmit }: { onBack: () => void; onSubmit: (email: string) => void }) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -20,11 +21,23 @@ export function PasswordResetForm({ onBack, onSubmit }: { onBack: () => void; on
     }
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      onSubmit(email);
+    try {
+      const r = await apiFetch('/api/auth/password-reset/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (r.ok) {
+        onSubmit(email);
+      } else {
+        const data = await r.json().catch(() => ({}));
+        setError(data.error || 'Failed to send reset email.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   return (

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from './api';
 import { motion } from 'motion/react';
 import { SignIn } from './components/SignIn';
 import { SignUp } from './components/SignUp';
@@ -20,18 +21,60 @@ import { PasswordResetConfirm } from './components/PasswordResetConfirm';
 import { PasswordResetComplete } from './components/PasswordResetComplete';
 import { ManageActivation } from './components/ManageActivation';
 import { TwoFactorAuth } from './components/TwoFactorAuth';
+import { ClaimRestaurant } from './components/ClaimRestaurant';
+import { RestaurantDetail } from './components/RestaurantDetail';
+import { AddReview } from './components/AddReview';
+import { ReportContent } from './components/ReportContent';
 
-type View = 'opening' | 'home' | 'signin' | 'signup' | 'userhome' | 'restaurantprofile' | 'userprofile' | 'messages' | 'map' | 'restaurantmap' | 'photomanagement' | 'admin' | 'adminmoderation' | 'adminapprovals' | 'adminusers' | 'adminlogs' | 'adminmap' | 'passwordreset' | 'passwordresetdone' | 'passwordresetconfirm' | 'passwordresetcomplete' | 'manageactivation' | 'twofactorauth';
+type View = 'opening' | 'home' | 'signin' | 'signup' | 'userhome' | 'restaurantprofile' | 'userprofile' | 'messages' | 'map' | 'restaurantmap' | 'photomanagement' | 'admin' | 'adminmoderation' | 'adminapprovals' | 'adminusers' | 'adminlogs' | 'adminmap' | 'passwordreset' | 'passwordresetdone' | 'passwordresetconfirm' | 'passwordresetcomplete' | 'manageactivation' | 'twofactorauth' | 'claimrestaurant' | 'restaurantdetail' | 'addreview' | 'reportcontent';
 
 interface UserData {
   username: string;
-  accountType: 'diner' | 'restaurant';
+  accountType: 'diner' | 'restaurant' | 'admin';
 }
 
 export default function App() {
   const [view, setView] = useState<View>('opening');
   const [showClickToStart, setShowClickToStart] = useState(false);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [resetUid, setResetUid] = useState<string | null>(null);
+  const [resetToken, setResetToken] = useState<string | null>(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<number | null>(null);
+  const [selectedRestaurantName, setSelectedRestaurantName] = useState<string>('');
+  const [reportTarget, setReportTarget] = useState<{ type: 'review' | 'user'; id: number } | null>(null);
+  const [previousView, setPreviousView] = useState<View>('map');
+
+  useEffect(() => {
+    // Check for password reset deep link
+    const params = new URLSearchParams(window.location.search);
+    const uidParam = params.get('resetUid');
+    const tokenParam = params.get('resetToken');
+    if (uidParam && tokenParam) {
+      setResetUid(uidParam);
+      setResetToken(tokenParam);
+      setView('passwordresetconfirm');
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch('/api/auth/session/');
+        const data = await r.json();
+        if (cancelled || !data.authenticated) return;
+        let accountType: UserData['accountType'] = 'diner';
+        if (data.is_staff) accountType = 'admin';
+        else if (data.role === 'restaurant') accountType = 'restaurant';
+        setUserData({ username: data.username, accountType });
+      } catch {
+        /* offline or CORS */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleAnimationEnd = () => {
     setShowClickToStart(true);
@@ -55,25 +98,26 @@ export default function App() {
     setView('home');
   };
 
-  const handleSignIn = (accountType: 'diner' | 'restaurant', username: string) => {
+  const handleSignIn = (accountType: 'diner' | 'restaurant' | 'admin', username: string) => {
     setUserData({ username, accountType });
-    if (accountType === 'diner') {
-      setView('userhome');
-    } else {
-      setView('restaurantprofile');
-    }
+    if (accountType === 'diner') setView('userhome');
+    else if (accountType === 'restaurant') setView('restaurantprofile');
+    else setView('admin');
   };
 
-  const handleSignUp = (accountType: 'diner' | 'restaurant', username: string) => {
+  const handleSignUp = (accountType: 'diner' | 'restaurant' | 'admin', username: string) => {
     setUserData({ username, accountType });
-    if (accountType === 'diner') {
-      setView('userhome');
-    } else {
-      setView('restaurantprofile');
-    }
+    if (accountType === 'diner') setView('userhome');
+    else if (accountType === 'restaurant') setView('restaurantprofile');
+    else setView('admin');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiFetch('/api/auth/logout/', { method: 'POST' });
+    } catch {
+      /* ignore */
+    }
     setUserData(null);
     setView('home');
   };
@@ -98,8 +142,19 @@ export default function App() {
     setView('photomanagement');
   };
 
-  const handleViewAdmin = () => {
-    setView('admin');
+  const handleViewAdmin = async () => {
+    try {
+      const r = await apiFetch('/api/auth/session/');
+      const d = await r.json();
+      if (d.authenticated && d.is_staff) {
+        setUserData({ username: d.username, accountType: 'admin' });
+        setView('admin');
+        return;
+      }
+      window.alert('Sign in as a staff user to open the admin dashboard.');
+    } catch {
+      window.alert('Could not verify session.');
+    }
   };
 
   const handleViewModeration = () => {
@@ -162,14 +217,110 @@ export default function App() {
     setView('twofactorauth');
   };
 
-  const handleTwoFactorVerify = () => {
-    // After 2FA is verified, redirect to appropriate home page
-    if (userData?.accountType === 'restaurant') {
+  const handleTwoFactorVerify = (data: { username: string; role?: string; is_staff?: boolean }) => {
+    let accountType: UserData['accountType'] = 'diner';
+    if (data.is_staff) accountType = 'admin';
+    else if (data.role === 'restaurant') accountType = 'restaurant';
+    setUserData({ username: data.username, accountType });
+    if (accountType === 'restaurant') {
       setView('restaurantprofile');
+    } else if (accountType === 'admin') {
+      setView('admin');
     } else {
       setView('userhome');
     }
   };
+
+  const handleClaimListing = () => {
+    setView('claimrestaurant');
+  };
+
+  const handleBackFromClaimListing = () => {
+    setView('restaurantprofile');
+  };
+
+  const handleSelectRestaurant = (id: number) => {
+    setSelectedRestaurantId(id);
+    setPreviousView(view);
+    setView('restaurantdetail');
+  };
+
+  const handleWriteReview = (restaurantId: number) => {
+    setSelectedRestaurantId(restaurantId);
+    setSelectedRestaurantName('');
+    setView('addreview');
+  };
+
+  const handleReportReview = (reviewId: number) => {
+    setReportTarget({ type: 'review', id: reviewId });
+    setView('reportcontent');
+  };
+
+  const handleReportOwner = (userId: number) => {
+    setReportTarget({ type: 'user', id: userId });
+    setView('reportcontent');
+  };
+
+  const handleBackFromDetail = () => {
+    setView(previousView);
+  };
+
+  const handleReviewSuccess = () => {
+    // Go back to the restaurant detail to see the new review
+    setView('restaurantdetail');
+  };
+
+  const handleReportSuccess = () => {
+    setView('restaurantdetail');
+  };
+
+  if (view === 'reportcontent' && reportTarget) {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <ReportContent
+          contentType={reportTarget.type}
+          contentId={reportTarget.id}
+          onBack={() => setView('restaurantdetail')}
+          onSuccess={handleReportSuccess}
+        />
+      </div>
+    );
+  }
+
+  if (view === 'addreview' && selectedRestaurantId) {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <AddReview
+          restaurantId={selectedRestaurantId}
+          restaurantName={selectedRestaurantName}
+          onBack={() => setView('restaurantdetail')}
+          onSuccess={handleReviewSuccess}
+        />
+      </div>
+    );
+  }
+
+  if (view === 'restaurantdetail' && selectedRestaurantId) {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <RestaurantDetail
+          restaurantId={selectedRestaurantId}
+          onBack={handleBackFromDetail}
+          onWriteReview={handleWriteReview}
+          onReportReview={handleReportReview}
+          onReportOwner={handleReportOwner}
+        />
+      </div>
+    );
+  }
+
+  if (view === 'claimrestaurant') {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <ClaimRestaurant onBack={handleBackFromClaimListing} />
+      </div>
+    );
+  }
 
   if (view === 'adminlogs') {
     return (
@@ -220,13 +371,14 @@ export default function App() {
 
   if (view === 'adminmap') {
     return (
-      <div className="h-screen w-screen overflow-hidden">
+      <div className="min-h-screen w-screen overflow-auto">
         <Map 
           onNavigateHome={handleAdminMapBack}
           onNavigateMessages={handleAdminMapBack}
           onNavigateProfile={handleAdminMapBack}
           onLogout={handleLogout}
           isAdmin={true}
+          onSelectRestaurant={handleSelectRestaurant}
         />
       </div>
     );
@@ -242,13 +394,14 @@ export default function App() {
 
   if (view === 'map') {
     return (
-      <div className="h-screen w-screen overflow-hidden">
+      <div className="min-h-screen w-screen overflow-auto">
         <Map 
           onNavigateHome={handleBackToUserHome}
           onNavigateMessages={handleViewMessages}
           onNavigateProfile={handleViewProfile}
           onLogout={handleLogout}
           isAdmin={false}
+          onSelectRestaurant={handleSelectRestaurant}
         />
       </div>
     );
@@ -308,6 +461,7 @@ export default function App() {
           onNavigateRestaurantMap={() => setView('restaurantmap')}
           onBack={() => setView('restaurantprofile')}
           onManageActivation={handleManageActivation}
+          onClaimListing={handleClaimListing}
         />
       </div>
     );
@@ -315,13 +469,14 @@ export default function App() {
 
   if (view === 'restaurantmap') {
     return (
-      <div className="h-screen w-screen overflow-hidden">
+      <div className="min-h-screen w-screen overflow-auto">
         <Map 
           onNavigateHome={() => setView('restaurantprofile')}
           onNavigateMessages={handleViewMessages}
           onNavigateProfile={() => setView('restaurantprofile')}
           onLogout={handleLogout}
           isAdmin={false}
+          onSelectRestaurant={handleSelectRestaurant}
         />
       </div>
     );
@@ -366,6 +521,8 @@ export default function App() {
           onBack={handlePasswordResetToLogin} 
           onSubmit={handlePasswordResetComplete}
           isValidLink={true}
+          uid={resetUid ?? undefined}
+          token={resetToken ?? undefined}
         />
       </div>
     );
@@ -397,6 +554,7 @@ export default function App() {
           onBackClick={handleBackToHome} 
           onSignIn={handleSignIn}
           onForgotPassword={handleForgotPassword}
+          onTwoFactorRequired={handleTwoFactorAuth}
         />
       </div>
     );

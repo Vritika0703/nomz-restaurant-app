@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../api";
 
 interface Report {
   id: number;
@@ -16,64 +17,96 @@ export function AdminModeration({
 }: {
   onBack: () => void;
 }) {
-  const [reports, setReports] = useState<Report[]>([
-    {
-      id: 1,
-      date: 'Apr 02, 2026 10:23 AM',
-      reporter: 'john_doe',
-      reason: 'Inappropriate Content',
-      target: 'Review by @jane_smith',
-      targetType: 'review',
-      details: 'Offensive language and harassment in restaurant review',
-      severity: 'high'
-    },
-    {
-      id: 2,
-      date: 'Apr 01, 2026 03:45 PM',
-      reporter: 'alex_user',
-      reason: 'Spam/Scam',
-      target: 'Restaurant: "Flash Discounts"',
-      targetType: 'restaurant',
-      details: 'Suspicious promotions and fake reviews detected',
-      severity: 'high'
-    },
-    {
-      id: 3,
-      date: 'Mar 31, 2026 02:15 PM',
-      reporter: 'user_monitor',
-      reason: 'Suspicious Account',
-      target: 'User: @bot_account_123',
-      targetType: 'user',
-      details: 'Multiple accounts from same IP with identical review patterns',
-      severity: 'medium'
-    },
-    {
-      id: 4,
-      date: 'Mar 30, 2026 11:22 AM',
-      reporter: 'susan_m',
-      reason: 'Misinformation',
-      target: 'Review by @tourist_2024',
-      targetType: 'review',
-      details: 'False claims about restaurant hours and pricing',
-      severity: 'low'
-    }
-  ]);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedReport, setSelectedReport] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [action, setAction] = useState('dismiss');
   const [notes, setNotes] = useState('');
 
+  const loadReports = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const r = await apiFetch("/api/admin/moderation/");
+      if (!r.ok) {
+        setLoadError(`Could not load moderation queue (${r.status}).`);
+        setReports([]);
+        return;
+      }
+      const data = await r.json();
+      const pending = data.pending ?? [];
+      setReports(
+        pending.map(
+          (row: {
+            id: number;
+            reason: string;
+            details: string;
+            reporter_username: string;
+            created_at: string;
+            review_id: number | null;
+            reported_user_id: number | null;
+          }) => {
+            let target = "Unknown";
+            let targetType: Report["targetType"] = "review";
+            if (row.review_id) {
+              target = `Review #${row.review_id}`;
+              targetType = "review";
+            } else if (row.reported_user_id) {
+              target = `User id ${row.reported_user_id}`;
+              targetType = "user";
+            }
+            return {
+              id: row.id,
+              date: new Date(row.created_at).toLocaleString(),
+              reporter: row.reporter_username,
+              reason: row.reason,
+              target,
+              targetType,
+              details: row.details,
+              severity: "medium" as const,
+            };
+          }
+        )
+      );
+    } catch {
+      setLoadError("Network error.");
+      setReports([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadReports();
+  }, [loadReports]);
+
   const handleAction = (reportId: number) => {
     setSelectedReport(reportId);
     setShowModal(true);
   };
 
-  const handleSubmitAction = () => {
-    setReports(reports.filter(r => r.id !== selectedReport));
+  const handleSubmitAction = async () => {
+    if (selectedReport == null) return;
+    try {
+      let apiAction = "dismiss";
+      if (action === "flag_fraud") apiAction = "flag_fraud";
+      else if (action === "unflag") apiAction = "unflag";
+      const r = await apiFetch(`/api/admin/moderation/reports/${selectedReport}/resolve/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: apiAction, moderator_note: notes }),
+      });
+      if (!r.ok) {
+        setLoadError("Action failed.");
+        return;
+      }
+      await loadReports();
+    } catch {
+      setLoadError("Network error.");
+    }
     setShowModal(false);
     setAction('dismiss');
     setNotes('');
+    setSelectedReport(null);
   };
 
   const getSeverityColor = (severity: string) => {
@@ -116,6 +149,9 @@ export function AdminModeration({
       {/* Main Content */}
       <main className="w-full py-8 px-8 flex-1">
         <div className="max-w-6xl mx-auto">
+          {loadError && (
+            <p className="text-sm mb-4" style={{ color: '#b91c1c' }}>{loadError}</p>
+          )}
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center justify-between">
@@ -320,8 +356,7 @@ export function AdminModeration({
                 >
                   <option value="dismiss">Dismiss Report (No action)</option>
                   <option value="flag_fraud">Flag as Fraudulent</option>
-                  <option value="delete">Delete Content</option>
-                  <option value="suspend">Suspend User Account</option>
+                  <option value="unflag">Unflag / clear flags</option>
                 </select>
               </div>
 

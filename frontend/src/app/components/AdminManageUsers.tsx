@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../api";
 
 interface User {
   id: number;
@@ -16,63 +17,64 @@ export function AdminManageUsers({
 }: {
   onBack: () => void;
 }) {
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: 1,
-      username: 'john_foodie',
-      email: 'john@email.com',
-      accountType: 'diner',
-      joinDate: 'Jan 15, 2026',
-      status: 'active',
-      reviews: 45,
-      suspiciousFlags: 0
-    },
-    {
-      id: 2,
-      username: 'pizza_lover_88',
-      email: 'pizza@email.com',
-      accountType: 'diner',
-      joinDate: 'Feb 20, 2026',
-      status: 'active',
-      reviews: 12,
-      suspiciousFlags: 0
-    },
-    {
-      id: 3,
-      username: 'bot_spam_123',
-      email: 'spam@email.com',
-      accountType: 'diner',
-      joinDate: 'Mar 25, 2026',
-      status: 'flagged',
-      reviews: 89,
-      suspiciousFlags: 5
-    },
-    {
-      id: 4,
-      username: 'tony_pizza_nyc',
-      email: 'tony@pizzeria.com',
-      accountType: 'restaurant',
-      joinDate: 'Dec 01, 2025',
-      status: 'active',
-      reviews: 234,
-      suspiciousFlags: 0
-    },
-    {
-      id: 5,
-      username: 'sushi_master',
-      email: 'master@sushi.com',
-      accountType: 'restaurant',
-      joinDate: 'Jan 30, 2026',
-      status: 'suspended',
-      reviews: 0,
-      suspiciousFlags: 3
-    }
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [action, setAction] = useState('none');
   const [filterStatus, setFilterStatus] = useState('all');
+
+  const loadUsers = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const r = await apiFetch("/api/admin/users/");
+      if (!r.ok) {
+        setLoadError(`Could not load users (${r.status}).`);
+        setUsers([]);
+        return;
+      }
+      const data = await r.json();
+      const rows = data.results ?? [];
+      setUsers(
+        rows.map(
+          (row: {
+            id: number;
+            username: string;
+            email: string;
+            role: string | null;
+            is_active: boolean;
+            date_joined: string;
+            has_suspicious_activity?: boolean;
+          }) => {
+            const status: User["status"] = !row.is_active
+              ? "suspended"
+              : row.has_suspicious_activity
+                ? "flagged"
+                : "active";
+            const accountType: User["accountType"] =
+              row.role === "restaurant" ? "restaurant" : "diner";
+            return {
+              id: row.id,
+              username: row.username,
+              email: row.email,
+              accountType,
+              joinDate: new Date(row.date_joined).toLocaleDateString(),
+              status,
+              reviews: 0,
+              suspiciousFlags: row.has_suspicious_activity ? 1 : 0,
+            };
+          }
+        )
+      );
+    } catch {
+      setLoadError("Network error.");
+      setUsers([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUsers();
+  }, [loadUsers]);
 
   const filteredUsers = filterStatus === 'all' 
     ? users 
@@ -83,16 +85,22 @@ export function AdminManageUsers({
     setShowModal(true);
   };
 
-  const handleSubmitAction = () => {
-    if (action !== 'none') {
-      setUsers(users.map(u => 
-        u.id === selectedUser 
-          ? { ...u, status: action as any }
-          : u
-      ));
+  const handleSubmitAction = async () => {
+    if (selectedUser == null) return;
+    try {
+      const r = await apiFetch(`/api/admin/users/${selectedUser}/toggle-active/`, {
+        method: "POST",
+      });
+      if (!r.ok) {
+        setLoadError("Could not update user.");
+        return;
+      }
+      await loadUsers();
+    } catch {
+      setLoadError("Network error.");
     }
     setShowModal(false);
-    setAction('none');
+    setSelectedUser(null);
   };
 
   const getStatusColor = (status: string) => {
@@ -137,6 +145,9 @@ export function AdminManageUsers({
       {/* Main Content */}
       <main className="w-full py-8 px-8 flex-1">
         <div className="max-w-6xl mx-auto">
+          {loadError && (
+            <p className="text-sm mb-4" style={{ color: '#b91c1c' }}>{loadError}</p>
+          )}
           {/* Filters */}
           <div className="mb-8">
             <div className="flex gap-2">
@@ -309,33 +320,12 @@ export function AdminManageUsers({
               fontFamily: 'Montserrat, sans-serif',
               color: '#E06E7F'
             }}>
-              Update User Status
+              Toggle user active status
             </h2>
 
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="text-sm mb-2 block" style={{
-                  fontFamily: 'Montserrat, sans-serif',
-                  color: '#333'
-                }}>
-                  New Status
-                </label>
-                <select
-                  value={action}
-                  onChange={(e) => setAction(e.target.value)}
-                  className="w-full px-4 py-2 border-2 rounded-lg"
-                  style={{
-                    borderColor: 'rgba(224, 110, 127, 0.2)',
-                    fontFamily: 'Montserrat, sans-serif'
-                  }}
-                >
-                  <option value="none">No Change</option>
-                  <option value="active">Activate</option>
-                  <option value="flagged">Flag as Suspicious</option>
-                  <option value="suspended">Suspend Account</option>
-                </select>
-              </div>
-            </div>
+            <p className="text-sm mb-6" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
+              Flips whether this account may log in. Superusers cannot be toggled from the API.
+            </p>
 
             <div className="flex gap-3">
               <button

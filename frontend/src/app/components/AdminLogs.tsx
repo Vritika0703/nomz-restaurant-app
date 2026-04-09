@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../api";
 
 interface LogEntry {
   id: number;
@@ -14,92 +15,69 @@ export function AdminLogs({
 }: {
   onBack: () => void;
 }) {
-  const [logs] = useState<LogEntry[]>([
-    {
-      id: 1,
-      timestamp: 'Apr 02, 2026 11:45 AM',
-      admin: 'admin_user_1',
-      action: 'Resolved Report',
-      target: 'Report #124',
-      details: 'Deleted inappropriate review from user @jane_smith'
-    },
-    {
-      id: 2,
-      timestamp: 'Apr 02, 2026 10:23 AM',
-      admin: 'admin_user_2',
-      action: 'Approved Registration',
-      target: 'Tony\'s Pizzeria',
-      details: 'Verified business documents and approved listing'
-    },
-    {
-      id: 3,
-      timestamp: 'Apr 01, 2026 03:50 PM',
-      admin: 'admin_user_1',
-      action: 'Suspended Account',
-      target: '@bot_spam_123',
-      details: 'Detected automated review pattern. Account suspended for 30 days'
-    },
-    {
-      id: 4,
-      timestamp: 'Apr 01, 2026 02:30 PM',
-      admin: 'admin_user_2',
-      action: 'Updated User Status',
-      target: '@user_flagged_456',
-      details: 'Flagged account due to suspicious activity pattern'
-    },
-    {
-      id: 5,
-      timestamp: 'Mar 31, 2026 04:15 PM',
-      admin: 'admin_user_1',
-      action: 'Rejected Registration',
-      target: 'Fake Restaurant LLC',
-      details: 'Business documents failed verification'
-    },
-    {
-      id: 6,
-      timestamp: 'Mar 31, 2026 01:22 PM',
-      admin: 'admin_user_3',
-      action: 'Flagged Content',
-      target: 'Review #5634',
-      details: 'Marked for review - contains potential spam'
-    },
-    {
-      id: 7,
-      timestamp: 'Mar 30, 2026 11:40 AM',
-      admin: 'admin_user_2',
-      action: 'Approved Registration',
-      target: 'Sushi Haven',
-      details: 'Verified business documents and approved listing'
-    },
-    {
-      id: 8,
-      timestamp: 'Mar 30, 2026 09:15 AM',
-      admin: 'admin_user_1',
-      action: 'Resolved Report',
-      target: 'Report #120',
-      details: 'Dismissed user dispute - no violation found'
-    }
-  ]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [filterAction, setFilterAction] = useState('all');
 
-  const actions = ['Resolved Report', 'Approved Registration', 'Rejected Registration', 'Suspended Account', 'Updated User Status', 'Flagged Content'];
-  const filteredLogs = filterAction === 'all' 
-    ? logs 
-    : logs.filter(l => l.action === filterAction);
+  const loadLogs = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const r = await apiFetch("/api/admin/login-logs/");
+      if (!r.ok) {
+        setLoadError(`Could not load logs (${r.status}).`);
+        setLogs([]);
+        return;
+      }
+      const data = await r.json();
+      const rows = data.results ?? [];
+      setLogs(
+        rows.map(
+          (row: {
+            id: number;
+            username: string;
+            status: string;
+            timestamp: string;
+            ip_address: string;
+            is_suspicious: boolean;
+            is_user_suspicious: boolean;
+          }) => ({
+            id: row.id,
+            timestamp: new Date(row.timestamp).toLocaleString(),
+            admin: row.username,
+            action: row.status,
+            target: row.ip_address || "—",
+            details: [
+              row.is_suspicious ? "Suspicious attempt" : "",
+              row.is_user_suspicious ? "User flagged suspicious" : "",
+            ]
+              .filter(Boolean)
+              .join(" · ") || "—",
+          })
+        )
+      );
+    } catch {
+      setLoadError("Network error.");
+      setLogs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadLogs();
+  }, [loadLogs]);
+
+  const actions = ['Success', 'Failure'];
+  const filteredLogs =
+    filterAction === 'all'
+      ? logs
+      : logs.filter((l) => l.action === filterAction);
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'Approved Registration':
+      case 'Success':
         return '#4CAF50';
-      case 'Resolved Report':
-        return '#2196F3';
-      case 'Suspended Account':
+      case 'Failure':
         return '#D4183D';
-      case 'Rejected Registration':
-        return '#FF9800';
-      case 'Flagged Content':
-        return '#FFC107';
       default:
         return '#E06E7F';
     }
@@ -134,13 +112,16 @@ export function AdminLogs({
       {/* Main Content */}
       <main className="w-full py-8 px-8 flex-1">
         <div className="max-w-6xl mx-auto">
+          {loadError && (
+            <p className="text-sm mb-4" style={{ color: '#b91c1c' }}>{loadError}</p>
+          )}
           {/* Filters */}
           <div className="mb-8">
             <p className="text-sm mb-4" style={{
               fontFamily: 'Montserrat, sans-serif',
               color: '#999'
             }}>
-              Filter by Action
+              Filter by login result (from LoginLog)
             </p>
             <div className="overflow-x-auto pb-2">
               <div className="flex gap-2 min-w-max">

@@ -1,14 +1,16 @@
 import { useState } from 'react';
+import { apiFetch } from '../api';
 
-export function PasswordResetConfirm({ onBack, onSubmit, isValidLink = true }: { onBack: () => void; onSubmit: (password1: string, password2: string) => void; isValidLink?: boolean }) {
+export function PasswordResetConfirm({ onBack, onSubmit, isValidLink: initialValidLink = true, uid, token: resetToken }: { onBack: () => void; onSubmit: () => void; isValidLink?: boolean; uid?: string; token?: string }) {
   const [password1, setPassword1] = useState('');
   const [password2, setPassword2] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword1, setShowPassword1] = useState(false);
   const [showPassword2, setShowPassword2] = useState(false);
+  const [isValidLink, setIsValidLink] = useState(initialValidLink);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -28,11 +30,28 @@ export function PasswordResetConfirm({ onBack, onSubmit, isValidLink = true }: {
     }
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      onSubmit(password1, password2);
+    try {
+      const r = await apiFetch('/api/auth/password-reset/confirm/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, token: resetToken, new_password1: password1, new_password2: password2 }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok && data.success) {
+        onSubmit();
+      } else if (data.expired) {
+        setIsValidLink(false);
+      } else if (data.errors) {
+        const msgs = Object.values(data.errors as Record<string, string[]>).flat().join(' ');
+        setError(msgs);
+      } else {
+        setError(data.error || 'Failed to reset password.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   };
 
   if (!isValidLink) {

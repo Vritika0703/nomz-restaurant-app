@@ -1,18 +1,37 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Footer } from "./Footer";
+import { apiFetch, mapSortByToApi } from "../api";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+
+type MapRestaurantPoint = {
+  id: number;
+  name: string;
+  address: string;
+  borough?: string;
+  cuisine_tags: string[];
+  composite_score: number | null;
+  composite_score_label: string;
+  latitude: number;
+  longitude: number;
+  phone?: string;
+  grade?: string;
+};
 
 export function Map({ 
   onNavigateHome, 
   onNavigateMessages, 
   onNavigateProfile, 
   onLogout,
-  isAdmin = false
+  isAdmin = false,
+  onSelectRestaurant,
 }: { 
   onNavigateHome: () => void;
   onNavigateMessages: () => void;
   onNavigateProfile: () => void;
   onLogout: () => void;
   isAdmin?: boolean;
+  onSelectRestaurant?: (id: number) => void;
 }) {
   const [search, setSearch] = useState('');
   const [borough, setBorough] = useState('all');
@@ -22,17 +41,149 @@ export function Map({
   const [sortBy, setSortBy] = useState('composite-high-low');
   const [onlyVisibleArea, setOnlyVisibleArea] = useState(false);
 
-  const mockRestaurants = [
-    { name: "SOHO TOSCANO", address: "508 WEST 26 STREET, Manhattan, 10001", cuisine: "Manhattan · ITALIAN", score: "91 / 100" },
-    { name: "STARBUCKS COFFEE #82647", address: "304 WEST 37 STREET, Manhattan, 10001", cuisine: "Manhattan · COFFEE/TEA", score: "91 / 100" },
-    { name: "HUDSON MARKET AT SHERATON NEW YORK TIMES SQUARE", address: "811 7 AVENUE, Manhattan, 10019", cuisine: "Manhattan · COFFEE/TEA, AMERICAN", score: "91 / 100" },
-    { name: "POPUP BAGELS INC", address: "171 171 THOMPSON STREET, Manhattan, 10012", cuisine: "Manhattan · BAGELS/PRETZELS", score: "90 / 100" },
-    { name: "B AND D RESTAURANT", address: "908 WEST 36 STREET, Manhattan, 10001", cuisine: "Manhattan · KOREAN, AFRICAN", score: "90 / 100" },
-    { name: "AMY'S CHINESE RESTAURANT", address: "47-48 BELL BOULEVARD, Queens, 11361", cuisine: "Queens · KOREAN, CHINESE", score: "89 / 100" },
-  ];
+  const [results, setResults] = useState<MapRestaurantPoint[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<L.LayerGroup | null>(null);
+
+  // Initialise Leaflet map once
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+    const map = L.map(mapContainerRef.current).setView([40.7128, -74.006], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(map);
+    markersRef.current = L.layerGroup().addTo(map);
+    mapRef.current = map;
+
+    // Near-me geolocation
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => map.setView([pos.coords.latitude, pos.coords.longitude], 14),
+        () => { /* permission denied – keep default NYC view */ },
+      );
+    }
+
+    return () => { map.remove(); mapRef.current = null; };
+  }, []);
+
+  // Draw markers when results change
+  useEffect(() => {
+    const group = markersRef.current;
+    if (!group) return;
+    group.clearLayers();
+
+    for (const r of results) {
+      const score = r.composite_score;
+      let color = '#D3D3D3';
+      if (score !== null) {
+        if (score >= 90) color = '#22c55e';
+        else if (score >= 80) color = '#eab308';
+        else color = '#ef4444';
+      }
+      const icon = L.divIcon({
+        className: '',
+        html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3)"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7],
+      });
+      const marker = L.marker([r.latitude, r.longitude], { icon });
+      marker.bindPopup(
+        `<div style="font-family:Montserrat,sans-serif;font-size:13px">
+          <strong>${r.name}</strong><br/>
+          ${r.address}<br/>
+          ${r.grade ? `Grade: ${r.grade} · ` : ''}Score: ${r.composite_score_label}<br/>
+          ${r.cuisine_tags?.join(', ') || ''}<br/>
+          ${r.phone || ''}
+        </div>`,
+      );
+      if (onSelectRestaurant) {
+        marker.on('click', () => onSelectRestaurant(r.id));
+      }
+      group.addLayer(marker);
+    }
+  }, [results, onSelectRestaurant]);
+
+  const fetchRestaurants = useCallback(
+    async (override?: Partial<{ search: string; borough: string; cuisine: string; minScore: string; maxScore: string; sortBy: string; onlyVisibleArea: boolean }>) => {
+      const s = override?.search ?? search;
+      const br = override?.borough ?? borough;
+      const cu = override?.cuisine ?? cuisine;
+      const mn = override?.minScore ?? minScore;
+      const mx = override?.maxScore ?? maxScore;
+      const so = override?.sortBy ?? sortBy;
+      const ov = override?.onlyVisibleArea ?? onlyVisibleArea;
+
+      setLoading(true);
+      setLoadError(null);
+      try {
+        const params = new URLSearchParams();
+        if (s.trim()) params.set('search', s.trim());
+        if (br !== 'all') {
+          const b =
+            br === 'staten' ? 'Staten Island' : br.charAt(0).toUpperCase() + br.slice(1);
+          params.set('borough', b);
+        }
+        if (cu !== 'all') params.set('cuisine', cu);
+        if (mn.trim()) params.set('min_score', mn.trim());
+        if (mx.trim()) params.set('max_score', mx.trim());
+        params.set('sort_by', mapSortByToApi(so));
+        params.set('limit', '500');
+        if (ov && mapRef.current) {
+          const bounds = mapRef.current.getBounds();
+          params.set('sw_lat', String(bounds.getSouthWest().lat));
+          params.set('sw_lng', String(bounds.getSouthWest().lng));
+          params.set('ne_lat', String(bounds.getNorthEast().lat));
+          params.set('ne_lng', String(bounds.getNorthEast().lng));
+        }
+        const r = await apiFetch(`/api/restaurants/map-data/?${params.toString()}`);
+        if (!r.ok) {
+          setLoadError(`Could not load map data (${r.status}).`);
+          setResults([]);
+          return;
+        }
+        const data = await r.json();
+        const list = (data.results ?? []) as MapRestaurantPoint[];
+        setResults(list);
+      } catch {
+        setLoadError('Network error loading restaurants.');
+        setResults([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [search, borough, cuisine, minScore, maxScore, sortBy, onlyVisibleArea]
+  );
+
+  useEffect(() => {
+    void fetchRestaurants();
+  }, []);
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setBorough('all');
+    setCuisine('all');
+    setMinScore('');
+    setMaxScore('');
+    setSortBy('composite-high-low');
+    setOnlyVisibleArea(false);
+    void fetchRestaurants({
+      search: '',
+      borough: 'all',
+      cuisine: 'all',
+      minScore: '',
+      maxScore: '',
+      sortBy: 'composite-high-low',
+      onlyVisibleArea: false,
+    });
+  };
 
   return (
-    <div className="size-full flex flex-col" style={{ backgroundColor: '#FFF9F5' }}>
+    <div className="w-full flex flex-col" style={{ backgroundColor: '#FFF9F5', minHeight: '100vh' }}>
       {/* Navigation Bar */}
       <nav className="w-full px-8 py-4 flex items-center justify-between">
         {isAdmin ? (
@@ -183,8 +334,8 @@ export function Map({
       </nav>
 
       {/* Main Content */}
-      <main className="w-full flex-1 px-8 pb-8 overflow-hidden">
-        <div className="size-full flex flex-col gap-4">
+      <main className="w-full px-8 pb-8">
+        <div className="w-full flex flex-col gap-4">
           {/* Filters Section */}
           <div className="w-full p-6 rounded-lg" style={{ 
             backgroundColor: 'white',
@@ -363,8 +514,15 @@ export function Map({
             </div>
 
             {/* Buttons */}
+            {loadError && (
+              <p className="text-xs mt-2" style={{ fontFamily: 'Montserrat, sans-serif', color: '#b91c1c' }}>
+                {loadError}
+              </p>
+            )}
+
             <div className="flex gap-4 mt-4">
               <button
+                type="button"
                 className="flex-1 px-4 py-2 rounded text-xs transition-all"
                 style={{ 
                   backgroundColor: 'rgba(224, 110, 127, 0.7)',
@@ -379,17 +537,19 @@ export function Map({
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.7)';
                 }}
+                onClick={handleResetFilters}
               >
                 Reset
               </button>
               <button
+                type="button"
                 className="flex-1 px-4 py-2 rounded text-xs transition-all"
                 style={{ 
                   backgroundColor: '#5a6c7d',
                   color: 'white',
                   border: 'none',
                   fontFamily: 'Montserrat, sans-serif',
-                  cursor: 'pointer'
+                  cursor: loading ? 'wait' : 'pointer'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#4a5c6d';
@@ -397,32 +557,29 @@ export function Map({
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = '#5a6c7d';
                 }}
+                onClick={() => void fetchRestaurants()}
+                disabled={loading}
               >
-                Apply Filters
+                {loading ? 'Loading…' : 'Apply Filters'}
               </button>
             </div>
           </div>
 
           {/* Map and Restaurant List */}
-          <div className="flex-1 flex gap-4 overflow-hidden">
+          <div className="flex gap-4" style={{ height: '500px' }}>
             {/* Map Area */}
             <div className="flex-1 rounded-lg overflow-hidden" style={{ 
-              backgroundColor: 'rgba(224, 110, 127, 0.05)',
               border: '2px solid rgba(224, 110, 127, 0.1)',
-              minHeight: '400px'
+              height: '100%'
             }}>
-              <div className="size-full flex items-center justify-center" style={{ 
-                fontFamily: 'Montserrat, sans-serif',
-                color: '#E06E7F'
-              }}>
-                <p className="text-sm">Map View (Integration Required)</p>
-              </div>
+              <div ref={mapContainerRef} className="size-full" />
             </div>
 
             {/* Restaurant List */}
             <div className="w-96 rounded-lg overflow-hidden flex flex-col" style={{ 
               backgroundColor: 'white',
-              border: '2px solid rgba(224, 110, 127, 0.1)'
+              border: '2px solid rgba(224, 110, 127, 0.1)',
+              height: '100%'
             }}>
               {/* Header */}
               <div className="px-4 py-3 flex items-center justify-between" style={{ 
@@ -438,7 +595,7 @@ export function Map({
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#999'
                 }}>
-                  {mockRestaurants.length} results
+                  {loading ? '…' : `${results.length} results`}
                 </span>
               </div>
 
@@ -473,49 +630,73 @@ export function Map({
                   </span>
                 </div>
 
-                {mockRestaurants.map((restaurant, index) => (
-                  <div
-                    key={index}
-                    className="px-4 py-3 cursor-pointer transition-all"
-                    style={{ 
-                      borderBottom: '1px solid rgba(224, 110, 127, 0.1)'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    <div className="flex items-start justify-between mb-1">
-                      <h4 className="text-xs" style={{ 
-                        fontFamily: 'Montserrat, sans-serif',
-                        color: '#333'
-                      }}>
-                        {restaurant.name}
-                      </h4>
-                      <span className="text-xs ml-2" style={{ 
-                        fontFamily: 'Montserrat, sans-serif',
-                        color: '#E06E7F',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {restaurant.score}
-                      </span>
+                {results.map((restaurant) => {
+                  const cuisineStr =
+                    restaurant.borough && restaurant.cuisine_tags?.length
+                      ? `${restaurant.borough} · ${restaurant.cuisine_tags.join(', ')}`
+                      : restaurant.cuisine_tags?.join(', ') || '';
+                  return (
+                    <div
+                      key={restaurant.id}
+                      className="px-4 py-3 cursor-pointer transition-all"
+                      style={{
+                        borderBottom: '1px solid rgba(224, 110, 127, 0.1)',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                      onClick={() => {
+                        if (mapRef.current && restaurant.latitude && restaurant.longitude) {
+                          mapRef.current.flyTo([restaurant.latitude, restaurant.longitude], 16);
+                        }
+                        onSelectRestaurant?.(restaurant.id);
+                      }}
+                    >
+                      <div className="flex items-start justify-between mb-1">
+                        <h4
+                          className="text-xs"
+                          style={{
+                            fontFamily: 'Montserrat, sans-serif',
+                            color: '#333',
+                          }}
+                        >
+                          {restaurant.name}
+                        </h4>
+                        <span
+                          className="text-xs ml-2"
+                          style={{
+                            fontFamily: 'Montserrat, sans-serif',
+                            color: '#E06E7F',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {restaurant.composite_score_label}
+                        </span>
+                      </div>
+                      <p
+                        className="text-xs mb-1"
+                        style={{
+                          fontFamily: 'Montserrat, sans-serif',
+                          color: '#666',
+                        }}
+                      >
+                        {restaurant.address}
+                      </p>
+                      <p
+                        className="text-xs"
+                        style={{
+                          fontFamily: 'Montserrat, sans-serif',
+                          color: '#999',
+                        }}
+                      >
+                        {cuisineStr}
+                      </p>
                     </div>
-                    <p className="text-xs mb-1" style={{ 
-                      fontFamily: 'Montserrat, sans-serif',
-                      color: '#666'
-                    }}>
-                      {restaurant.address}
-                    </p>
-                    <p className="text-xs" style={{ 
-                      fontFamily: 'Montserrat, sans-serif',
-                      color: '#999'
-                    }}>
-                      {restaurant.cuisine}
-                    </p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../api";
 
 interface Approval {
   id: number;
@@ -16,54 +17,87 @@ export function AdminPendingApprovals({
 }: {
   onBack: () => void;
 }) {
-  const [approvals, setApprovals] = useState<Approval[]>([
-    {
-      id: 1,
-      username: 'restaurant_owner_1',
-      email: 'owner@pizzeria.com',
-      restaurantName: 'Tony\'s Pizzeria',
-      businessEmail: 'contact@tonyspizza.com',
-      submitted: 'Apr 01, 2026',
-      details: 'Italian restaurant in Manhattan. 20+ year establishment looking to get verified.',
-      documents: ['Business License', 'Tax ID', 'Ownership Proof']
-    },
-    {
-      id: 2,
-      username: 'sushi_master_nyc',
-      email: 'admin@sushihaven.com',
-      restaurantName: 'Sushi Haven',
-      businessEmail: 'info@sushihaven.com',
-      submitted: 'Mar 31, 2026',
-      details: 'Premium sushi restaurant in Brooklyn. Recently opened. Full documentation provided.',
-      documents: ['Business License', 'Health Certificate']
-    },
-    {
-      id: 3,
-      username: 'vegan_kitchen',
-      email: 'chef@vegankitchen.net',
-      restaurantName: 'Vegan Garden Kitchen',
-      businessEmail: 'contact@vegankitchen.net',
-      submitted: 'Mar 28, 2026',
-      details: 'Dedicated vegan restaurant. Strong community presence.',
-      documents: ['Business License', 'Tax ID', 'Insurance']
-    }
-  ]);
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [selectedApproval, setSelectedApproval] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [decision, setDecision] = useState('approve');
   const [reason, setReason] = useState('');
 
+  const loadApprovals = useCallback(async () => {
+    setLoadError(null);
+    try {
+      const r = await apiFetch("/api/admin/pending-approvals/");
+      if (!r.ok) {
+        setLoadError(`Could not load approvals (${r.status}).`);
+        setApprovals([]);
+        return;
+      }
+      const data = await r.json();
+      const rows = data.results ?? [];
+      setApprovals(
+        rows.map(
+          (row: {
+            id: number;
+            username: string;
+            email: string;
+            date_joined: string;
+            restaurant_name: string;
+            business_email: string;
+            claim_details: string;
+            has_pending_claim: boolean;
+          }) => ({
+            id: row.id,
+            username: row.username,
+            email: row.email,
+            restaurantName: row.restaurant_name || "—",
+            businessEmail: row.business_email || "—",
+            submitted: new Date(row.date_joined).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }),
+            details: row.claim_details || "Pending restaurant account review.",
+            documents: row.has_pending_claim ? ["Ownership claim submitted"] : ["Pending profile review"],
+          })
+        )
+      );
+    } catch {
+      setLoadError("Network error.");
+      setApprovals([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadApprovals();
+  }, [loadApprovals]);
+
   const handleAction = (approvalId: number) => {
     setSelectedApproval(approvalId);
     setShowModal(true);
   };
 
-  const handleSubmit = () => {
-    setApprovals(approvals.filter(a => a.id !== selectedApproval));
+  const handleSubmit = async () => {
+    if (selectedApproval == null) return;
+    try {
+      const path =
+        decision === "approve"
+          ? `/api/admin/approve/${selectedApproval}/`
+          : `/api/admin/reject/${selectedApproval}/`;
+      const r = await apiFetch(path, { method: "POST" });
+      if (!r.ok) {
+        setLoadError("Action failed.");
+        return;
+      }
+      await loadApprovals();
+    } catch {
+      setLoadError("Network error.");
+    }
     setShowModal(false);
     setDecision('approve');
     setReason('');
+    setSelectedApproval(null);
   };
 
   return (
@@ -95,6 +129,9 @@ export function AdminPendingApprovals({
       {/* Main Content */}
       <main className="w-full py-8 px-8 flex-1">
         <div className="max-w-6xl mx-auto">
+          {loadError && (
+            <p className="text-sm mb-4" style={{ color: '#b91c1c' }}>{loadError}</p>
+          )}
           {/* Header */}
           <div className="mb-8">
             <p className="text-sm" style={{

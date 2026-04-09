@@ -7,10 +7,11 @@ from django.db.models import Q
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_http_methods
 from django.contrib.auth.decorators import login_required
 
-from .models import Conversation, Message, Restaurant
+from .forms import RestaurantOwnershipClaimForm
+from .models import Conversation, Message, Restaurant, RestaurantOwnershipClaim
 from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 NYC_MIN_LAT = 40.0
@@ -360,3 +361,149 @@ def send_message(request, conversation_id):
         },
         status=201,
     )
+
+
+def _serialize_claim_row(claim: RestaurantOwnershipClaim) -> dict:
+    return {
+        "id": claim.id,
+        "restaurant_id": claim.restaurant_id,
+        "restaurant_name": claim.restaurant.name,
+        "created_at": claim.created_at.isoformat(),
+        "status": claim.status,
+    }
+
+
+@csrf_exempt
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def restaurant_claim_api(request):
+    """
+    JSON API for the restaurant ownership claim flow (SPA).
+    GET: eligible state, optional search, unclaimed restaurant choices, recent claims.
+    POST: submit a new claim (same rules as RestaurantOwnershipClaimForm).
+    """
+    user = request.user
+
+    if request.method == "GET":
+        if not _is_restaurant_owner(user):
+            return _json_error(
+                "Only restaurant owner accounts can submit ownership claims.",
+                status=403,
+            )
+
+        has_restaurant = Restaurant.objects.filter(owner=user).exists()
+        active_claim = (
+            RestaurantOwnershipClaim.objects.filter(
+                claimant=user,
+                status=RestaurantOwnershipClaim.STATUS_PENDING,
+            )
+            .select_related("restaurant")
+            .first()
+        )
+        search_query = request.GET.get("search", "").strip()
+        form = RestaurantOwnershipClaimForm(
+            user=user,
+            search_query=search_query,
+        )
+        restaurants = []
+        for r in form.fields["restaurant"].queryset:
+            address_parts = [
+                part
+                for part in [
+                    r.address or "",
+                    r.borough or "",
+                    r.zip_code or "",
+                ]
+                if part
+            ]
+            restaurants.append(
+                {
+                    "id": r.id,
+                    "name": r.name,
+                    "address": ", ".join(address_parts) if address_parts else (r.address or ""),
+                    "zip_code": r.zip_code or "",
+                }
+            )
+
+        recent_claims = [
+            _serialize_claim_row(c)
+            for c in RestaurantOwnershipClaim.objects.filter(claimant=user)
+            .select_related("restaurant")[:5]
+        ]
+
+        return JsonResponse(
+            {
+                "eligible": not has_restaurant and _is_restaurant_owner(user),
+                "has_restaurant": has_restaurant,
+                "active_claim": (
+                    _serialize_claim_row(active_claim) if active_claim else None
+                ),
+                "search_query": search_query,
+                "restaurants": restaurants,
+                "recent_claims": recent_claims,
+            }
+        )
+
+    # POST
+    if not _is_restaurant_owner(user):
+        return _json_error(
+            "Only restaurant owner accounts can submit ownership claims.",
+            status=403,
+        )
+
+    if Restaurant.objects.filter(owner=user).exists():
+        return _json_error(
+            "You already have a restaurant assigned to your account.",
+            status=400,
+        )
+
+    active_claim = (
+        RestaurantOwnershipClaim.objects.filter(
+            claimant=user,
+            status=RestaurantOwnershipClaim.STATUS_PENDING,
+        )
+        .first()
+    )
+    if active_claim:
+        return _json_error(
+            f'You already have a pending claim for "{active_claim.restaurant.name}". Please wait for review.',
+            status=400,
+        )
+
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON payload.")
+
+    search_query = (payload.get("search") or "").strip()
+    form = RestaurantOwnershipClaimForm(
+        {
+            "restaurant": payload.get("restaurant_id"),
+            "business_email": (payload.get("business_email") or "").strip(),
+            "contact_phone": (payload.get("contact_phone") or "").strip(),
+            "proof_details": (payload.get("proof_details") or "").strip(),
+        },
+        user=user,
+        search_query=search_query,
+    )
+
+    if form.is_valid():
+        claim = form.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "message": (
+                    f'Claim submitted for "{claim.restaurant.name}". '
+                    "We will review your verification details shortly."
+                ),
+                "restaurant_name": claim.restaurant.name,
+            },
+            status=201,
+        )
+
+    errors: dict[str, list[str]] = {
+        field: [str(e) for e in errs] for field, errs in form.errors.items()
+    }
+    if form.non_field_errors():
+        errors["non_field"] = [str(e) for e in form.non_field_errors()]
+    return JsonResponse({"success": False, "errors": errors}, status=400)

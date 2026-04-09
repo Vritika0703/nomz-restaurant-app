@@ -1,22 +1,60 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { apiFetch } from '../api';
 
 export function ManageActivation({ onBack, isActive = true, onToggle }: { onBack: () => void; isActive?: boolean; onToggle?: (newStatus: boolean) => void }) {
   const [isRestaurantActive, setIsRestaurantActive] = useState(isActive);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch('/api/restaurant/activation/');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!cancelled && typeof d.is_active === 'boolean') {
+          setIsRestaurantActive(d.is_active);
+        }
+      } catch {
+        /* demo fallback */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleToggle = () => {
     setIsRestaurantActive(!isRestaurantActive);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      onToggle?.(isRestaurantActive);
+    setLoadError(null);
+    try {
+      const r = await apiFetch('/api/restaurant/activation/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: isRestaurantActive }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setLoadError(typeof d.errors === 'object' ? 'Could not save.' : 'Could not save.');
+        setIsSaving(false);
+        return;
+      }
+      const d = await r.json();
+      if (typeof d.is_active === 'boolean') {
+        setIsRestaurantActive(d.is_active);
+        onToggle?.(d.is_active);
+      }
+    } catch {
+      setLoadError('Network error.');
+    } finally {
       setIsSaving(false);
-    }, 500);
+    }
   };
 
   return (
@@ -76,6 +114,10 @@ export function ManageActivation({ onBack, isActive = true, onToggle }: { onBack
             }}>
               Control whether your restaurant profile is visible to customers. When your profile is deactivated, it will no longer appear in searches or recommendations.
             </p>
+
+            {loadError && (
+              <p className="text-sm mb-4" style={{ color: '#b91c1c' }}>{loadError}</p>
+            )}
 
             <form onSubmit={handleSubmit}>
               {/* Toggle Switch Section */}
