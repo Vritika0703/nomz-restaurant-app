@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { apiFetch } from './api';
 import { motion } from 'motion/react';
 import { SignIn } from './components/SignIn';
@@ -11,6 +11,7 @@ import { Messages } from './components/Messages';
 import { Map } from './components/Map';
 import { PhotoManagement } from './components/PhotoManagement';
 import { AdminDashboard } from './components/AdminDashboard';
+import { AdminRestaurantAccounts } from './components/AdminRestaurantAccounts';
 import { AdminModeration } from './components/AdminModeration';
 import { AdminPendingApprovals } from './components/AdminPendingApprovals';
 import { AdminManageUsers } from './components/AdminManageUsers';
@@ -25,8 +26,11 @@ import { ClaimRestaurant } from './components/ClaimRestaurant';
 import { RestaurantDetail } from './components/RestaurantDetail';
 import { AddReview } from './components/AddReview';
 import { ReportContent } from './components/ReportContent';
+import { SearchResults } from './components/SearchResults';
+import { Recommendations } from './components/Recommendations';
+import { RestaurantForm } from './components/RestaurantForm';
 
-type View = 'opening' | 'home' | 'signin' | 'signup' | 'userhome' | 'restaurantprofile' | 'userprofile' | 'messages' | 'map' | 'restaurantmap' | 'photomanagement' | 'admin' | 'adminmoderation' | 'adminapprovals' | 'adminusers' | 'adminlogs' | 'adminmap' | 'passwordreset' | 'passwordresetdone' | 'passwordresetconfirm' | 'passwordresetcomplete' | 'manageactivation' | 'twofactorauth' | 'claimrestaurant' | 'restaurantdetail' | 'addreview' | 'reportcontent';
+type View = 'opening' | 'home' | 'signin' | 'signup' | 'userhome' | 'restaurantprofile' | 'userprofile' | 'messages' | 'map' | 'restaurantmap' | 'photomanagement' | 'admin' | 'adminmoderation' | 'adminapprovals' | 'adminapproved' | 'adminrejected' | 'adminusers' | 'adminlogs' | 'adminmap' | 'passwordreset' | 'passwordresetdone' | 'passwordresetconfirm' | 'passwordresetcomplete' | 'manageactivation' | 'twofactorauth' | 'claimrestaurant' | 'restaurantdetail' | 'addreview' | 'reportcontent' | 'searchresults' | 'recommendations' | 'restaurantform';
 
 interface UserData {
   username: string;
@@ -43,9 +47,18 @@ export default function App() {
   const [selectedRestaurantName, setSelectedRestaurantName] = useState<string>('');
   const [reportTarget, setReportTarget] = useState<{ type: 'review' | 'user'; id: number } | null>(null);
   const [previousView, setPreviousView] = useState<View>('map');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pendingMessageStart, setPendingMessageStart] = useState<{ id: number; name: string } | null>(null);
+  /** True when user opened the app with `?admin` — same Log In screen, plus security code (AdminLoginForm). */
+  const [signInAdminPortal, setSignInAdminPortal] = useState(false);
 
   useEffect(() => {
-    // Check for password reset deep link
+    if (view !== 'messages') {
+      setPendingMessageStart(null);
+    }
+  }, [view]);
+
+  useLayoutEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const uidParam = params.get('resetUid');
     const tokenParam = params.get('resetToken');
@@ -56,7 +69,16 @@ export default function App() {
       window.history.replaceState({}, '', window.location.pathname);
       return;
     }
+    if (params.has('admin')) {
+      params.delete('admin');
+      const qs = params.toString();
+      window.history.replaceState({}, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+      setSignInAdminPortal(true);
+      setView('signin');
+    }
+  }, []);
 
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
@@ -87,6 +109,7 @@ export default function App() {
   };
 
   const handleSignInClick = () => {
+    setSignInAdminPortal(false);
     setView('signin');
   };
 
@@ -95,10 +118,12 @@ export default function App() {
   };
 
   const handleBackToHome = () => {
+    setSignInAdminPortal(false);
     setView('home');
   };
 
   const handleSignIn = (accountType: 'diner' | 'restaurant' | 'admin', username: string) => {
+    setSignInAdminPortal(false);
     setUserData({ username, accountType });
     if (accountType === 'diner') setView('userhome');
     else if (accountType === 'restaurant') setView('restaurantprofile');
@@ -142,21 +167,6 @@ export default function App() {
     setView('photomanagement');
   };
 
-  const handleViewAdmin = async () => {
-    try {
-      const r = await apiFetch('/api/auth/session/');
-      const d = await r.json();
-      if (d.authenticated && d.is_staff) {
-        setUserData({ username: d.username, accountType: 'admin' });
-        setView('admin');
-        return;
-      }
-      window.alert('Sign in as a staff user to open the admin dashboard.');
-    } catch {
-      window.alert('Could not verify session.');
-    }
-  };
-
   const handleViewModeration = () => {
     setView('adminmoderation');
   };
@@ -171,6 +181,14 @@ export default function App() {
 
   const handleViewAdminLogs = () => {
     setView('adminlogs');
+  };
+
+  const handleViewApprovedAccounts = () => {
+    setView('adminapproved');
+  };
+
+  const handleViewRejectedAccounts = () => {
+    setView('adminrejected');
   };
 
   const handleAdminBack = () => {
@@ -202,6 +220,7 @@ export default function App() {
   };
 
   const handlePasswordResetToLogin = () => {
+    setSignInAdminPortal(false);
     setView('signin');
   };
 
@@ -233,6 +252,31 @@ export default function App() {
 
   const handleClaimListing = () => {
     setView('claimrestaurant');
+  };
+
+  const handleUserSearch = (q: string) => {
+    setSearchQuery(q);
+    setView('searchresults');
+  };
+
+  const handleBackFromSearch = () => {
+    setView('userhome');
+  };
+
+  const handleOpenRecommendations = () => {
+    setView('recommendations');
+  };
+
+  const handleBackFromRecommendations = () => {
+    setView('userhome');
+  };
+
+  const handleRestaurantForm = () => {
+    setView('restaurantform');
+  };
+
+  const handleBackFromRestaurantForm = () => {
+    setView('restaurantprofile');
   };
 
   const handleBackFromClaimListing = () => {
@@ -309,6 +353,14 @@ export default function App() {
           onWriteReview={handleWriteReview}
           onReportReview={handleReportReview}
           onReportOwner={handleReportOwner}
+          onStartConversation={
+            userData?.accountType === 'diner'
+              ? (id, name) => {
+                  setPendingMessageStart({ id, name });
+                  setView('messages');
+                }
+              : undefined
+          }
         />
       </div>
     );
@@ -318,6 +370,22 @@ export default function App() {
     return (
       <div className="h-screen w-screen overflow-hidden">
         <ClaimRestaurant onBack={handleBackFromClaimListing} />
+      </div>
+    );
+  }
+
+  if (view === 'adminapproved') {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <AdminRestaurantAccounts listKind="approved" onBack={handleAdminBack} />
+      </div>
+    );
+  }
+
+  if (view === 'adminrejected') {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <AdminRestaurantAccounts listKind="rejected" onBack={handleAdminBack} />
       </div>
     );
   }
@@ -364,6 +432,8 @@ export default function App() {
           onViewPendingApprovals={handleViewPendingApprovals}
           onViewPendingUsers={handleViewManageUsers}
           onViewLogs={handleViewAdminLogs}
+          onViewApprovedAccounts={handleViewApprovedAccounts}
+          onViewRejectedAccounts={handleViewRejectedAccounts}
         />
       </div>
     );
@@ -416,6 +486,9 @@ export default function App() {
           onNavigateProfile={handleViewProfile}
           onLogout={handleLogout}
           accountType={userData?.accountType === 'restaurant' ? 'Restaurant' : 'Diner'}
+          pendingStartRestaurantId={pendingMessageStart?.id ?? null}
+          pendingStartRestaurantName={pendingMessageStart?.name ?? ''}
+          onConsumedPendingStart={() => setPendingMessageStart(null)}
         />
       </div>
     );
@@ -435,6 +508,48 @@ export default function App() {
     );
   }
 
+  if (view === 'restaurantform') {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <RestaurantForm onBack={handleBackFromRestaurantForm} />
+      </div>
+    );
+  }
+
+  if (view === 'recommendations' && userData?.accountType === 'diner') {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <Recommendations
+          onBack={handleBackFromRecommendations}
+          onSelectRestaurant={handleSelectRestaurant}
+          onNavigateMap={handleNavigateMap}
+          onNavigateMessages={handleViewMessages}
+          onNavigateProfile={handleViewProfile}
+          onOpenPreferences={handleViewProfile}
+          onLogout={handleLogout}
+          username={userData.username}
+        />
+      </div>
+    );
+  }
+
+  if (view === 'searchresults' && userData?.accountType === 'diner') {
+    return (
+      <div className="h-screen w-screen overflow-hidden">
+        <SearchResults
+          initialQuery={searchQuery}
+          onBack={handleBackFromSearch}
+          onSelectRestaurant={handleSelectRestaurant}
+          onNavigateMap={handleNavigateMap}
+          onNavigateMessages={handleViewMessages}
+          onNavigateProfile={handleViewProfile}
+          onLogout={handleLogout}
+          username={userData.username}
+        />
+      </div>
+    );
+  }
+
   if (view === 'userhome') {
     return (
       <div className="h-screen w-screen overflow-hidden">
@@ -443,6 +558,9 @@ export default function App() {
           onViewProfile={handleViewProfile}
           onViewMessages={handleViewMessages}
           onNavigateMap={handleNavigateMap}
+          onSearch={handleUserSearch}
+          onOpenRecommendations={handleOpenRecommendations}
+          onSelectRestaurant={handleSelectRestaurant}
           username={userData?.username || 'Diner'} 
         />
       </div>
@@ -462,6 +580,7 @@ export default function App() {
           onBack={() => setView('restaurantprofile')}
           onManageActivation={handleManageActivation}
           onClaimListing={handleClaimListing}
+          onRestaurantForm={handleRestaurantForm}
         />
       </div>
     );
@@ -499,7 +618,6 @@ export default function App() {
       <div className="h-screen w-screen overflow-hidden">
         <ManageActivation 
           onBack={handleActivationToggle}
-          isActive={true}
           onToggle={handleActivationToggle}
         />
       </div>
@@ -555,6 +673,7 @@ export default function App() {
           onSignIn={handleSignIn}
           onForgotPassword={handleForgotPassword}
           onTwoFactorRequired={handleTwoFactorAuth}
+          adminPortal={signInAdminPortal}
         />
       </div>
     );
@@ -574,7 +693,6 @@ export default function App() {
         <Home 
           onSignInClick={handleSignInClick} 
           onSignUpClick={handleSignUpClick}
-          onAdminAccess={handleViewAdmin}
         />
       </div>
     );

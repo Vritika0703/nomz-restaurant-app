@@ -46,6 +46,7 @@ urlpatterns = [
     path("api/auth/session/", spa_api.auth_session, name="api_auth_session"),
     path("api/auth/register/", spa_api.auth_register, name="api_auth_register"),
     path("api/auth/login/", spa_api.auth_login, name="api_auth_login"),
+    path("api/auth/admin-login/", spa_api.auth_admin_login, name="api_auth_admin_login"),
     path("api/auth/logout/", spa_api.auth_logout, name="api_auth_logout"),
     path("api/auth/2fa/verify/", spa_api.auth_2fa_verify, name="api_auth_2fa_verify"),
     path(
@@ -89,6 +90,11 @@ urlpatterns = [
         name="api_diner_preferences",
     ),
     path(
+        "api/diner/account/",
+        spa_api.diner_account_api,
+        name="api_diner_account",
+    ),
+    path(
         "api/admin/dashboard-summary/",
         spa_api.admin_dashboard_summary,
         name="api_admin_dashboard_summary",
@@ -97,6 +103,16 @@ urlpatterns = [
         "api/admin/pending-approvals/",
         spa_api.admin_pending_approvals_data,
         name="api_admin_pending_approvals_data",
+    ),
+    path(
+        "api/admin/approved-restaurants/",
+        spa_api.admin_approved_restaurant_accounts_data,
+        name="api_admin_approved_restaurants",
+    ),
+    path(
+        "api/admin/rejected-restaurants/",
+        spa_api.admin_rejected_restaurant_accounts_data,
+        name="api_admin_rejected_restaurants",
     ),
     path(
         "api/admin/approve/<int:user_id>/",
@@ -147,6 +163,27 @@ urlpatterns = [
         "api/report/",
         spa_api.report_content_api,
         name="api_report_content",
+    ),
+    path("api/search/", spa_api.restaurant_search_api, name="api_restaurant_search"),
+    path(
+        "api/recommendations/",
+        spa_api.diner_recommendations_api,
+        name="api_diner_recommendations",
+    ),
+    path(
+        "api/restaurant/profile/",
+        spa_api.restaurant_profile_api,
+        name="api_restaurant_profile",
+    ),
+    path(
+        "api/restaurant/availability/",
+        spa_api.restaurant_availability_api,
+        name="api_restaurant_availability",
+    ),
+    path(
+        "api/restaurant/communication/",
+        spa_api.restaurant_communication_api,
+        name="api_restaurant_communication",
     ),
     path("register/", views.register, name="register"),  # Removed <str:role>
     path("logout/", views.user_logout, name="logout"),

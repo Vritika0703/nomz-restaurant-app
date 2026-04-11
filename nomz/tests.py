@@ -1358,3 +1358,63 @@ class RestaurantCommunicationSettingsTests(TestCase):
         # Check for the red badge in the HTML
         self.assertContains(response, "badge rounded-pill bg-danger")
         self.assertContains(response, "2")
+
+
+class AdminRestaurantAccountListApiTests(TestCase):
+    """Staff JSON endpoints for approved / rejected restaurant accounts (SPA)."""
+
+    def setUp(self):
+        self.client = Client()
+        self.staff = User.objects.create_user(
+            username="spa_staff", password="pass12345", is_staff=True
+        )
+        self.diner = User.objects.create_user(username="d1", password="pass12345")
+        UserProfile.objects.create(user=self.diner, role="diner")
+
+        self.approved_owner = User.objects.create_user(
+            username="biz_ok", password="pass12345"
+        )
+        UserProfile.objects.create(
+            user=self.approved_owner,
+            role="restaurant",
+            is_approved=True,
+            is_rejected=False,
+        )
+        Restaurant.objects.create(
+            owner=self.approved_owner,
+            name="Tasty Spoon",
+            cuisine_type="italian",
+            price_range="$$",
+        )
+
+        self.rejected_owner = User.objects.create_user(
+            username="biz_no", password="pass12345"
+        )
+        UserProfile.objects.create(
+            user=self.rejected_owner,
+            role="restaurant",
+            is_approved=False,
+            is_rejected=True,
+        )
+
+    def test_approved_list_requires_staff(self):
+        self.client.login(username="d1", password="pass12345")
+        r = self.client.get(reverse("api_admin_approved_restaurants"))
+        self.assertEqual(r.status_code, 403)
+
+    def test_approved_list_returns_rows(self):
+        self.client.login(username="spa_staff", password="pass12345")
+        r = self.client.get(reverse("api_admin_approved_restaurants"))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["username"], "biz_ok")
+        self.assertEqual(data["results"][0]["restaurant_name"], "Tasty Spoon")
+
+    def test_rejected_list_returns_rows(self):
+        self.client.login(username="spa_staff", password="pass12345")
+        r = self.client.get(reverse("api_admin_rejected_restaurants"))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["username"], "biz_no")

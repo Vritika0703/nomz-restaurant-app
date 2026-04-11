@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Footer } from './Footer';
 import { apiFetch } from '../api';
 
@@ -7,37 +7,76 @@ export function SignIn({
   onSignIn,
   onForgotPassword,
   onTwoFactorRequired,
+  adminPortal = false,
 }: {
   onBackClick: () => void;
   onSignIn: (accountType: 'diner' | 'restaurant' | 'admin', username: string) => void;
   onForgotPassword?: () => void;
   onTwoFactorRequired?: () => void;
+  /** From URL `?admin` — show security code and POST /api/auth/admin-login/ (AdminLoginForm parity). */
+  adminPortal?: boolean;
 }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [securityCode, setSecurityCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (adminPortal) {
+      setUsername((u) => (u === '' ? 'admin' : u));
+    }
+  }, [adminPortal]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    const username = (document.getElementById('username') as HTMLInputElement)?.value?.trim() ?? '';
-    const password = (document.getElementById('password') as HTMLInputElement)?.value ?? '';
-    if (!username || !password) {
+    const u = username.trim();
+    if (!u || !password) {
       setError('Enter username and password.');
+      return;
+    }
+    if (adminPortal && !securityCode.trim()) {
+      setError('Enter the administrative security code.');
       return;
     }
     setLoading(true);
     try {
+      if (adminPortal) {
+        const r = await apiFetch('/api/auth/admin-login/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: u,
+            password,
+            security_code: securityCode,
+          }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          const msg =
+            typeof data.error === 'string'
+              ? data.error
+              : Array.isArray(data.errors?.__all__) && data.errors.__all__[0]
+                ? String(data.errors.__all__[0])
+                : 'Admin sign-in failed.';
+          setError(msg);
+          return;
+        }
+        onSignIn('admin', typeof data.username === 'string' ? data.username : u);
+        return;
+      }
+
       const r = await apiFetch('/api/auth/login/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: u, password }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
         setError(typeof data.error === 'string' ? data.error : 'Login failed.');
         return;
       }
-      // Check if 2FA is required
       if (data.requires_2fa) {
         onTwoFactorRequired?.();
         return;
@@ -79,9 +118,18 @@ export function SignIn({
         </h1>
 
         <div className="w-full max-w-md">
-          <h2 className="text-xl mb-6 text-center" style={{ fontFamily: 'Montserrat, sans-serif', color: '#333' }}>
-            Log In to Your Account
+          <h2
+            className={`text-xl text-center ${adminPortal ? 'mb-2' : 'mb-6'}`}
+            style={{ fontFamily: 'Montserrat, sans-serif', color: '#333' }}
+          >
+            {adminPortal ? 'Admin sign-in' : 'Log In to Your Account'}
           </h2>
+          {adminPortal && (
+            <p className="text-xs mb-6 text-center" style={{ fontFamily: 'Montserrat, sans-serif', color: '#888' }}>
+              Security code required (same as Django <code style={{ color: '#666' }}>/admin-login/</code>). After this once, you can
+              use regular Log In with the same username and password.
+            </p>
+          )}
 
           {error && (
             <p className="text-sm mb-4 text-center" style={{ fontFamily: 'Montserrat, sans-serif', color: '#b91c1c' }}>
@@ -98,6 +146,8 @@ export function SignIn({
                 type="text"
                 id="username"
                 autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
                 style={{
                   borderColor: 'rgba(224, 110, 127, 0.2)',
@@ -118,6 +168,8 @@ export function SignIn({
                 type="password"
                 id="password"
                 autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
                 style={{
                   borderColor: 'rgba(224, 110, 127, 0.2)',
@@ -130,8 +182,32 @@ export function SignIn({
               />
             </div>
 
+            {adminPortal && (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="security_code" className="text-xs" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
+                  Administrative security code
+                </label>
+                <input
+                  type="password"
+                  id="security_code"
+                  autoComplete="off"
+                  value={securityCode}
+                  onChange={(e) => setSecurityCode(e.target.value)}
+                  className="px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
+                  style={{
+                    borderColor: 'rgba(224, 110, 127, 0.2)',
+                    fontFamily: 'Montserrat, sans-serif',
+                    backgroundColor: 'transparent',
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = '#E06E7F')}
+                  onBlur={(e) => (e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)')}
+                  placeholder="ADMIN_SECURITY_CODE from server .env"
+                />
+              </div>
+            )}
+
             <div className="flex justify-end">
-              {onForgotPassword && (
+              {!adminPortal && onForgotPassword && (
                 <button
                   type="button"
                   onClick={onForgotPassword}
@@ -172,12 +248,14 @@ export function SignIn({
             </button>
           </form>
 
-          <p className="text-center text-xs mt-6" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
-            Don&apos;t have an account?{' '}
-            <span className="cursor-pointer transition-all" style={{ color: '#E06E7F' }}>
-              Sign up
-            </span>
-          </p>
+          {!adminPortal && (
+            <p className="text-center text-xs mt-6" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
+              Don&apos;t have an account?{' '}
+              <span className="cursor-pointer transition-all" style={{ color: '#E06E7F' }}>
+                Sign up
+              </span>
+            </p>
+          )}
         </div>
       </div>
 

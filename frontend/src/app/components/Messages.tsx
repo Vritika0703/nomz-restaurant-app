@@ -25,12 +25,18 @@ export function Messages({
   onNavigateProfile,
   onLogout,
   accountType = "Diner",
+  pendingStartRestaurantId = null,
+  pendingStartRestaurantName = "",
+  onConsumedPendingStart,
 }: {
   onNavigateMap: () => void;
   onNavigateHome: () => void;
   onNavigateProfile: () => void;
   onLogout: () => void;
   accountType?: "Diner" | "Restaurant";
+  pendingStartRestaurantId?: number | null;
+  pendingStartRestaurantName?: string;
+  onConsumedPendingStart?: () => void;
 }) {
   const [conversations, setConversations] = useState<ConvRow[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -40,6 +46,9 @@ export function Messages({
   const [myUserId, setMyUserId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
+  const [startModalOpen, setStartModalOpen] = useState(false);
+  const [startMessageBody, setStartMessageBody] = useState("");
+  const [startSubmitting, setStartSubmitting] = useState(false);
 
   const loadSession = useCallback(async () => {
     try {
@@ -97,8 +106,64 @@ export function Messages({
   }, [loadSession, loadConversations]);
 
   useEffect(() => {
+    if (pendingStartRestaurantId == null) {
+      setStartModalOpen(false);
+      return;
+    }
+    if (accountType !== "Diner") return;
+    setStartModalOpen(true);
+    setStartMessageBody("");
+    setError(null);
+  }, [accountType, pendingStartRestaurantId]);
+
+  useEffect(() => {
     if (selectedId != null) void loadThread(selectedId);
   }, [selectedId, accountType]);
+
+  const dismissStartModal = () => {
+    setStartModalOpen(false);
+    setStartMessageBody("");
+    onConsumedPendingStart?.();
+  };
+
+  const submitStartConversation = async () => {
+    if (pendingStartRestaurantId == null || accountType !== "Diner") return;
+    const msg = startMessageBody.trim();
+    if (!msg) {
+      setError("Please enter a message to start the conversation.");
+      return;
+    }
+    setStartSubmitting(true);
+    setError(null);
+    try {
+      const r = await apiFetch("/api/messages/conversations/start/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurant_id: pendingStartRestaurantId, message: msg }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setError(typeof d.error === "string" ? d.error : `Could not start conversation (${r.status}).`);
+        setStartSubmitting(false);
+        return;
+      }
+      const cid = typeof d.conversation_id === "number" ? d.conversation_id : null;
+      setStartModalOpen(false);
+      setStartMessageBody("");
+      onConsumedPendingStart?.();
+      if (cid != null) {
+        setSelectedId(cid);
+        await loadConversations();
+        await loadThread(cid);
+      } else {
+        await loadConversations();
+      }
+    } catch {
+      setError("Network error starting conversation.");
+    } finally {
+      setStartSubmitting(false);
+    }
+  };
 
   const sendMessage = async () => {
     const body = composer.trim();
@@ -200,7 +265,71 @@ export function Messages({
         </div>
       </nav>
 
-      <main className="w-full py-6 px-6 flex-1 flex flex-col min-h-0">
+      <main className="w-full py-6 px-6 flex-1 flex flex-col min-h-0 relative">
+        {startModalOpen && accountType === "Diner" && pendingStartRestaurantId != null && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center p-4"
+            style={{ backgroundColor: "rgba(0,0,0,0.35)" }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="start-conv-title"
+          >
+            <div
+              className="w-full max-w-md rounded-lg p-6 shadow-lg"
+              style={{ backgroundColor: "white", border: "2px solid rgba(224, 110, 127, 0.2)" }}
+            >
+              <h2
+                id="start-conv-title"
+                className="text-base m-0 mb-2"
+                style={{ fontFamily: "Montserrat, sans-serif", color: "#E06E7F" }}
+              >
+                Message {pendingStartRestaurantName || "restaurant"}
+              </h2>
+              <p className="text-xs mb-3 m-0" style={{ fontFamily: "Montserrat, sans-serif", color: "#666" }}>
+                Your first message opens a thread with this restaurant.
+              </p>
+              <textarea
+                className="w-full px-3 py-2 rounded-lg text-sm border-2 mb-3 min-h-[88px]"
+                style={{ borderColor: "rgba(224, 110, 127, 0.25)", fontFamily: "Montserrat, sans-serif" }}
+                placeholder="Hi, I'd like to ask about…"
+                value={startMessageBody}
+                disabled={startSubmitting}
+                onChange={(e) => setStartMessageBody(e.target.value)}
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  disabled={startSubmitting}
+                  className="px-4 py-2 rounded-lg text-sm"
+                  style={{
+                    border: "1px solid rgba(224,110,127,0.3)",
+                    backgroundColor: "white",
+                    color: "#666",
+                    fontFamily: "Montserrat, sans-serif",
+                    cursor: startSubmitting ? "wait" : "pointer",
+                  }}
+                  onClick={dismissStartModal}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={startSubmitting || !startMessageBody.trim()}
+                  className="px-4 py-2 rounded-lg text-sm text-white"
+                  style={{
+                    backgroundColor: startSubmitting || !startMessageBody.trim() ? "#ccc" : "#E06E7F",
+                    border: "none",
+                    fontFamily: "Montserrat, sans-serif",
+                    cursor: startSubmitting || !startMessageBody.trim() ? "not-allowed" : "pointer",
+                  }}
+                  onClick={() => void submitStartConversation()}
+                >
+                  {startSubmitting ? "Sending…" : "Send"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {error && (
           <p className="text-sm mb-2" style={{ fontFamily: "Montserrat, sans-serif", color: "#b91c1c" }}>
             {error}

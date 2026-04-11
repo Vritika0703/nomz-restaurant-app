@@ -77,10 +77,12 @@ def recommend_restaurants_for_user(user, limit=10):
     except UserPreference.DoesNotExist:
         return []
 
+    nh = (prefs.neighborhood_preference or "").strip()
     if (
         not prefs.favorite_cuisines
         and not prefs.dietary_restrictions
         and not prefs.price_preference
+        and not nh
     ):
         return []
 

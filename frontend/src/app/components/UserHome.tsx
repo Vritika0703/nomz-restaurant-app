@@ -1,15 +1,74 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { apiFetch } from "../api";
 import { Footer } from "./Footer";
 
-export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMap, username }: { onLogout: () => void; onViewProfile: () => void; onViewMessages: () => void; onNavigateMap: () => void; username: string }) {
+type RecRow = {
+  id: number;
+  name: string;
+  cuisine: string;
+  price_label: string;
+  neighborhood: string;
+};
+
+export function UserHome({
+  onLogout,
+  onViewProfile,
+  onViewMessages,
+  onNavigateMap,
+  onSearch,
+  onOpenRecommendations,
+  onSelectRestaurant,
+  username,
+}: {
+  onLogout: () => void;
+  onViewProfile: () => void;
+  onViewMessages: () => void;
+  onNavigateMap: () => void;
+  onSearch: (q: string) => void;
+  onOpenRecommendations: () => void;
+  onSelectRestaurant: (id: number) => void;
+  username: string;
+}) {
   const [showLogoutText, setShowLogoutText] = useState(false);
   const [showMapTooltip, setShowMapTooltip] = useState(false);
   const [showMessagesTooltip, setShowMessagesTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [recs, setRecs] = useState<RecRow[]>([]);
+  const [recMessage, setRecMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch("/api/recommendations/");
+        if (!r.ok || cancelled) return;
+        const d = await r.json();
+        if (cancelled) return;
+        if (d.requires_preferences) {
+          setRecs([]);
+          setRecMessage("Set your preferences in your profile to see personalized picks here.");
+          return;
+        }
+        setRecMessage(typeof d.message === "string" && d.message ? d.message : null);
+        const list = Array.isArray(d.restaurants) ? d.restaurants.slice(0, 3) : [];
+        setRecs(list);
+      } catch {
+        if (!cancelled) setRecMessage(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch(searchInput.trim());
+  };
 
   return (
     <div className="size-full flex flex-col overflow-y-auto" style={{ backgroundColor: '#FFF9F5' }}>
-      {/* Navigation Bar */}
       <nav className="w-full px-8 py-4 flex items-center justify-between">
         <h1 className="text-2xl" style={{ 
           fontFamily: 'Montserrat, sans-serif',
@@ -19,7 +78,6 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
         </h1>
         
         <div className="flex items-center gap-6">
-          {/* Map Button */}
           <div className="relative">
             <button
               onClick={onNavigateMap}
@@ -56,7 +114,6 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
             )}
           </div>
 
-          {/* Messages Button */}
           <div className="relative">
             <button
               onClick={onViewMessages}
@@ -93,7 +150,6 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
             )}
           </div>
 
-          {/* Profile Button */}
           <div className="relative">
             <button
               onClick={onViewProfile}
@@ -130,7 +186,6 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
             )}
           </div>
 
-          {/* Logout Button */}
           <div className="relative">
             <button
               onClick={onLogout}
@@ -169,7 +224,6 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="w-full py-20 px-8">
         <div className="max-w-5xl mx-auto">
           <h2 className="text-3xl mb-4 text-center" style={{ 
@@ -186,13 +240,14 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
             Discover amazing restaurants and delicious food near you
           </p>
 
-          {/* Search Section */}
-          <div className="mb-16 max-w-2xl mx-auto">
-            <div className="relative">
+          <form onSubmit={handleSearchSubmit} className="mb-16 max-w-2xl mx-auto">
+            <div className="relative flex gap-2">
               <input
                 type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="Search for restaurants, cuisines, or dishes..."
-                className="w-full px-6 py-4 border-2 rounded-lg focus:outline-none transition-all text-sm"
+                className="flex-1 px-6 py-4 border-2 rounded-lg focus:outline-none transition-all text-sm"
                 style={{ 
                   borderColor: 'rgba(224, 110, 127, 0.2)', 
                   fontFamily: 'Montserrat, sans-serif',
@@ -201,63 +256,92 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
                 onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
                 onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
               />
+              <button
+                type="submit"
+                className="px-6 py-4 rounded-lg text-sm text-white shrink-0"
+                style={{ backgroundColor: '#E06E7F', border: 'none', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
+              >
+                Search
+              </button>
             </div>
-          </div>
+            <p className="text-xs mt-2 text-center" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>
+              Opens full results with neighborhood and sort, matching the server search page.
+            </p>
+          </form>
 
-          {/* Featured Restaurants */}
           <div className="mb-12">
-            <h3 className="text-xl mb-8" style={{ 
-              fontFamily: 'Montserrat, sans-serif',
-              color: '#E06E7F'
-            }}>
-              Recommended Restaurants
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+              <h3 className="text-xl" style={{ 
+                fontFamily: 'Montserrat, sans-serif',
+                color: '#E06E7F'
+              }}>
+                Recommended for you
+              </h3>
+              <button
+                type="button"
+                onClick={onOpenRecommendations}
+                className="text-sm px-4 py-2 rounded-lg text-white"
+                style={{ backgroundColor: '#E06E7F', border: 'none', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
+              >
+                See all recommendations
+              </button>
+            </div>
             
+            {recMessage && (
+              <p className="text-sm mb-4" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
+                {recMessage}
+              </p>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[1, 2, 3].map((item) => (
-                <div 
-                  key={item}
-                  className="rounded-lg overflow-hidden transition-all cursor-pointer"
-                  style={{ 
-                    backgroundColor: 'white',
-                    border: '2px solid rgba(224, 110, 127, 0.1)'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-4px)';
-                    e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.1)';
-                  }}
-                >
-                  <div className="h-48 w-full" style={{ backgroundColor: 'rgba(224, 110, 127, 0.1)' }}></div>
-                  <div className="p-5">
-                    <h4 className="text-base mb-2" style={{ 
-                      fontFamily: 'Montserrat, sans-serif',
-                      color: '#333'
-                    }}>
-                      Restaurant Name
-                    </h4>
-                    <p className="text-xs mb-3" style={{ 
-                      fontFamily: 'Montserrat, sans-serif',
-                      color: '#666'
-                    }}>
-                      Cuisine Type • $$ • 4.5 ⭐
-                    </p>
-                    <p className="text-xs" style={{ 
-                      fontFamily: 'Montserrat, sans-serif',
-                      color: '#999'
-                    }}>
-                      123 Main St, City
-                    </p>
-                  </div>
-                </div>
-              ))}
+              {recs.length === 0 && !recMessage
+                ? [1, 2, 3].map((item) => (
+                    <div
+                      key={item}
+                      className="rounded-lg overflow-hidden"
+                      style={{
+                        backgroundColor: 'white',
+                        border: '2px solid rgba(224, 110, 127, 0.1)',
+                        minHeight: '200px',
+                      }}
+                    />
+                  ))
+                : recs.map((row) => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      onClick={() => onSelectRestaurant(row.id)}
+                      className="rounded-lg overflow-hidden transition-all text-left"
+                      style={{ 
+                        backgroundColor: 'white',
+                        border: '2px solid rgba(224, 110, 127, 0.1)',
+                        cursor: 'pointer',
+                        fontFamily: 'Montserrat, sans-serif',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-4px)';
+                        e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.1)';
+                      }}
+                    >
+                      <div className="h-32 w-full" style={{ backgroundColor: 'rgba(224, 110, 127, 0.1)' }} />
+                      <div className="p-5">
+                        <h4 className="text-base mb-2" style={{ color: '#333' }}>
+                          {row.name}
+                        </h4>
+                        <p className="text-xs mb-3" style={{ color: '#666' }}>
+                          {row.cuisine} • {row.price_label}
+                          {row.neighborhood ? ` • ${row.neighborhood}` : ''}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
             </div>
           </div>
 
-          {/* Popular Cuisines */}
           <div>
             <h3 className="text-xl mb-8" style={{ 
               fontFamily: 'Montserrat, sans-serif',
@@ -267,12 +351,21 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
             </h3>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {['Italian 🍝', 'Japanese 🍣', 'Mexican 🌮', 'Indian 🍛'].map((cuisine) => (
-                <div 
-                  key={cuisine}
-                  className="p-6 rounded-lg text-center cursor-pointer transition-all"
+              {[
+                { label: 'Italian 🍝', q: 'Italian' },
+                { label: 'Japanese 🍣', q: 'Japanese' },
+                { label: 'Mexican 🌮', q: 'Mexican' },
+                { label: 'Indian 🍛', q: 'Indian' },
+              ].map(({ label, q }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => onSearch(q)}
+                  className="p-6 rounded-lg text-center transition-all"
                   style={{ 
-                    backgroundColor: 'rgba(224, 110, 127, 0.08)'
+                    backgroundColor: 'rgba(224, 110, 127, 0.08)',
+                    border: 'none',
+                    cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.15)';
@@ -287,16 +380,15 @@ export function UserHome({ onLogout, onViewProfile, onViewMessages, onNavigateMa
                     fontFamily: 'Montserrat, sans-serif',
                     color: '#E06E7F'
                   }}>
-                    {cuisine}
+                    {label}
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           </div>
         </div>
       </main>
 
-      {/* Footer */}
       <Footer />
     </div>
   );

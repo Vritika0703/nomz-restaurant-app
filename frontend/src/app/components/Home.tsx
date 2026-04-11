@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { Footer } from './Footer';
 
-export function Home({ onSignInClick, onSignUpClick, onAdminAccess }: { onSignInClick: () => void; onSignUpClick: () => void; onAdminAccess?: () => void }) {
+export function Home({ onSignInClick, onSignUpClick }: { onSignInClick: () => void; onSignUpClick: () => void }) {
   return (
     <div className="size-full flex flex-col overflow-y-auto" style={{ backgroundColor: '#FFF9F5' }}>
       {/* Navigation Bar */}
@@ -14,23 +13,6 @@ export function Home({ onSignInClick, onSignUpClick, onAdminAccess }: { onSignIn
         </h1>
         
         <div className="flex items-center gap-4">
-          {onAdminAccess && (
-            <button
-              onClick={onAdminAccess}
-              className="px-5 py-2 rounded-lg transition-all text-sm"
-              style={{ 
-                backgroundColor: 'rgba(224, 110, 127, 0.1)',
-                color: '#E06E7F',
-                border: '2px solid rgba(224, 110, 127, 0.3)',
-                fontFamily: 'Montserrat, sans-serif'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              title="Admin Dashboard"
-            >
-              ⚙️ Admin
-            </button>
-          )}
           <button
             onClick={onSignInClick}
             className="px-5 py-2 rounded-lg transition-all text-sm"

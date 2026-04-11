@@ -50,12 +50,14 @@ export function RestaurantDetail({
   onWriteReview,
   onReportReview,
   onReportOwner,
+  onStartConversation,
 }: {
   restaurantId: number;
   onBack: () => void;
   onWriteReview: (restaurantId: number) => void;
   onReportReview?: (reviewId: number) => void;
   onReportOwner?: (userId: number) => void;
+  onStartConversation?: (restaurantId: number, restaurantName: string) => void;
 }) {
   const [data, setData] = useState<RestaurantData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -233,7 +235,13 @@ export function RestaurantDetail({
               <hr style={{ border: 'none', borderTop: '1px solid rgba(224,110,127,0.1)', margin: '0 0 12px' }} />
               <div className="flex flex-col gap-2">
                 {data.owner_id && data.messaging_enabled && (
-                  <button className="w-full py-2 rounded text-xs text-white" style={{ backgroundColor: '#E06E7F', border: 'none', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}>
+                  <button
+                    type="button"
+                    onClick={() => onStartConversation?.(data.id, data.name)}
+                    className="w-full py-2 rounded text-xs text-white"
+                    style={{ backgroundColor: '#E06E7F', border: 'none', cursor: onStartConversation ? 'pointer' : 'not-allowed', fontFamily: 'Montserrat, sans-serif', opacity: onStartConversation ? 1 : 0.6 }}
+                    disabled={!onStartConversation}
+                  >
                     ✉️ Message Restaurant
                   </button>
                 )}

@@ -18,13 +18,18 @@ from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django_otp import user_has_device, match_token
 
 from django.contrib.auth.decorators import login_required
 
 from .forms import (
+    AdminLoginForm,
     RestaurantActivationForm,
+    RestaurantAvailabilityForm,
+    RestaurantCommunicationSettingsForm,
     RestaurantPhotoForm,
+    RestaurantProfileForm,
     UserPreferenceForm,
     UserRegisterForm,
     ReviewForm,
@@ -40,6 +45,7 @@ from .models import (
     UserPreference,
     UserProfile,
 )
+from .restaurant_sorting import normalize_sort_key, recommend_restaurants_for_user, sort_restaurant_queryset
 
 from .api_views import (  # reuse helpers
     _is_diner,
@@ -143,6 +149,56 @@ def auth_login(request):
     if form.errors.get("__all__"):
         err_msg = "; ".join(str(e) for e in form.errors["__all__"])
     return _json_error(err_msg, status=401)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def auth_admin_login(request):
+    """
+    Same rules as views.admin_login / AdminLoginForm: built-in `admin` credentials plus
+    ADMIN_SECURITY_CODE (no generic staff login through this endpoint).
+    """
+    if request.user.is_authenticated and request.user.is_staff:
+        return JsonResponse(session_payload(request))
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON.")
+
+    username = (body.get("username") or "").strip()
+    password = body.get("password") or ""
+    security_code = (body.get("security_code") or "").strip()
+
+    if not username or not password or not security_code:
+        return _json_error("Username, password, and security code are required.")
+
+    form = AdminLoginForm(
+        request,
+        data={
+            "username": username,
+            "password": password,
+            "security_code": security_code,
+        },
+    )
+    if form.is_valid():
+        user = form.get_user()
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        return JsonResponse(session_payload(request))
+
+    errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
+    if "__all__" in errors and len(errors) == 1:
+        return JsonResponse(
+            {"error": errors["__all__"][0], "errors": errors},
+            status=401,
+        )
+    return JsonResponse(
+        {
+            "error": "Invalid admin credentials or security code.",
+            "errors": errors,
+        },
+        status=400,
+    )
 
 
 @csrf_exempt
@@ -416,6 +472,41 @@ def diner_preferences_api(request):
     return JsonResponse({"errors": errors}, status=400)
 
 
+@csrf_exempt
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST", "PATCH"])
+def diner_account_api(request):
+    """Diner account fields for the SPA profile header (parity with Django user account data)."""
+    if not _is_diner(request.user):
+        return _json_error("Diners only.", status=403)
+
+    u = request.user
+    if request.method == "GET":
+        review_count = Review.objects.filter(user=u, is_deleted=False).count()
+        return JsonResponse(
+            {
+                "username": u.username,
+                "email": u.email or "",
+                "first_name": u.first_name or "",
+                "last_name": u.last_name or "",
+                "reviews_written": review_count,
+            }
+        )
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON.")
+
+    email = (body.get("email") or "").strip()
+    if email:
+        u.email = email
+    u.first_name = (body.get("first_name") or "")[:150]
+    u.last_name = (body.get("last_name") or "")[:150]
+    u.save(update_fields=["email", "first_name", "last_name"])
+    return JsonResponse({"success": True})
+
+
 # --- Admin JSON ---
 
 
@@ -503,6 +594,55 @@ def admin_pending_approvals_data(request):
             }
         )
 
+    return JsonResponse({"count": len(results), "results": results})
+
+
+def _serialize_admin_restaurant_account_row(u: User) -> dict:
+    restaurant = Restaurant.objects.filter(owner=u).only("name").first()
+    return {
+        "id": u.id,
+        "username": u.username,
+        "email": u.email or "",
+        "date_joined": u.date_joined.isoformat(),
+        "restaurant_name": restaurant.name if restaurant else "",
+    }
+
+
+@login_required(login_url="landing")
+@require_GET
+def admin_approved_restaurant_accounts_data(request):
+    """JSON list of approved restaurant-role accounts (parity with admin_approved_list.html)."""
+    deny = _staff_json_required(request)
+    if deny:
+        return deny
+
+    qs = (
+        User.objects.filter(
+            userprofile__role="restaurant", userprofile__is_approved=True
+        )
+        .select_related("userprofile")
+        .order_by("-date_joined")
+    )
+    results = [_serialize_admin_restaurant_account_row(u) for u in qs]
+    return JsonResponse({"count": len(results), "results": results})
+
+
+@login_required(login_url="landing")
+@require_GET
+def admin_rejected_restaurant_accounts_data(request):
+    """JSON list of rejected restaurant-role accounts (parity with admin_rejected_list.html)."""
+    deny = _staff_json_required(request)
+    if deny:
+        return deny
+
+    qs = (
+        User.objects.filter(
+            userprofile__role="restaurant", userprofile__is_rejected=True
+        )
+        .select_related("userprofile")
+        .order_by("-date_joined")
+    )
+    results = [_serialize_admin_restaurant_account_row(u) for u in qs]
     return JsonResponse({"count": len(results), "results": results})
 
 
@@ -890,4 +1030,381 @@ def report_content_api(request):
         return JsonResponse({"success": True, "report_id": report.id}, status=201)
 
     errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
+    return JsonResponse({"success": False, "errors": errors}, status=400)
+
+
+# --- Restaurant profile, availability, communication (parity with Django HTML forms) ---
+
+
+def _time_for_input(t) -> str:
+    if not t:
+        return ""
+    return t.strftime("%H:%M")
+
+
+def _response_hours_display(t) -> str:
+    if not t:
+        return ""
+    s = t.strftime("%I:%M %p")
+    if s.startswith("0"):
+        s = s[1:]
+    return s
+
+
+def _unavailable_until_for_input(dt) -> str:
+    if not dt:
+        return ""
+    local = timezone.localtime(dt)
+    return local.strftime("%Y-%m-%dT%H:%M")
+
+
+def _parse_unavailable_until(raw) -> str | None:
+    """Return a string suitable for DateTimeField / form parsing, or None to clear."""
+    if raw is None or raw == "":
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    if "T" not in s and " " in s:
+        s = s.replace(" ", "T", 1)
+    dt = parse_datetime(s)
+    if dt is None:
+        return s
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt, timezone.get_current_timezone())
+    return timezone.localtime(dt).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _cuisine_and_price_choices():
+    return {
+        "cuisine_choices": [{"value": v, "label": lbl} for v, lbl in Restaurant.CUISINE_CHOICES],
+        "price_choices": [{"value": v, "label": lbl} for v, lbl in Restaurant.PRICE_CHOICES],
+    }
+
+
+def _owner_visibility_rank(restaurant: Restaurant) -> tuple[int | None, int]:
+    """Rank among active, visible restaurants by composite_score (1 = highest score)."""
+    base = Restaurant.objects.filter(
+        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
+        is_active=True,
+    )
+    total = base.count()
+    if restaurant.composite_score is None:
+        return None, total
+    higher = (
+        base.exclude(pk=restaurant.pk)
+        .filter(composite_score__gt=restaurant.composite_score)
+        .count()
+    )
+    return higher + 1, total
+
+
+def _serialize_owner_restaurant(restaurant: Restaurant) -> dict:
+    rank, total_visible = _owner_visibility_rank(restaurant)
+    review_count = restaurant.reviews.filter(is_deleted=False).count()
+    return {
+        "id": restaurant.id,
+        "name": restaurant.name,
+        "description": restaurant.description or "",
+        "cuisine_type": restaurant.cuisine_type,
+        "price_range": restaurant.price_range,
+        "hours_open": _time_for_input(restaurant.hours_open),
+        "hours_close": _time_for_input(restaurant.hours_close),
+        "address": restaurant.address or "",
+        "phone": restaurant.phone or "",
+        "website": restaurant.website or "",
+        "email": restaurant.email or "",
+        "messaging_enabled": restaurant.messaging_enabled,
+        "response_hours_start": _response_hours_display(restaurant.response_hours_start),
+        "response_hours_end": _response_hours_display(restaurant.response_hours_end),
+        "is_temporarily_unavailable": restaurant.is_temporarily_unavailable,
+        "unavailable_reason": restaurant.unavailable_reason or "",
+        "unavailable_until": _unavailable_until_for_input(restaurant.unavailable_until),
+        "composite_score": float(restaurant.composite_score)
+        if restaurant.composite_score is not None
+        else None,
+        "inspection_rating": float(restaurant.grade_score_latest)
+        if restaurant.grade_score_latest is not None
+        else None,
+        "review_count": review_count,
+        "citywide_rank": rank,
+        "citywide_total": total_visible,
+    }
+
+
+def _search_results_payload(request):
+    query = request.GET.get("q", "").strip()
+    neighborhood = request.GET.get("neighborhood", "").strip()
+    sort_by = normalize_sort_key(request.GET.get("sort_by", "composite_desc"))
+
+    base_restaurants = Restaurant.objects.filter(
+        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True), is_active=True
+    )
+    if query:
+        base_restaurants = base_restaurants.filter(
+            Q(name__icontains=query)
+            | Q(description__icontains=query)
+            | Q(cuisine__icontains=query)
+            | Q(cuisine_type__icontains=query)
+            | Q(cuisine_tags__icontains=query)
+        )
+    if neighborhood:
+        base_restaurants = base_restaurants.filter(
+            Q(neighborhood__iexact=neighborhood) | Q(borough__iexact=neighborhood)
+        )
+
+    base_restaurants = sort_restaurant_queryset(base_restaurants, sort_by)
+
+    results = []
+    for restaurant in base_restaurants:
+        fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
+        if not fallback_cuisine and restaurant.cuisine_tags:
+            fallback_cuisine = ", ".join(str(tag) for tag in restaurant.cuisine_tags[:3])
+        results.append(
+            {
+                "id": restaurant.id,
+                "name": restaurant.name,
+                "description": restaurant.description or "",
+                "cuisine": fallback_cuisine,
+                "neighborhood": restaurant.neighborhood or restaurant.borough or "",
+                "composite_score": restaurant.composite_score,
+                "price_label": restaurant.get_price_range_display(),
+                "rating_score": restaurant.grade_score_latest,
+                "is_flagged": restaurant.is_flagged,
+            }
+        )
+
+    all_neighborhoods = sorted(
+        {
+            r.neighborhood or r.borough
+            for r in Restaurant.objects.filter(
+                Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
+                is_active=True,
+            )
+            if (r.neighborhood or r.borough)
+        }
+    )
+
+    return {
+        "results": results,
+        "query": query,
+        "neighborhood": neighborhood,
+        "sort_by": sort_by,
+        "all_neighborhoods": all_neighborhoods,
+    }
+
+
+def _recommendation_card(restaurant: Restaurant) -> dict:
+    fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
+    if not fallback_cuisine and restaurant.cuisine_tags:
+        fallback_cuisine = ", ".join(str(tag) for tag in restaurant.cuisine_tags[:3])
+    return {
+        "id": restaurant.id,
+        "name": restaurant.name,
+        "description": (restaurant.description or "")[:280],
+        "cuisine": fallback_cuisine,
+        "neighborhood": restaurant.neighborhood or restaurant.borough or "",
+        "composite_score": restaurant.composite_score,
+        "price_label": restaurant.get_price_range_display(),
+        "rating_score": restaurant.grade_score_latest,
+        "is_flagged": restaurant.is_flagged,
+    }
+
+
+@login_required(login_url="landing")
+@require_GET
+def restaurant_search_api(request):
+    """JSON equivalent of `restaurant_search` /search/ (Issue: SPA search results)."""
+    return JsonResponse(_search_results_payload(request))
+
+
+@login_required(login_url="landing")
+@require_GET
+def diner_recommendations_api(request):
+    """Personalized recommendations (parity with `recommendations` view)."""
+    if not _is_diner(request.user):
+        return _json_error("Diners only.", status=403)
+
+    try:
+        request.user.preferences
+    except UserPreference.DoesNotExist:
+        return JsonResponse(
+            {
+                "requires_preferences": True,
+                "message": "Please set your preferences first so we can suggest restaurants for you.",
+                "restaurants": [],
+            }
+        )
+
+    prefs = request.user.preferences
+    nh = (prefs.neighborhood_preference or "").strip()
+    if (
+        not prefs.favorite_cuisines
+        and not prefs.dietary_restrictions
+        and not prefs.price_preference
+        and not nh
+    ):
+        return JsonResponse(
+            {
+                "requires_preferences": True,
+                "message": "Please set your preferences first so we can suggest restaurants for you.",
+                "restaurants": [],
+            }
+        )
+
+    recommended = recommend_restaurants_for_user(request.user, limit=20)
+    message = ""
+    if not recommended:
+        message = (
+            "No restaurants currently match your saved preferences. Try updating your preferences."
+        )
+
+    return JsonResponse(
+        {
+            "requires_preferences": False,
+            "message": message,
+            "restaurants": [_recommendation_card(r) for r in recommended],
+        }
+    )
+
+
+@csrf_exempt
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def restaurant_profile_api(request):
+    """Create or edit restaurant profile (parity with restaurant/create/ and restaurant/edit/)."""
+    if not _is_restaurant_owner(request.user):
+        return _json_error("Restaurant owners only.", status=403)
+
+    base_choices = _cuisine_and_price_choices()
+    existing = Restaurant.objects.filter(owner=request.user).first()
+
+    if request.method == "GET":
+        if not existing:
+            return JsonResponse({"has_restaurant": False, **base_choices})
+        return JsonResponse(
+            {
+                "has_restaurant": True,
+                **base_choices,
+                "restaurant": _serialize_owner_restaurant(existing),
+            }
+        )
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON.")
+
+    if existing:
+        form = RestaurantProfileForm(body, instance=existing)
+        if form.is_valid():
+            profile = request.user.userprofile
+            profile.is_approved = False
+            profile.is_rejected = False
+            profile.save()
+            form.save()
+            return JsonResponse(
+                {"success": True, "restaurant": _serialize_owner_restaurant(existing)}
+            )
+    else:
+        form = RestaurantProfileForm(body)
+        if form.is_valid():
+            restaurant = form.save(commit=False)
+            restaurant.owner = request.user
+            restaurant.save()
+            return JsonResponse(
+                {"success": True, "restaurant": _serialize_owner_restaurant(restaurant)},
+                status=201,
+            )
+
+    errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
+    return JsonResponse({"success": False, "errors": errors}, status=400)
+
+
+@csrf_exempt
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def restaurant_availability_api(request):
+    if not _is_restaurant_owner(request.user):
+        return _json_error("Restaurant owners only.", status=403)
+
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+
+    if request.method == "GET":
+        return JsonResponse(
+            {
+                "is_temporarily_unavailable": restaurant.is_temporarily_unavailable,
+                "unavailable_reason": restaurant.unavailable_reason or "",
+                "unavailable_until": _unavailable_until_for_input(restaurant.unavailable_until),
+            }
+        )
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON.")
+
+    until_parsed = _parse_unavailable_until(body.get("unavailable_until"))
+    data = {
+        "is_temporarily_unavailable": bool(body.get("is_temporarily_unavailable")),
+        "unavailable_reason": body.get("unavailable_reason") or "",
+        "unavailable_until": until_parsed if until_parsed is not None else "",
+    }
+    form = RestaurantAvailabilityForm(data, instance=restaurant)
+    if form.is_valid():
+        form.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "is_temporarily_unavailable": restaurant.is_temporarily_unavailable,
+                "unavailable_reason": restaurant.unavailable_reason or "",
+                "unavailable_until": _unavailable_until_for_input(restaurant.unavailable_until),
+            }
+        )
+    errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
+    return JsonResponse({"success": False, "errors": errors}, status=400)
+
+
+@csrf_exempt
+@login_required(login_url="landing")
+@require_http_methods(["GET", "POST"])
+def restaurant_communication_api(request):
+    if not _is_restaurant_owner(request.user):
+        return _json_error("Restaurant owners only.", status=403)
+
+    restaurant = get_object_or_404(Restaurant, owner=request.user)
+
+    if request.method == "GET":
+        return JsonResponse(
+            {
+                "messaging_enabled": restaurant.messaging_enabled,
+                "response_hours_start": _response_hours_display(restaurant.response_hours_start),
+                "response_hours_end": _response_hours_display(restaurant.response_hours_end),
+            }
+        )
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON.")
+
+    data = {
+        "messaging_enabled": bool(body.get("messaging_enabled", False)),
+        "response_hours_start": body.get("response_hours_start") or "",
+        "response_hours_end": body.get("response_hours_end") or "",
+    }
+    form = RestaurantCommunicationSettingsForm(data, instance=restaurant)
+    if form.is_valid():
+        form.save()
+        return JsonResponse(
+            {
+                "success": True,
+                "messaging_enabled": restaurant.messaging_enabled,
+                "response_hours_start": _response_hours_display(restaurant.response_hours_start),
+                "response_hours_end": _response_hours_display(restaurant.response_hours_end),
+            }
+        )
+    errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
+    if "__all__" in form.errors:
+        errors["__all__"] = [str(e) for e in form.errors["__all__"]]
     return JsonResponse({"success": False, "errors": errors}, status=400)

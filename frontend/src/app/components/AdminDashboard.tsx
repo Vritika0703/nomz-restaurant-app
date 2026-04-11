@@ -8,7 +8,9 @@ export function AdminDashboard({
   onViewModeration, 
   onViewPendingApprovals, 
   onViewPendingUsers,
-  onViewLogs 
+  onViewLogs,
+  onViewApprovedAccounts,
+  onViewRejectedAccounts,
 }: { 
   onLogout: () => void; 
   onNavigateMap: () => void;
@@ -16,6 +18,8 @@ export function AdminDashboard({
   onViewPendingApprovals: () => void; 
   onViewPendingUsers: () => void;
   onViewLogs: () => void;
+  onViewApprovedAccounts: () => void;
+  onViewRejectedAccounts: () => void;
 }) {
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -398,6 +402,71 @@ export function AdminDashboard({
                 color: '#666'
               }}>
                 View system logs and admin activity history
+              </p>
+            </button>
+
+            {/* Approved accounts (JSON + SPA; replaces nomz-admin/approved-accounts/ list for day-to-day use) */}
+            <button
+              type="button"
+              onClick={onViewApprovedAccounts}
+              className="p-8 rounded-lg text-left transition-all"
+              style={{
+                backgroundColor: 'white',
+                border: '2px solid rgba(224, 110, 127, 0.1)',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.borderColor = '#E06E7F';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.1)';
+              }}
+            >
+              <h3 className="text-2xl mb-2" style={{
+                fontFamily: 'Montserrat, sans-serif',
+                color: '#E06E7F'
+              }}>
+                ✓ Approved businesses
+              </h3>
+              <p className="text-sm" style={{
+                fontFamily: 'Montserrat, sans-serif',
+                color: '#666'
+              }}>
+                Restaurant accounts already approved; revoke if needed
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={onViewRejectedAccounts}
+              className="p-8 rounded-lg text-left transition-all"
+              style={{
+                backgroundColor: 'white',
+                border: '2px solid rgba(224, 110, 127, 0.1)',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.borderColor = '#E06E7F';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+                e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.1)';
+              }}
+            >
+              <h3 className="text-2xl mb-2" style={{
+                fontFamily: 'Montserrat, sans-serif',
+                color: '#E06E7F'
+              }}>
+                ✕ Rejected businesses
+              </h3>
+              <p className="text-sm" style={{
+                fontFamily: 'Montserrat, sans-serif',
+                color: '#666'
+              }}>
+                Denied or revoked accounts; approve again if appropriate
               </p>
             </button>
           </div>

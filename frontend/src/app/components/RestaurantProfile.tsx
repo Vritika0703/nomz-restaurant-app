@@ -1,7 +1,10 @@
 import { Footer } from "./Footer";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { apiFetch } from "../api";
 
-export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPhotoManagement, onNavigateMap, onNavigateRestaurantMap, onBack, onManageActivation, onClaimListing }: { onLogout: () => void; username: string; onNavigateMessages: () => void; onPhotoManagement: () => void; onNavigateMap: () => void; onNavigateRestaurantMap?: () => void; onBack: () => void; onManageActivation?: () => void; onClaimListing?: () => void }) {
+type Choice = { value: string; label: string };
+
+export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPhotoManagement, onNavigateMap, onNavigateRestaurantMap, onBack, onManageActivation, onClaimListing, onRestaurantForm }: { onLogout: () => void; username: string; onNavigateMessages: () => void; onPhotoManagement: () => void; onNavigateMap: () => void; onNavigateRestaurantMap?: () => void; onBack: () => void; onManageActivation?: () => void; onClaimListing?: () => void; onRestaurantForm?: () => void }) {
   const [showLogoutText, setShowLogoutText] = useState(false);
   const [showMapTooltip, setShowMapTooltip] = useState(false);
   const [showMessagesTooltip, setShowMessagesTooltip] = useState(false);
@@ -10,35 +13,233 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
   const [isEditing, setIsEditing] = useState(false);
   const [showCommunicationSettings, setShowCommunicationSettings] = useState(false);
   const [showAvailabilitySettings, setShowAvailabilitySettings] = useState(false);
-  
-  // Form state
-  const [businessName, setBusinessName] = useState("Greenstick Corp");
-  const [email, setEmail] = useState("greenstickcorp@gmail.com");
+
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [hasRestaurant, setHasRestaurant] = useState(false);
+  const [cuisineChoices, setCuisineChoices] = useState<Choice[]>([]);
+  const [priceChoices, setPriceChoices] = useState<Choice[]>([]);
+  const [cuisineTypeLabel, setCuisineTypeLabel] = useState("");
+  const [priceRangeLabel, setPriceRangeLabel] = useState("");
+
+  const [businessName, setBusinessName] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [cuisineType, setCuisineType] = useState("Other");
-  const [priceRange, setPriceRange] = useState("Moderate ($$)");
-  const [operatingHours, setOperatingHours] = useState("8:30 AM - 8:30 PM");
-  const [messagingHours, setMessagingHours] = useState("Not set (Always available)");
-  
-  // Communication settings state
+  const [website, setWebsite] = useState("");
+  const [description, setDescription] = useState("");
+  const [cuisineType, setCuisineType] = useState("other");
+  const [priceRange, setPriceRange] = useState("$$");
+  const [hoursOpen, setHoursOpen] = useState("09:00");
+  const [hoursClose, setHoursClose] = useState("21:00");
+  const [operatingHours, setOperatingHours] = useState("");
+  const [messagingHours, setMessagingHours] = useState("");
+
   const [messagingEnabled, setMessagingEnabled] = useState(true);
   const [responseHoursStart, setResponseHoursStart] = useState("");
   const [responseHoursEnd, setResponseHoursEnd] = useState("");
 
-  // Availability settings state
   const [isTemporarilyUnavailable, setIsTemporarilyUnavailable] = useState(false);
   const [unavailabilityReason, setUnavailabilityReason] = useState("");
   const [availableAgainDate, setAvailableAgainDate] = useState("");
 
-  const handleSave = () => {
-    setIsEditing(false);
-    // Here you would typically save to a backend
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [communicationSaveError, setCommunicationSaveError] = useState<string | null>(null);
+  const [availabilitySaveError, setAvailabilitySaveError] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingCommunication, setSavingCommunication] = useState(false);
+  const [savingAvailability, setSavingAvailability] = useState(false);
+
+  const [ownerCompositeScore, setOwnerCompositeScore] = useState<number | null>(null);
+  const [ownerInspectionRating, setOwnerInspectionRating] = useState<number | null>(null);
+  const [ownerReviewCount, setOwnerReviewCount] = useState(0);
+  const [ownerCitywideRank, setOwnerCitywideRank] = useState<number | null>(null);
+  const [ownerCitywideTotal, setOwnerCitywideTotal] = useState(0);
+
+  const applyRestaurantPayload = useCallback((r: Record<string, unknown>, cuisines: Choice[], prices: Choice[]) => {
+    setBusinessName(String(r.name ?? ""));
+    setEmail(String(r.email ?? ""));
+    setPhone(String(r.phone ?? ""));
+    setAddress(String(r.address ?? ""));
+    setWebsite(String(r.website ?? ""));
+    setDescription(String(r.description ?? ""));
+    const ct = String(r.cuisine_type ?? "other");
+    setCuisineType(ct);
+    setCuisineTypeLabel(cuisines.find((c) => c.value === ct)?.label ?? ct);
+    const pr = String(r.price_range ?? "$$");
+    setPriceRange(pr);
+    setPriceRangeLabel(prices.find((p) => p.value === pr)?.label ?? pr);
+    const ho = String(r.hours_open ?? "09:00").slice(0, 5);
+    const hc = String(r.hours_close ?? "21:00").slice(0, 5);
+    setHoursOpen(ho);
+    setHoursClose(hc);
+    setOperatingHours(`${ho} – ${hc}`);
+    setMessagingEnabled(Boolean(r.messaging_enabled));
+    const rs = String(r.response_hours_start ?? "");
+    const re = String(r.response_hours_end ?? "");
+    setResponseHoursStart(rs);
+    setResponseHoursEnd(re);
+    if (rs || re) {
+      setMessagingHours(`${rs || "—"} – ${re || "—"}`);
+    } else {
+      setMessagingHours("Not set (always available)");
+    }
+    setIsTemporarilyUnavailable(Boolean(r.is_temporarily_unavailable));
+    setUnavailabilityReason(String(r.unavailable_reason ?? ""));
+    setAvailableAgainDate(String(r.unavailable_until ?? ""));
+    const cs = r.composite_score;
+    const csNum = typeof cs === "number" ? cs : cs != null && cs !== "" ? Number(cs) : NaN;
+    setOwnerCompositeScore(Number.isFinite(csNum) ? csNum : null);
+    const ir = r.inspection_rating;
+    const irNum = typeof ir === "number" ? ir : ir != null && ir !== "" ? Number(ir) : NaN;
+    setOwnerInspectionRating(Number.isFinite(irNum) ? irNum : null);
+    const rc = r.review_count;
+    setOwnerReviewCount(typeof rc === "number" ? rc : Number(rc) || 0);
+    const cr = r.citywide_rank;
+    setOwnerCitywideRank(typeof cr === "number" ? cr : cr != null && cr !== "" ? Number(cr) : null);
+    const cwt = r.citywide_total;
+    setOwnerCitywideTotal(typeof cwt === "number" ? cwt : Number(cwt) || 0);
+  }, []);
+
+  const loadProfile = useCallback(async () => {
+    setProfileLoading(true);
+    try {
+      const res = await apiFetch("/api/restaurant/profile/");
+      if (!res.ok) return;
+      const d = await res.json();
+      const cuisines: Choice[] = Array.isArray(d.cuisine_choices) ? d.cuisine_choices : [];
+      const prices: Choice[] = Array.isArray(d.price_choices) ? d.price_choices : [];
+      setCuisineChoices(cuisines);
+      setPriceChoices(prices);
+      setHasRestaurant(Boolean(d.has_restaurant));
+      if (d.has_restaurant && d.restaurant) {
+        applyRestaurantPayload(d.restaurant, cuisines, prices);
+      } else {
+        setOwnerCompositeScore(null);
+        setOwnerInspectionRating(null);
+        setOwnerReviewCount(0);
+        setOwnerCitywideRank(null);
+        setOwnerCitywideTotal(0);
+      }
+    } catch {
+      /* keep placeholders */
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [applyRestaurantPayload]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+
+  const handleSave = async () => {
+    if (!hasRestaurant) {
+      onRestaurantForm?.();
+      return;
+    }
+    setProfileSaveError(null);
+    setSavingProfile(true);
+    try {
+      const body = {
+        name: businessName,
+        description,
+        cuisine_type: cuisineType,
+        price_range: priceRange,
+        hours_open: hoursOpen.length > 5 ? hoursOpen.slice(0, 5) : hoursOpen,
+        hours_close: hoursClose.length > 5 ? hoursClose.slice(0, 5) : hoursClose,
+        address,
+        phone,
+        website,
+        email,
+      };
+      const r = await apiFetch("/api/restaurant/profile/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        setProfileSaveError("Could not save profile.");
+        setSavingProfile(false);
+        return;
+      }
+      if (data.restaurant) {
+        applyRestaurantPayload(data.restaurant, cuisineChoices, priceChoices);
+      }
+      setIsEditing(false);
+    } catch {
+      setProfileSaveError("Network error.");
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Reset form fields to original values if needed
+    loadProfile();
+  };
+
+  const saveCommunication = async () => {
+    setCommunicationSaveError(null);
+    setSavingCommunication(true);
+    try {
+      const r = await apiFetch("/api/restaurant/communication/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messaging_enabled: messagingEnabled,
+          response_hours_start: responseHoursStart,
+          response_hours_end: responseHoursEnd,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.success) {
+        setCommunicationSaveError("Could not save communication settings.");
+        setSavingCommunication(false);
+        return;
+      }
+      setMessagingEnabled(Boolean(data.messaging_enabled));
+      setResponseHoursStart(String(data.response_hours_start ?? ""));
+      setResponseHoursEnd(String(data.response_hours_end ?? ""));
+      const rs = String(data.response_hours_start ?? "");
+      const re = String(data.response_hours_end ?? "");
+      if (rs || re) setMessagingHours(`${rs} – ${re}`);
+      else setMessagingHours("Not set (always available)");
+      setShowCommunicationSettings(false);
+    } catch {
+      setCommunicationSaveError("Network error.");
+    } finally {
+      setSavingCommunication(false);
+    }
+  };
+
+  const saveAvailability = async () => {
+    setAvailabilitySaveError(null);
+    setSavingAvailability(true);
+    try {
+      const r = await apiFetch("/api/restaurant/availability/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          is_temporarily_unavailable: isTemporarilyUnavailable,
+          unavailable_reason: unavailabilityReason,
+          unavailable_until: availableAgainDate,
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.success) {
+        setAvailabilitySaveError("Could not save availability.");
+        setSavingAvailability(false);
+        return;
+      }
+      setIsTemporarilyUnavailable(Boolean(data.is_temporarily_unavailable));
+      setUnavailabilityReason(String(data.unavailable_reason ?? ""));
+      setAvailableAgainDate(String(data.unavailable_until ?? ""));
+      setShowAvailabilitySettings(false);
+    } catch {
+      setAvailabilitySaveError("Network error.");
+    } finally {
+      setSavingAvailability(false);
+    }
   };
 
   return (
@@ -190,7 +391,46 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
       {/* Main Content */}
       <main className="w-full py-8 px-8">
         <div className="max-w-7xl mx-auto">
-          {/* Account Pending Banner */}
+          {!hasRestaurant && !profileLoading && (
+            <div className="mb-8 p-5 rounded-lg flex items-start gap-4" style={{ 
+              backgroundColor: 'rgba(224, 110, 127, 0.08)',
+              border: '2px solid rgba(224, 110, 127, 0.2)'
+            }}>
+              <span className="text-2xl">🏪</span>
+              <div className="flex-1">
+                <h3 className="text-base mb-2" style={{ 
+                  fontFamily: 'Montserrat, sans-serif',
+                  color: '#E06E7F'
+                }}>
+                  Create your restaurant profile
+                </h3>
+                <p className="text-sm mb-3" style={{ 
+                  fontFamily: 'Montserrat, sans-serif',
+                  color: '#666'
+                }}>
+                  You do not have a listing yet. Use the full form (same fields as the server create-restaurant flow).
+                </p>
+                {onRestaurantForm && (
+                  <button
+                    type="button"
+                    onClick={onRestaurantForm}
+                    className="px-5 py-2 rounded-lg text-sm transition-all"
+                    style={{
+                      fontFamily: 'Montserrat, sans-serif',
+                      backgroundColor: '#E06E7F',
+                      color: 'white',
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Create restaurant profile
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {hasRestaurant && (
           <div className="mb-8 p-5 rounded-lg flex items-start gap-4" style={{ 
             backgroundColor: 'rgba(224, 110, 127, 0.08)',
             border: '2px solid rgba(224, 110, 127, 0.2)'
@@ -227,6 +467,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
               )}
             </div>
           </div>
+          )}
 
           {/* Hero Section */}
           <div className="mb-8 p-8 rounded-lg" style={{ 
@@ -239,26 +480,26 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#E06E7F'
                 }}>
-                  Greenstick Corp
+                  {profileLoading ? '…' : (businessName || 'Your restaurant')}
                 </h2>
                 <p className="text-sm mb-1" style={{ 
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#666'
                 }}>
-                  Other • Moderate ($$) • 8:30 AM - 8:30 PM
+                  {profileLoading ? '…' : `${cuisineTypeLabel || cuisineType} • ${priceRangeLabel || priceRange} • ${operatingHours || '—'}`}
                 </p>
                 <p className="text-xs" style={{ 
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#999'
                 }}>
-                  greenstickcorp@gmail.com • Member since March 23, 2028
+                  {profileLoading ? '…' : `${email || '—'}${hasRestaurant ? '' : ' • add a listing to get started'}`}
                 </p>
               </div>
               <div className="flex gap-3">
               </div>
             </div>
 
-            {/* Quick Stats */}
+            {/* Quick Stats (from GET /api/restaurant/profile/) */}
             <div className="grid grid-cols-4 gap-6">
               <div className="p-4 rounded-lg text-center" style={{ 
                 backgroundColor: 'rgba(224, 110, 127, 0.05)'
@@ -267,7 +508,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#E06E7F'
                 }}>
-                  70.6
+                  {profileLoading ? '…' : ownerCompositeScore != null ? ownerCompositeScore.toFixed(1) : '—'}
                 </p>
                 <p className="text-xs" style={{ 
                   fontFamily: 'Montserrat, sans-serif',
@@ -283,13 +524,13 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#E06E7F'
                 }}>
-                  --
+                  {profileLoading ? '…' : ownerInspectionRating != null ? ownerInspectionRating.toFixed(1) : '—'}
                 </p>
                 <p className="text-xs" style={{ 
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#666'
                 }}>
-                  Avg Rating
+                  Inspection rating
                 </p>
               </div>
               <div className="p-4 rounded-lg text-center" style={{ 
@@ -299,13 +540,13 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#E06E7F'
                 }}>
-                  #288
+                  {profileLoading ? '…' : ownerCitywideRank != null && ownerCitywideTotal > 0 ? `#${ownerCitywideRank}` : '—'}
                 </p>
                 <p className="text-xs" style={{ 
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#666'
                 }}>
-                  Citywide Rank
+                  Citywide rank ({ownerCitywideTotal || '—'} listed)
                 </p>
               </div>
               <div className="p-4 rounded-lg text-center" style={{ 
@@ -315,13 +556,13 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#E06E7F'
                 }}>
-                  0
+                  {profileLoading ? '…' : ownerReviewCount}
                 </p>
                 <p className="text-xs" style={{ 
                   fontFamily: 'Montserrat, sans-serif',
                   color: '#666'
                 }}>
-                  Pending Reservations
+                  Nomz reviews
                 </p>
               </div>
             </div>
@@ -370,12 +611,13 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
           {/* Tab Content */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Quick Actions */}
+              {hasRestaurant ? (
               <div className="grid grid-cols-4 gap-4">
                 <button
+                  type="button"
                   onClick={onPhotoManagement}
                   className="p-5 rounded-lg text-center transition-all"
-                  style={{ 
+                  style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     fontFamily: 'Montserrat, sans-serif'
@@ -393,9 +635,10 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   <p className="text-sm" style={{ color: '#666' }}>Manage Profile</p>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowAvailabilitySettings(true)}
                   className="p-5 rounded-lg text-center transition-all"
-                  style={{ 
+                  style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     fontFamily: 'Montserrat, sans-serif'
@@ -413,9 +656,10 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   <p className="text-sm" style={{ color: '#666' }}>Availability</p>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowCommunicationSettings(true)}
                   className="p-5 rounded-lg text-center transition-all"
-                  style={{ 
+                  style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     fontFamily: 'Montserrat, sans-serif'
@@ -433,9 +677,10 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   <p className="text-sm" style={{ color: '#666' }}>Settings</p>
                 </button>
                 <button
+                  type="button"
                   onClick={onManageActivation}
                   className="p-5 rounded-lg text-center transition-all"
-                  style={{ 
+                  style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     fontFamily: 'Montserrat, sans-serif'
@@ -453,6 +698,11 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   <p className="text-sm" style={{ color: '#666' }}>Activation</p>
                 </button>
               </div>
+              ) : (
+                <p className="text-sm px-2" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
+                  After you create a listing, you can manage photos, temporary availability, messaging settings, and activation here (same behavior as the Django restaurant dashboard links).
+                </p>
+              )}
 
               {/* Account Status */}
               <div className="p-6 rounded-lg" style={{ 
@@ -559,29 +809,22 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     fontFamily: 'Montserrat, sans-serif',
                     color: '#E06E7F'
                   }}>
-                    70.6<span className="text-2xl text-gray-400">/100</span>
+                    {ownerCompositeScore != null ? ownerCompositeScore.toFixed(1) : '—'}<span className="text-2xl text-gray-400">/100</span>
                   </p>
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs" style={{ 
                       fontFamily: 'Montserrat, sans-serif',
                       color: '#666'
                     }}>
-                      <span>Latest grade:</span>
-                      <span style={{ color: '#999' }}>N/A</span>
+                      <span>Inspection-based rating:</span>
+                      <span style={{ color: '#999' }}>{ownerInspectionRating != null ? ownerInspectionRating.toFixed(1) : '—'}</span>
                     </div>
                     <div className="flex justify-between text-xs" style={{ 
                       fontFamily: 'Montserrat, sans-serif',
                       color: '#666'
                     }}>
-                      <span>Last inspection:</span>
-                      <span style={{ color: '#999' }}>Not available</span>
-                    </div>
-                    <div className="flex justify-between text-xs" style={{ 
-                      fontFamily: 'Montserrat, sans-serif',
-                      color: '#666'
-                    }}>
-                      <span>Reviews used:</span>
-                      <span style={{ color: '#999' }}>0 (confidence 0%)</span>
+                      <span>Nomz reviews:</span>
+                      <span style={{ color: '#999' }}>{ownerReviewCount}</span>
                     </div>
                   </div>
                 </div>
@@ -595,41 +838,35 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     fontFamily: 'Montserrat, sans-serif',
                     color: '#333'
                   }}>
-                    Neighborhood Comparison
+                    Citywide comparison
                   </h4>
                   <p className="text-xs mb-3" style={{ 
                     fontFamily: 'Montserrat, sans-serif',
                     color: '#666'
                   }}>
-                    Scope: <span style={{ color: '#333' }}>citywide</span>
+                    Among active listings visible in search (same pool as map/search APIs).
                   </p>
                   <p className="text-4xl mb-4" style={{ 
                     fontFamily: 'Montserrat, sans-serif',
                     color: '#E06E7F'
                   }}>
-                    #288 <span className="text-xl text-gray-400">/ 801</span>
+                    {ownerCitywideRank != null && ownerCitywideTotal > 0 ? (
+                      <>#{ownerCitywideRank} <span className="text-xl text-gray-400">/ {ownerCitywideTotal}</span></>
+                    ) : (
+                      '—'
+                    )}
                   </p>
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs" style={{ 
                       fontFamily: 'Montserrat, sans-serif',
                       color: '#666'
                     }}>
-                      <span>Percentile:</span>
-                      <span style={{ color: '#333' }}>64.2%</span>
-                    </div>
-                    <div className="flex justify-between text-xs" style={{ 
-                      fontFamily: 'Montserrat, sans-serif',
-                      color: '#666'
-                    }}>
-                      <span>Neighborhood average:</span>
-                      <span style={{ color: '#333' }}>72.98</span>
-                    </div>
-                    <div className="flex justify-between text-xs" style={{ 
-                      fontFamily: 'Montserrat, sans-serif',
-                      color: '#666'
-                    }}>
-                      <span>Delta vs average:</span>
-                      <span style={{ color: '#DC2626' }}>-2.43</span>
+                      <span>Approx. percentile (by score rank):</span>
+                      <span style={{ color: '#333' }}>
+                        {ownerCitywideRank != null && ownerCitywideTotal > 1
+                          ? `${Math.round(((ownerCitywideTotal - ownerCitywideRank + 1) / ownerCitywideTotal) * 1000) / 10}%`
+                          : '—'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -674,7 +911,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       fontFamily: 'Montserrat, sans-serif',
                       color: '#999'
                     }}>
-                      0 review(s), confidence 0.0% | Weighted contribution: 12.00
+                      {ownerReviewCount} review(s) on Nomz (detail breakdown is maintained server-side for the composite score).
                     </p>
                   </div>
 
@@ -832,20 +1069,42 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     Business Information
                   </h3>
                   {!isEditing && (
-                    <button
-                      className="py-2 px-6 rounded-lg text-sm transition-all"
-                      style={{ 
-                        backgroundColor: '#E06E7F',
-                        color: 'white',
-                        fontFamily: 'Montserrat, sans-serif',
-                        border: 'none'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#C85B6D'}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E06E7F'}
-                      onClick={() => setIsEditing(true)}
-                    >
-                      Edit Information
-                    </button>
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      {hasRestaurant && (
+                        <button
+                          type="button"
+                          className="py-2 px-6 rounded-lg text-sm transition-all"
+                          style={{ 
+                            backgroundColor: '#E06E7F',
+                            color: 'white',
+                            fontFamily: 'Montserrat, sans-serif',
+                            border: 'none',
+                            cursor: 'pointer',
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#C85B6D'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E06E7F'}
+                          onClick={() => setIsEditing(true)}
+                        >
+                          Edit Information
+                        </button>
+                      )}
+                      {onRestaurantForm && (
+                        <button
+                          type="button"
+                          className="py-2 px-6 rounded-lg text-sm transition-all"
+                          style={{ 
+                            backgroundColor: 'white',
+                            color: '#E06E7F',
+                            fontFamily: 'Montserrat, sans-serif',
+                            border: '2px solid rgba(224, 110, 127, 0.35)',
+                            cursor: 'pointer',
+                          }}
+                          onClick={onRestaurantForm}
+                        >
+                          {hasRestaurant ? 'Full profile form' : 'Create profile'}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-x-12 gap-y-6">
@@ -892,7 +1151,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       fontFamily: 'Montserrat, sans-serif',
                       color: '#666'
                     }}>
-                      greenstickcorp
+                      {username}
                     </p>
                   </div>
 
@@ -1031,10 +1290,13 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       Cuisine Type
                     </p>
                     {isEditing ? (
-                      <input
-                        type="text"
+                      <select
                         value={cuisineType}
-                        onChange={(e) => setCuisineType(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setCuisineType(v);
+                          setCuisineTypeLabel(cuisineChoices.find((c) => c.value === v)?.label ?? v);
+                        }}
                         className="w-full px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
                         style={{ 
                           borderColor: 'rgba(224, 110, 127, 0.2)', 
@@ -1044,13 +1306,17 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                         }}
                         onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
                         onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
-                      />
+                      >
+                        {cuisineChoices.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
                     ) : (
                       <p className="text-sm" style={{ 
                         fontFamily: 'Montserrat, sans-serif',
                         color: '#333'
                       }}>
-                        {cuisineType}
+                        {cuisineTypeLabel || cuisineType}
                       </p>
                     )}
                   </div>
@@ -1065,7 +1331,11 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     {isEditing ? (
                       <select
                         value={priceRange}
-                        onChange={(e) => setPriceRange(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setPriceRange(v);
+                          setPriceRangeLabel(priceChoices.find((p) => p.value === v)?.label ?? v);
+                        }}
                         className="w-full px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
                         style={{ 
                           borderColor: 'rgba(224, 110, 127, 0.2)', 
@@ -1076,17 +1346,16 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                         onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
                         onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
                       >
-                        <option value="Budget ($)">Budget ($)</option>
-                        <option value="Moderate ($$)">Moderate ($$)</option>
-                        <option value="Upscale ($$$)">Upscale ($$$)</option>
-                        <option value="Fine Dining ($$$$)">Fine Dining ($$$$)</option>
+                        {priceChoices.map((p) => (
+                          <option key={p.value} value={p.value}>{p.label}</option>
+                        ))}
                       </select>
                     ) : (
                       <p className="text-sm" style={{ 
                         fontFamily: 'Montserrat, sans-serif',
                         color: '#333'
                       }}>
-                        {priceRange}
+                        {priceRangeLabel || priceRange}
                       </p>
                     )}
                   </div>
@@ -1099,21 +1368,41 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       Operating Hours
                     </p>
                     {isEditing ? (
-                      <input
-                        type="text"
-                        value={operatingHours}
-                        onChange={(e) => setOperatingHours(e.target.value)}
-                        placeholder="e.g. 8:00 AM - 10:00 PM"
-                        className="w-full px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
-                        style={{ 
-                          borderColor: 'rgba(224, 110, 127, 0.2)', 
-                          fontFamily: 'Montserrat, sans-serif',
-                          backgroundColor: 'transparent',
-                          color: '#333'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
-                        onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
-                      />
+                      <div className="flex flex-wrap gap-3 items-center">
+                        <input
+                          type="time"
+                          value={hoursOpen.length > 5 ? hoursOpen.slice(0, 5) : hoursOpen}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setHoursOpen(v);
+                            setOperatingHours(`${v} – ${hoursClose.length > 5 ? hoursClose.slice(0, 5) : hoursClose}`);
+                          }}
+                          className="px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
+                          style={{ 
+                            borderColor: 'rgba(224, 110, 127, 0.2)', 
+                            fontFamily: 'Montserrat, sans-serif',
+                            backgroundColor: 'transparent',
+                            color: '#333'
+                          }}
+                        />
+                        <span className="text-xs" style={{ color: '#999' }}>to</span>
+                        <input
+                          type="time"
+                          value={hoursClose.length > 5 ? hoursClose.slice(0, 5) : hoursClose}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setHoursClose(v);
+                            setOperatingHours(`${hoursOpen.length > 5 ? hoursOpen.slice(0, 5) : hoursOpen} – ${v}`);
+                          }}
+                          className="px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
+                          style={{ 
+                            borderColor: 'rgba(224, 110, 127, 0.2)', 
+                            fontFamily: 'Montserrat, sans-serif',
+                            backgroundColor: 'transparent',
+                            color: '#333'
+                          }}
+                        />
+                      </div>
                     ) : (
                       <p className="text-sm" style={{ 
                         fontFamily: 'Montserrat, sans-serif',
@@ -1131,28 +1420,15 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     }}>
                       Messaging Hours
                     </p>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={messagingHours}
-                        onChange={(e) => setMessagingHours(e.target.value)}
-                        placeholder="e.g. 9:00 AM - 6:00 PM"
-                        className="w-full px-4 py-2.5 border-2 rounded-lg focus:outline-none transition-all text-sm"
-                        style={{ 
-                          borderColor: 'rgba(224, 110, 127, 0.2)', 
-                          fontFamily: 'Montserrat, sans-serif',
-                          backgroundColor: 'transparent',
-                          color: '#333'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
-                        onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
-                      />
-                    ) : (
-                      <p className="text-sm" style={{ 
-                        fontFamily: 'Montserrat, sans-serif',
-                        color: '#333'
-                      }}>
-                        {messagingHours}
+                    <p className="text-sm" style={{ 
+                      fontFamily: 'Montserrat, sans-serif',
+                      color: '#333'
+                    }}>
+                      {messagingHours}
+                    </p>
+                    {isEditing && (
+                      <p className="text-xs mt-1" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>
+                        Edit response hours under Overview → Settings (same fields as the Django communication page).
                       </p>
                     )}
                   </div>
@@ -1190,16 +1466,25 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                 </div>
               </div>
 
+              {profileSaveError && (
+                <p className="text-sm px-2" style={{ color: '#b91c1c', fontFamily: 'Montserrat, sans-serif' }}>
+                  {profileSaveError}
+                </p>
+              )}
               {/* Action Buttons */}
               {isEditing && (
                 <div className="flex justify-end gap-3">
                   <button
+                    type="button"
+                    disabled={savingProfile}
                     className="py-3 px-8 rounded-lg text-sm transition-all"
                     style={{ 
                       backgroundColor: 'white',
                       color: '#E06E7F',
                       border: '2px solid rgba(224, 110, 127, 0.3)',
-                      fontFamily: 'Montserrat, sans-serif'
+                      fontFamily: 'Montserrat, sans-serif',
+                      cursor: savingProfile ? 'wait' : 'pointer',
+                      opacity: savingProfile ? 0.7 : 1,
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
@@ -1214,18 +1499,22 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     Cancel
                   </button>
                   <button
+                    type="button"
+                    disabled={savingProfile}
                     className="py-3 px-8 rounded-lg text-sm transition-all"
                     style={{ 
                       backgroundColor: '#E06E7F',
                       color: 'white',
                       fontFamily: 'Montserrat, sans-serif',
-                      border: 'none'
+                      border: 'none',
+                      cursor: savingProfile ? 'wait' : 'pointer',
+                      opacity: savingProfile ? 0.7 : 1,
                     }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#C85B6D'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E06E7F'}
-                    onClick={handleSave}
+                    onClick={() => void handleSave()}
                   >
-                    Save Changes
+                    {savingProfile ? 'Saving…' : 'Save Changes'}
                   </button>
                 </div>
               )}
@@ -1396,29 +1685,40 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {communicationSaveError && (
+                <p className="text-sm mb-3" style={{ color: '#b91c1c', fontFamily: 'Montserrat, sans-serif' }}>
+                  {communicationSaveError}
+                </p>
+              )}
               <div className="flex justify-start gap-3">
                 <button
+                  type="button"
+                  disabled={savingCommunication}
                   className="py-3 px-8 rounded-lg text-sm transition-all"
                   style={{ 
                     backgroundColor: '#E06E7F',
                     color: 'white',
                     fontFamily: 'Montserrat, sans-serif',
-                    border: 'none'
+                    border: 'none',
+                    cursor: savingCommunication ? 'wait' : 'pointer',
+                    opacity: savingCommunication ? 0.7 : 1,
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#C85B6D'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E06E7F'}
-                  onClick={() => setShowCommunicationSettings(false)}
+                  onClick={() => void saveCommunication()}
                 >
-                  Save Settings
+                  {savingCommunication ? 'Saving…' : 'Save Settings'}
                 </button>
                 <button
+                  type="button"
+                  disabled={savingCommunication}
                   className="py-3 px-8 rounded-lg text-sm transition-all"
-                  style={{ 
+                  style={{
                     backgroundColor: 'white',
                     color: '#666',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
-                    fontFamily: 'Montserrat, sans-serif'
+                    fontFamily: 'Montserrat, sans-serif',
+                    cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
@@ -1428,7 +1728,11 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     e.currentTarget.style.backgroundColor = 'white';
                     e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.2)';
                   }}
-                  onClick={() => setShowCommunicationSettings(false)}
+                  onClick={() => {
+                    setCommunicationSaveError(null);
+                    setShowCommunicationSettings(false);
+                    void loadProfile();
+                  }}
                 >
                   Cancel
                 </button>
@@ -1591,29 +1895,40 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                 </ul>
               </div>
 
-              {/* Action Buttons */}
+              {availabilitySaveError && (
+                <p className="text-sm mb-3" style={{ color: '#b91c1c', fontFamily: 'Montserrat, sans-serif' }}>
+                  {availabilitySaveError}
+                </p>
+              )}
               <div className="flex justify-start gap-3">
                 <button
+                  type="button"
+                  disabled={savingAvailability}
                   className="py-3 px-8 rounded-lg text-sm transition-all"
                   style={{ 
                     backgroundColor: '#E06E7F',
                     color: 'white',
                     fontFamily: 'Montserrat, sans-serif',
-                    border: 'none'
+                    border: 'none',
+                    cursor: savingAvailability ? 'wait' : 'pointer',
+                    opacity: savingAvailability ? 0.7 : 1,
                   }}
                   onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#C85B6D'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#E06E7F'}
-                  onClick={() => setShowAvailabilitySettings(false)}
+                  onClick={() => void saveAvailability()}
                 >
-                  Save Changes
+                  {savingAvailability ? 'Saving…' : 'Save Changes'}
                 </button>
                 <button
+                  type="button"
+                  disabled={savingAvailability}
                   className="py-3 px-8 rounded-lg text-sm transition-all"
                   style={{ 
                     backgroundColor: 'white',
                     color: '#666',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
-                    fontFamily: 'Montserrat, sans-serif'
+                    fontFamily: 'Montserrat, sans-serif',
+                    cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
@@ -1623,7 +1938,11 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     e.currentTarget.style.backgroundColor = 'white';
                     e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.2)';
                   }}
-                  onClick={() => setShowAvailabilitySettings(false)}
+                  onClick={() => {
+                    setAvailabilitySaveError(null);
+                    setShowAvailabilitySettings(false);
+                    void loadProfile();
+                  }}
                 >
                   Back to Profile
                 </button>
