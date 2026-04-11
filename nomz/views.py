@@ -294,8 +294,35 @@ def home(request):
             if request.user.userprofile.role == "restaurant":
                 return redirect("profile")
 
+    recommended_restaurants = []
+    recommendation_message = ""
+
+    if request.user.is_authenticated and not (
+        request.user.is_staff or request.user.is_superuser
+    ):
+        try:
+            preferences = request.user.preferences
+        except UserPreference.DoesNotExist:
+            preferences = None
+
+        if preferences:
+            recommended_restaurants = recommend_restaurants_for_user(
+                request.user, limit=4
+            )
+            if not recommended_restaurants:
+                recommendation_message = (
+                    "No restaurants currently match your saved preferences. "
+                    "Try updating your preferences."
+                )
+        else:
+            recommendation_message = (
+                "Set your dining preferences so we can recommend restaurants for you."
+            )
+
     context = {
         "title": "Home",
+        "recommended_restaurants": recommended_restaurants,
+        "recommendation_message": recommendation_message,
     }
     return render(request, "nomz/home.html", context)
 
@@ -818,13 +845,23 @@ def edit_restaurant_profile(request):
         form = RestaurantProfileForm(request.POST, instance=restaurant)
         if form.is_valid():
             profile = request.user.userprofile
-            profile.is_approved = False
-            profile.is_rejected = False
-            profile.save()
-            form.save()
-            messages.success(
-                request, "Restaurant profile updated and re-submitted for approval!"
+
+            major_fields = {"name", "address", "phone", "website", "email"}
+            requires_approval = any(
+                field in major_fields for field in form.changed_data
             )
+
+            if requires_approval:
+                profile.is_approved = False
+                profile.is_rejected = False
+                profile.save()
+                messages.success(
+                    request, "Restaurant profile updated and re-submitted for approval!"
+                )
+            else:
+                messages.success(request, "Restaurant profile updated successfully!")
+
+            form.save()
             return redirect("profile")
     else:
         form = RestaurantProfileForm(instance=restaurant)
