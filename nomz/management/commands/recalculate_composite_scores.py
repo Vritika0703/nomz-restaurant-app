@@ -39,12 +39,21 @@ class Command(BaseCommand):
 
         total = queryset.count()
         updated = 0
+        anomaly_flags = 0
         for restaurant in queryset.iterator():
-            refresh_restaurant_composite(restaurant)
+            score_data = refresh_restaurant_composite(
+                restaurant,
+                trigger_source="management_command",
+                trigger_note="recalculate_composite_scores",
+            )
             updated += 1
+            anomaly_flags += int(score_data.get("anomaly_count") or 0)
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Recalculated composite scores for {updated}/{total} restaurant(s)."
+                (
+                    f"Recalculated composite scores for {updated}/{total} restaurant(s). "
+                    f"Anomaly flags detected: {anomaly_flags}."
+                )
             )
         )

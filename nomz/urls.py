@@ -132,6 +132,16 @@ urlpatterns = [
         name="toggle_user_status",
     ),
     path(
+        "nomz-admin/composite-scores/recalculate/",
+        views.admin_recalculate_scores,
+        name="admin_recalculate_scores",
+    ),
+    path(
+        "nomz-admin/composite-scores/anomalies/<int:anomaly_id>/resolve/",
+        views.admin_resolve_score_anomaly,
+        name="admin_resolve_score_anomaly",
+    ),
+    path(
         "dashboard-action/users/<int:user_id>/toggle/",
         views.admin_toggle_user_status,
         name="admin_toggle_user_status",

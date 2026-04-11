@@ -122,7 +122,10 @@ def handle_review_for_recommendation_learning(
         recommendation_history.calculate_accuracy_from_interactions()
 
     # 3. Refresh restaurant composite score (existing behavior)
-    refresh_restaurant_composite(instance.restaurant)
+    refresh_restaurant_composite(
+        instance.restaurant,
+        trigger_source="signal_review",
+    )
 
     # 4. Trigger recommendation recalculation
     recalculate_user_recommendation_model(instance.user.id)
@@ -268,19 +271,28 @@ def _adjust_weights_for_better_accuracy(user, prefs, recent_recommendations):
 
 @receiver(post_delete, sender=Review)
 def refresh_score_on_review_delete(sender, instance, **kwargs):
-    refresh_restaurant_composite(instance.restaurant)
+    refresh_restaurant_composite(
+        instance.restaurant,
+        trigger_source="signal_review_delete",
+    )
 
 
 @receiver(post_save, sender=InspectionRecord)
 def refresh_score_on_inspection_save(sender, instance, raw=False, **kwargs):
     if raw:
         return
-    refresh_restaurant_composite(instance.restaurant)
+    refresh_restaurant_composite(
+        instance.restaurant,
+        trigger_source="signal_inspection",
+    )
 
 
 @receiver(post_delete, sender=InspectionRecord)
 def refresh_score_on_inspection_delete(sender, instance, **kwargs):
-    refresh_restaurant_composite(instance.restaurant)
+    refresh_restaurant_composite(
+        instance.restaurant,
+        trigger_source="signal_inspection_delete",
+    )
 
 
 @receiver(post_save, sender=Message)

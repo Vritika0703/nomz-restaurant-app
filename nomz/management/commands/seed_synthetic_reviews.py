@@ -187,7 +187,11 @@ class Command(BaseCommand):
         for restaurant in Restaurant.objects.filter(id__in=touched_restaurant_ids).only(
             "id"
         ):
-            refresh_restaurant_composite(restaurant)
+            refresh_restaurant_composite(
+                restaurant,
+                trigger_source="management_command",
+                trigger_note="seed_synthetic_reviews",
+            )
             refreshed += 1
 
         self.stdout.write(

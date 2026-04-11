@@ -1,6 +1,7 @@
 from django.http import HttpResponseForbidden, JsonResponse
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
+from datetime import timedelta
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -9,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q, Avg
 from django.views.decorators.http import require_http_methods, require_POST
 from nomz.ingestion.utils.score import compute_restaurant_composite_score
-from nomz.scoring import refresh_restaurant_composite
+from nomz.scoring import SCORE_ALGORITHM_VERSION, refresh_restaurant_composite
 from .forms import (
     UserRegisterForm,
     AdminLoginForm,
@@ -27,6 +28,8 @@ from .forms import (
 from django.contrib.auth.models import User
 from .models import (
     Conversation,
+    CompositeScoreAnomaly,
+    CompositeScoreHistory,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
@@ -656,6 +659,42 @@ def dashboard(request):
         ).count()
         # Moderation metrics
         pending_report_count = ModerationReport.objects.filter(status="PENDING").count()
+
+        recent_score_history = list(
+            CompositeScoreHistory.objects.select_related(
+                "restaurant",
+                "triggered_by",
+            ).order_by("-calculated_at")[:12]
+        )
+        open_score_anomalies = list(
+            CompositeScoreAnomaly.objects.select_related(
+                "restaurant",
+                "score_history",
+            )
+            .filter(is_resolved=False)
+            .order_by("-created_at")[:12]
+        )
+        open_score_anomaly_total = CompositeScoreAnomaly.objects.filter(
+            is_resolved=False
+        ).count()
+        last_day = timezone.now() - timedelta(days=1)
+        score_recalcs_last_day = CompositeScoreHistory.objects.filter(
+            calculated_at__gte=last_day
+        ).count()
+        restaurants_recalculated_last_day = (
+            CompositeScoreHistory.objects.filter(calculated_at__gte=last_day)
+            .values("restaurant_id")
+            .distinct()
+            .count()
+        )
+        high_severity_anomalies = CompositeScoreAnomaly.objects.filter(
+            is_resolved=False,
+            severity__in=["HIGH", "CRITICAL"],
+        ).count()
+        score_recalc_restaurants = Restaurant.objects.order_by("name", "id").values(
+            "id", "name"
+        )
+
         context.update(
             {
                 "all_users": all_users,
@@ -668,12 +707,133 @@ def dashboard(request):
                 "pending_approval_count": pending_approval_count,
                 "rejected_business_count": rejected_business_count,
                 "pending_report_count": pending_report_count,
+                "recent_score_history": recent_score_history,
+                "open_score_anomalies": open_score_anomalies,
+                "open_score_anomaly_count": open_score_anomaly_total,
+                "score_recalcs_last_day": score_recalcs_last_day,
+                "restaurants_recalculated_last_day": restaurants_recalculated_last_day,
+                "high_severity_anomalies": high_severity_anomalies,
+                "score_algorithm_version": SCORE_ALGORITHM_VERSION,
+                "score_recalc_restaurants": score_recalc_restaurants,
             }
         )
         return render(request, "nomz/admin_dashboard.html", context)
     else:
         # This matches the user_dashboard.html where your taste profile code is
         return render(request, "nomz/user_dashboard.html", context)
+
+
+@staff_member_required
+@require_POST
+def admin_recalculate_scores(request):
+    restaurant_id = (request.POST.get("restaurant_id") or "").strip()
+    restaurant_name = (request.POST.get("restaurant_name") or "").strip()
+
+    queryset = Restaurant.objects.all().order_by("id")
+    if restaurant_id:
+        try:
+            queryset = queryset.filter(id=int(restaurant_id))
+        except ValueError:
+            messages.error(request, "Restaurant ID must be a number.")
+            return redirect("dashboard")
+    elif restaurant_name:
+        exact_matches = queryset.filter(name__iexact=restaurant_name)
+        exact_count = exact_matches.count()
+        if exact_count == 1:
+            queryset = exact_matches
+        elif exact_count > 1:
+            messages.error(
+                request,
+                "Multiple restaurants share that name. Please pick one from the dropdown.",
+            )
+            return redirect("dashboard")
+        else:
+            partial_matches = queryset.filter(name__icontains=restaurant_name)
+            partial_count = partial_matches.count()
+            if partial_count == 1:
+                queryset = partial_matches
+            elif partial_count > 1:
+                messages.error(
+                    request,
+                    "Multiple restaurants match that name. Please pick one from the dropdown.",
+                )
+                return redirect("dashboard")
+            else:
+                messages.error(request, "No restaurant found with that name.")
+                return redirect("dashboard")
+    # If no id/name is provided, recompute for ALL restaurants by design.
+
+    total = queryset.count()
+    if total == 0:
+        messages.info(request, "No restaurants matched the recalculation criteria.")
+        return redirect("dashboard")
+
+    updated = 0
+    anomaly_count = 0
+    for restaurant in queryset.iterator():
+        score_data = refresh_restaurant_composite(
+            restaurant,
+            trigger_source="admin_dashboard",
+            triggered_by=request.user,
+            trigger_note="Admin dashboard trigger",
+        )
+        updated += 1
+        anomaly_count += int(score_data.get("anomaly_count") or 0)
+
+    SystemAuditLog.objects.create(
+        actor_user=request.user,
+        actor_username=request.user.username,
+        level="INFO",
+        action="admin_composite_score_recalculation",
+        request_path=request.path,
+        http_method=request.method,
+        ip_address=request.META.get("REMOTE_ADDR"),
+        metadata={
+            "restaurant_id_filter": restaurant_id or None,
+            "restaurant_name_filter": restaurant_name or None,
+            "restaurants_updated": updated,
+            "anomaly_flags_detected": anomaly_count,
+        },
+    )
+
+    messages.success(
+        request,
+        (
+            f"Recalculated scores for {updated}/{total} restaurant(s). "
+            f"Detected {anomaly_count} anomaly flag(s)."
+        ),
+    )
+    return redirect("dashboard")
+
+
+@staff_member_required
+@require_POST
+def admin_resolve_score_anomaly(request, anomaly_id):
+    anomaly = get_object_or_404(CompositeScoreAnomaly, id=anomaly_id)
+    if not anomaly.is_resolved:
+        anomaly.is_resolved = True
+        anomaly.resolved_at = timezone.now()
+        anomaly.resolved_by = request.user
+        anomaly.save(update_fields=["is_resolved", "resolved_at", "resolved_by"])
+
+        SystemAuditLog.objects.create(
+            actor_user=request.user,
+            actor_username=request.user.username,
+            level="INFO",
+            action="admin_score_anomaly_resolved",
+            request_path=request.path,
+            http_method=request.method,
+            ip_address=request.META.get("REMOTE_ADDR"),
+            metadata={
+                "anomaly_id": anomaly.id,
+                "restaurant_id": anomaly.restaurant_id,
+                "anomaly_type": anomaly.anomaly_type,
+            },
+        )
+        messages.success(request, f"Anomaly #{anomaly.id} marked as resolved.")
+    else:
+        messages.info(request, f"Anomaly #{anomaly.id} is already resolved.")
+    return redirect("dashboard")
 
 
 def is_restaurant_owner(user):

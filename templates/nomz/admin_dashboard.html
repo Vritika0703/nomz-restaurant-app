@@ -140,6 +140,175 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Composite Scoring Governance -->
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header text-dark py-3 border-bottom" style="background: linear-gradient(135deg, var(--accent-color) 0%, var(--primary-color) 100%) !important;">
+                    <h6 class="mb-0"><i class="fas fa-calculator me-2"></i>Composite Score Governance</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4 mb-2">
+                            <div class="p-3 rounded border h-100">
+                                <p class="small text-muted mb-1">Algorithm Version</p>
+                                <h5 class="mb-0">{{ score_algorithm_version }}</h5>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="p-3 rounded border h-100">
+                                <p class="small text-muted mb-1">Recalcs (24h)</p>
+                                <h5 class="mb-0">{{ score_recalcs_last_day }}</h5>
+                                <p class="small text-muted mb-0">Across {{ restaurants_recalculated_last_day }} restaurant(s)</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-2">
+                            <div class="p-3 rounded border h-100">
+                                <p class="small text-muted mb-1">Open Score Anomalies</p>
+                                <h5 class="mb-0">{{ open_score_anomaly_count }}</h5>
+                                <p class="small text-muted mb-0">High/Critical: {{ high_severity_anomalies }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="post" action="{% url 'admin_recalculate_scores' %}" class="row g-2 align-items-end">
+                        {% csrf_token %}
+                        <div class="col-md-8">
+                            <label for="restaurant_name" class="form-label mb-1 small text-muted">Restaurant name (optional)</label>
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="restaurant_name"
+                                name="restaurant_name"
+                                list="restaurant-name-options"
+                                placeholder="Type a restaurant name"
+                            >
+                            <datalist id="restaurant-name-options">
+                                {% for restaurant_option in score_recalc_restaurants %}
+                                <option value="{{ restaurant_option.name }}"></option>
+                                {% endfor %}
+                            </datalist>
+                        </div>
+                        <div class="col-md-4 text-md-end">
+                            <button type="submit" class="btn btn-primary px-4 shadow-sm">
+                                <i class="fas fa-sync-alt me-1"></i> Recompute Composite Scores
+                            </button>
+                        </div>
+                        <div class="col-12">
+                            <p class="small text-muted mb-0">
+                                Leave both fields blank to recalculate scores for <strong>all restaurants</strong>.
+                            </p>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header text-dark py-3 border-bottom" style="background: linear-gradient(135deg, var(--accent-color) 0%, var(--primary-color) 100%) !important;">
+                    <h6 class="mb-0"><i class="fas fa-history me-2"></i>Recent Composite Score History</h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_score_history %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="ps-3">When</th>
+                                    <th>Restaurant</th>
+                                    <th>Score</th>
+                                    <th>Δ</th>
+                                    <th>Trigger</th>
+                                    <th>Anomaly</th>
+                                    <th class="pe-3">By</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in recent_score_history %}
+                                <tr>
+                                    <td class="ps-3 small">{{ item.calculated_at|date:"M d, Y H:i" }}</td>
+                                    <td>{{ item.restaurant.name }}</td>
+                                    <td>{{ item.composite_score|default:"-" }}</td>
+                                    <td>
+                                        {% if item.delta_from_previous is not None %}
+                                        <span class="{% if item.delta_from_previous >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                            {{ item.delta_from_previous|floatformat:2 }}
+                                        </span>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    <td><span class="badge bg-light text-dark">{{ item.get_trigger_source_display }}</span></td>
+                                    <td>
+                                        {% if item.is_anomalous %}
+                                        <span class="badge bg-warning text-dark">Flagged</span>
+                                        {% else %}
+                                        <span class="badge bg-success">OK</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="pe-3">{{ item.triggered_by.username|default:"system" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted p-3 mb-0">No score history has been recorded yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header text-dark py-3 border-bottom" style="background: linear-gradient(135deg, var(--accent-color) 0%, var(--primary-color) 100%) !important;">
+                    <h6 class="mb-0"><i class="fas fa-search me-2"></i>Open Score Anomalies</h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if open_score_anomalies %}
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th class="ps-3">Created</th>
+                                    <th>Restaurant</th>
+                                    <th>Type</th>
+                                    <th>Severity</th>
+                                    <th>Details</th>
+                                    <th class="pe-3">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for anomaly in open_score_anomalies %}
+                                <tr>
+                                    <td class="ps-3 small">{{ anomaly.created_at|date:"M d, Y H:i" }}</td>
+                                    <td>{{ anomaly.restaurant.name }}</td>
+                                    <td>{{ anomaly.get_anomaly_type_display }}</td>
+                                    <td>
+                                        <span class="badge {% if anomaly.severity == 'HIGH' or anomaly.severity == 'CRITICAL' %}bg-danger{% elif anomaly.severity == 'MEDIUM' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                            {{ anomaly.severity }}
+                                        </span>
+                                    </td>
+                                    <td class="small">
+                                        {% if anomaly.details.message %}
+                                        {{ anomaly.details.message }}
+                                        {% else %}
+                                        {{ anomaly.details }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="pe-3">
+                                        <form method="post" action="{% url 'admin_resolve_score_anomaly' anomaly.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-primary">Mark Resolved</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted p-3 mb-0">No open score anomalies.</p>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- Secure Admin Actions -->
             <div class="card shadow-sm border-0">
                 <div class="card-header text-dark py-3 border-bottom" style="background: linear-gradient(135deg, var(--accent-color) 0%, var(--primary-color) 100%) !important;">

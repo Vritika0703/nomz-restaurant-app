@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 
 from .scoring import refresh_restaurant_composite
 from .models import (
+    CompositeScoreAnomaly,
+    CompositeScoreHistory,
     Restaurant,
     RestaurantOwnershipClaim,
     MessageNotification,
@@ -24,12 +26,22 @@ class RestaurantAdmin(admin.ModelAdmin):
     @admin.action(description="Recalculate composite score for selected restaurants")
     def recalculate_selected_scores(self, request, queryset):
         refreshed = 0
+        anomalies = 0
         for restaurant in queryset:
-            refresh_restaurant_composite(restaurant)
+            score_data = refresh_restaurant_composite(
+                restaurant,
+                trigger_source="admin_action",
+                triggered_by=request.user,
+                trigger_note="Django admin bulk action",
+            )
             refreshed += 1
+            anomalies += int(score_data.get("anomaly_count") or 0)
         self.message_user(
             request,
-            f"Recalculated composite scores for {refreshed} restaurant(s).",
+            (
+                f"Recalculated composite scores for {refreshed} restaurant(s). "
+                f"Detected {anomalies} anomaly flag(s)."
+            ),
             level=messages.SUCCESS,
         )
 
@@ -203,5 +215,46 @@ class MessageNotificationAdmin(admin.ModelAdmin):
         "conversation__restaurant__name",
         "conversation__diner__username",
         "message__body",
+    )
+    ordering = ("-created_at",)
+
+
+@admin.register(CompositeScoreHistory)
+class CompositeScoreHistoryAdmin(admin.ModelAdmin):
+    list_display = (
+        "calculated_at",
+        "restaurant",
+        "composite_score",
+        "delta_from_previous",
+        "trigger_source",
+        "is_anomalous",
+        "triggered_by",
+    )
+    list_filter = (
+        "trigger_source",
+        "is_anomalous",
+        "algorithm_version",
+        "calculated_at",
+    )
+    search_fields = ("restaurant__name", "trigger_note", "triggered_by__username")
+    ordering = ("-calculated_at",)
+
+
+@admin.register(CompositeScoreAnomaly)
+class CompositeScoreAnomalyAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at",
+        "restaurant",
+        "anomaly_type",
+        "severity",
+        "is_resolved",
+        "resolved_at",
+        "resolved_by",
+    )
+    list_filter = ("anomaly_type", "severity", "is_resolved", "created_at")
+    search_fields = (
+        "restaurant__name",
+        "score_history__trigger_note",
+        "details",
     )
     ordering = ("-created_at",)
