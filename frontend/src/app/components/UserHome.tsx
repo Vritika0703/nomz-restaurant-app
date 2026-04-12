@@ -14,6 +14,7 @@ export function UserHome({
   onLogout,
   onViewProfile,
   onViewMessages,
+  onViewFriendChat,
   onNavigateMap,
   onSearch,
   onOpenRecommendations,
@@ -23,6 +24,7 @@ export function UserHome({
   onLogout: () => void;
   onViewProfile: () => void;
   onViewMessages: () => void;
+  onViewFriendChat: () => void;
   onNavigateMap: () => void;
   onSearch: (q: string, neighborhood?: string) => void;
   onOpenRecommendations: () => void;
@@ -32,6 +34,7 @@ export function UserHome({
   const [showLogoutText, setShowLogoutText] = useState(false);
   const [showMapTooltip, setShowMapTooltip] = useState(false);
   const [showMessagesTooltip, setShowMessagesTooltip] = useState(false);
+  const [showFriendChatTooltip, setShowFriendChatTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [cuisineFilter, setCuisineFilter] = useState("");
@@ -151,6 +154,43 @@ export function UserHome({
                 }}
               >
                 messages
+              </div>
+            )}
+          </div>
+
+          <div className="relative">
+            <button
+              onClick={onViewFriendChat}
+              className="text-xl transition-all p-2 rounded-lg"
+              title="Friend Chat"
+              onMouseEnter={(e) => {
+                setShowFriendChatTooltip(true);
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                setShowFriendChatTooltip(false);
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              style={{ 
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#E06E7F',
+                fontWeight: 'normal'
+              }}
+            >
+              🤝
+            </button>
+            {showFriendChatTooltip && (
+              <div 
+                className="absolute top-full mt-1 left-1/2 transform -translate-x-1/2 px-2 py-1 rounded text-xs whitespace-nowrap"
+                style={{ 
+                  backgroundColor: '#E06E7F',
+                  color: 'white',
+                  fontFamily: 'Montserrat, sans-serif'
+                }}
+              >
+                friends
               </div>
             )}
           </div>

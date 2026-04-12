@@ -23,6 +23,7 @@ export function Messages({
   onNavigateMap,
   onNavigateHome,
   onNavigateProfile,
+  onNavigateFriendChat,
   onLogout,
   accountType = "Diner",
   pendingStartRestaurantId = null,
@@ -33,6 +34,7 @@ export function Messages({
   onNavigateMap: () => void;
   onNavigateHome: () => void;
   onNavigateProfile: () => void;
+  onNavigateFriendChat?: () => void;
   onLogout: () => void;
   accountType?: "Diner" | "Restaurant";
   pendingStartRestaurantId?: number | null;
@@ -244,6 +246,25 @@ export function Messages({
           >
             🗺️
           </button>
+
+          {accountType === "Diner" && onNavigateFriendChat && (
+            <button
+              onClick={onNavigateFriendChat}
+              className="text-xl transition-all p-2 rounded-lg"
+              title="Friend Chat"
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+              style={{
+                backgroundColor: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: "#E06E7F",
+              }}
+              type="button"
+            >
+              🤝
+            </button>
+          )}
 
           {accountType === "Diner" && (
             <button

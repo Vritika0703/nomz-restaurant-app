@@ -39,7 +39,9 @@ urlpatterns = [
     path("api/auth/session/", spa_api.auth_session, name="api_auth_session"),
     path("api/auth/register/", spa_api.auth_register, name="api_auth_register"),
     path("api/auth/login/", spa_api.auth_login, name="api_auth_login"),
-    path("api/auth/admin-login/", spa_api.auth_admin_login, name="api_auth_admin_login"),
+    path(
+        "api/auth/admin-login/", spa_api.auth_admin_login, name="api_auth_admin_login"
+    ),
     path("api/auth/logout/", spa_api.auth_logout, name="api_auth_logout"),
     path("api/auth/2fa/verify/", spa_api.auth_2fa_verify, name="api_auth_2fa_verify"),
     path(
@@ -197,6 +199,42 @@ urlpatterns = [
         "api/admin/score-anomalies/<int:anomaly_id>/resolve/",
         spa_api.admin_resolve_score_anomaly_api,
         name="api_admin_resolve_score_anomaly",
+    ),
+    # --- Friend Chat API ---------------------------------------------------
+    path(
+        "api/friends-chat/",
+        spa_api.friends_chat_list_api,
+        name="api_friends_chat_list",
+    ),
+    path(
+        "api/friends-chat/<int:conversation_id>/",
+        spa_api.friends_chat_detail_api,
+        name="api_friends_chat_detail",
+    ),
+    path(
+        "api/friends-chat/group/create/",
+        spa_api.friends_chat_group_create_api,
+        name="api_friends_chat_group_create",
+    ),
+    path(
+        "api/friends-chat/group/<int:conversation_id>/manage/",
+        spa_api.friends_chat_group_manage_api,
+        name="api_friends_chat_group_manage",
+    ),
+    path(
+        "api/friends-chat/group/<int:conversation_id>/leave/",
+        spa_api.friends_chat_group_leave_api,
+        name="api_friends_chat_group_leave",
+    ),
+    path(
+        "api/friends-chat/<int:conversation_id>/recommend/",
+        spa_api.friends_chat_recommend_api,
+        name="api_friends_chat_recommend",
+    ),
+    path(
+        "api/friends-chat/<int:conversation_id>/toggle-shared/",
+        spa_api.friends_chat_toggle_shared_api,
+        name="api_friends_chat_toggle_shared",
     ),
 ]
 

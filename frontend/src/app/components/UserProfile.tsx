@@ -29,7 +29,7 @@ function splitFullName(full: string): { first_name: string; last_name: string } 
   return { first_name: t.slice(0, i), last_name: t.slice(i + 1).trim() };
 }
 
-export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateHome, username }: { onBack: () => void; onViewMessages: () => void; onNavigateMap: () => void; onNavigateHome: () => void; username: string }) {
+export function UserProfile({ onBack, onViewMessages, onViewFriendChat, onNavigateMap, onNavigateHome, onLogout, username }: { onBack: () => void; onViewMessages: () => void; onViewFriendChat: () => void; onNavigateMap: () => void; onNavigateHome: () => void; onLogout: () => void; username: string }) {
   const [editingDetails, setEditingDetails] = useState(false);
   const [editingTaste, setEditingTaste] = useState(false);
   const [editingDietaryRestrictions, setEditingDietaryRestrictions] = useState(false);
@@ -267,11 +267,32 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
           >
             💬
           </button>
+
+          <button
+            onClick={onViewFriendChat}
+            className="text-xl transition-all p-2 rounded-lg"
+            title="Friend Chat"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+            style={{ 
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#E06E7F',
+              fontWeight: 'normal'
+            }}
+          >
+            🤝
+          </button>
           
           <button
-            onClick={onNavigateHome}
+            onClick={onLogout}
             className="text-xl transition-all p-2 rounded-lg"
-            title="Home"
+            title="Logout"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
             }}

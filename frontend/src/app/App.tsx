@@ -38,6 +38,7 @@ import { ReportContent } from './components/ReportContent';
 import { SearchResults } from './components/SearchResults';
 import { Recommendations } from './components/Recommendations';
 import { RestaurantForm } from './components/RestaurantForm';
+import { FriendChat } from './components/FriendChat';
 import { useAppContext, useLogout, type AccountType, type UserData } from './AppContext';
 
 type LocationState = {
@@ -219,6 +220,7 @@ function DinerDashboard() {
         onLogout={logout}
         onViewProfile={() => navigate('/profile/')}
         onViewMessages={() => navigate('/messages/')}
+        onViewFriendChat={() => navigate('/friends-chat/')}
         onNavigateMap={() => navigate('/map/')}
         onSearch={(q, neighborhood) => {
           const params = new URLSearchParams();
@@ -345,6 +347,7 @@ function MapPage({ variant }: { variant: 'diner' | 'owner' | 'admin' }) {
       <Map
         onNavigateHome={home}
         onNavigateMessages={() => navigate('/messages/')}
+        onNavigateFriendChat={variant === 'diner' ? () => navigate('/friends-chat/') : undefined}
         onNavigateProfile={() =>
           variant === 'diner' ? navigate('/profile/') : navigate('/restaurant-profile/')
         }
@@ -399,6 +402,7 @@ function MessagesPage({
             ? navigate('/restaurant-profile/')
             : navigate('/profile/')
         }
+        onNavigateFriendChat={userData?.accountType === 'diner' ? () => navigate('/friends-chat/') : undefined}
         onLogout={logout}
         accountType={userData?.accountType === 'restaurant' ? 'Restaurant' : 'Diner'}
         pendingStartRestaurantId={pending?.id ?? null}
@@ -493,14 +497,17 @@ function RestaurantProfilePage() {
 function UserProfilePage() {
   const navigate = useNavigate();
   const { userData } = useAppContext();
+  const logout = useLogout((to) => navigate(to));
 
   return (
     <div className="h-screen w-screen overflow-hidden">
       <UserProfile
         onBack={() => navigate('/dashboard/')}
         onViewMessages={() => navigate('/messages/')}
+        onViewFriendChat={() => navigate('/friends-chat/')}
         onNavigateMap={() => navigate('/map/')}
         onNavigateHome={() => navigate('/dashboard/')}
+        onLogout={logout}
         username={userData?.username || 'Diner'}
       />
     </div>
@@ -633,6 +640,24 @@ function RecommendationsPage() {
         onOpenPreferences={() => navigate('/profile/')}
         onLogout={logout}
         username={userData?.username || 'Diner'}
+      />
+    </div>
+  );
+}
+
+function FriendChatPage() {
+  const navigate = useNavigate();
+  const logout = useLogout((to) => navigate(to));
+
+  return (
+    <div className="h-screen w-screen overflow-hidden">
+      <FriendChat
+        onNavigateHome={() => navigate('/dashboard/')}
+        onNavigateMap={() => navigate('/map/')}
+        onNavigateProfile={() => navigate('/profile/')}
+        onNavigateMessages={() => navigate('/messages/')}
+        onSelectRestaurant={(id) => navigate(`/restaurant/${id}/`)}
+        onLogout={logout}
       />
     </div>
   );
@@ -869,6 +894,16 @@ export default function App() {
             <RequireAuth>
               <RequireRole allow={['diner']}>
                 <RecommendationsPage />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/friends-chat/"
+          element={
+            <RequireAuth>
+              <RequireRole allow={['diner']}>
+                <FriendChatPage />
               </RequireRole>
             </RequireAuth>
           }

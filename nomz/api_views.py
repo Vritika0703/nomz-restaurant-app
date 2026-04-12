@@ -12,7 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
 from .forms import RestaurantOwnershipClaimForm
-from .models import Conversation, Message, Restaurant, RestaurantOwnershipClaim
+from .models import Conversation, Message, MessageNotification, Restaurant, RestaurantOwnershipClaim
 from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 NYC_MIN_LAT = 40.0
@@ -445,15 +445,18 @@ def restaurant_claim_api(request):
                 {
                     "id": r.id,
                     "name": r.name,
-                    "address": ", ".join(address_parts) if address_parts else (r.address or ""),
+                    "address": (
+                        ", ".join(address_parts) if address_parts else (r.address or "")
+                    ),
                     "zip_code": r.zip_code or "",
                 }
             )
 
         recent_claims = [
             _serialize_claim_row(c)
-            for c in RestaurantOwnershipClaim.objects.filter(claimant=user)
-            .select_related("restaurant")[:5]
+            for c in RestaurantOwnershipClaim.objects.filter(
+                claimant=user
+            ).select_related("restaurant")[:5]
         ]
 
         return JsonResponse(
@@ -482,13 +485,10 @@ def restaurant_claim_api(request):
             status=400,
         )
 
-    active_claim = (
-        RestaurantOwnershipClaim.objects.filter(
-            claimant=user,
-            status=RestaurantOwnershipClaim.STATUS_PENDING,
-        )
-        .first()
-    )
+    active_claim = RestaurantOwnershipClaim.objects.filter(
+        claimant=user,
+        status=RestaurantOwnershipClaim.STATUS_PENDING,
+    ).first()
     if active_claim:
         return _json_error(
             f'You already have a pending claim for "{active_claim.restaurant.name}". Please wait for review.',

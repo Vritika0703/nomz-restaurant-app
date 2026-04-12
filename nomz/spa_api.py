@@ -2,12 +2,17 @@
 JSON endpoints for the React SPA (session auth, photos, admin summaries).
 Uses session cookies + @csrf_exempt on mutating POSTs (same pattern as api_views).
 """
+
 from __future__ import annotations
 
 import json
 
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
+from django.contrib.auth import login, logout
+from django.contrib.auth.forms import (
+    AuthenticationForm,
+    PasswordResetForm,
+    SetPasswordForm,
+)
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
@@ -37,6 +42,9 @@ from .forms import (
 )
 from .models import (
     CompositeScoreAnomaly,
+    FriendConversation,
+    FriendMessage,
+    FriendSharedRestaurant,
     LoginLog,
     ModerationReport,
     Restaurant,
@@ -49,7 +57,11 @@ from .models import (
     UserProfile,
 )
 from .scoring import refresh_restaurant_composite
-from .restaurant_sorting import normalize_sort_key, recommend_restaurants_for_user, sort_restaurant_queryset
+from .restaurant_sorting import (
+    normalize_sort_key,
+    recommend_restaurants_for_user,
+    sort_restaurant_queryset,
+)
 
 from .api_views import (  # reuse helpers
     _is_diner,
@@ -295,11 +307,17 @@ def auth_password_reset_confirm(request):
 
     if not default_token_generator.check_token(user, token):
         return JsonResponse(
-            {"success": False, "expired": True, "error": "Reset link has expired or is invalid."},
+            {
+                "success": False,
+                "expired": True,
+                "error": "Reset link has expired or is invalid.",
+            },
             status=400,
         )
 
-    form = SetPasswordForm(user, {"new_password1": new_password1, "new_password2": new_password2})
+    form = SetPasswordForm(
+        user, {"new_password1": new_password1, "new_password2": new_password2}
+    )
     if form.is_valid():
         form.save()
         return JsonResponse({"success": True})
@@ -431,7 +449,9 @@ def restaurant_activation_api(request):
     if "is_active" not in body:
         return _json_error("is_active is required.")
 
-    form = RestaurantActivationForm({"is_active": bool(body["is_active"])}, instance=restaurant)
+    form = RestaurantActivationForm(
+        {"is_active": bool(body["is_active"])}, instance=restaurant
+    )
     if form.is_valid():
         form.save()
         return JsonResponse({"is_active": restaurant.is_active})
@@ -726,10 +746,9 @@ def admin_moderation_data(request):
         return deny
 
     pending = ModerationReport.objects.filter(status="PENDING").order_by("-created_at")
-    resolved = (
-        ModerationReport.objects.exclude(status="PENDING")
-        .order_by("-created_at")[:25]
-    )
+    resolved = ModerationReport.objects.exclude(status="PENDING").order_by(
+        "-created_at"
+    )[:25]
 
     def row(r: ModerationReport):
         return {
@@ -781,7 +800,9 @@ def admin_resolve_report_api(request, report_id):
             if hasattr(report.reported_user, "userprofile"):
                 report.reported_user.userprofile.is_flagged = True
                 report.reported_user.userprofile.save()
-            Restaurant.objects.filter(owner=report.reported_user).update(is_flagged=True)
+            Restaurant.objects.filter(owner=report.reported_user).update(
+                is_flagged=True
+            )
             report.action_taken = "User and associated restaurant(s) flagged for fraud"
         report.status = "RESOLVED"
     elif action == "unflag":
@@ -793,7 +814,9 @@ def admin_resolve_report_api(request, report_id):
             if hasattr(report.reported_user, "userprofile"):
                 report.reported_user.userprofile.is_flagged = False
                 report.reported_user.userprofile.save()
-            Restaurant.objects.filter(owner=report.reported_user).update(is_flagged=False)
+            Restaurant.objects.filter(owner=report.reported_user).update(
+                is_flagged=False
+            )
             report.action_taken = "User and associated restaurant(s) un-flagged"
         report.status = "PENDING"
     elif action == "delete":
@@ -852,7 +875,9 @@ def admin_users_data(request):
 
     payload = []
     for u in users:
-        role = getattr(u.userprofile, "role", None) if hasattr(u, "userprofile") else None
+        role = (
+            getattr(u.userprofile, "role", None) if hasattr(u, "userprofile") else None
+        )
         payload.append(
             {
                 "id": u.id,
@@ -862,9 +887,7 @@ def admin_users_data(request):
                 "is_superuser": u.is_superuser,
                 "date_joined": u.date_joined.isoformat(),
                 "role": role,
-                "has_suspicious_activity": getattr(
-                    u, "has_suspicious_activity", False
-                ),
+                "has_suspicious_activity": getattr(u, "has_suspicious_activity", False),
             }
         )
     return JsonResponse({"count": len(payload), "results": payload})
@@ -988,9 +1011,11 @@ def restaurant_detail_data(request, restaurant_id):
         "is_owner_flagged": is_owner_flagged,
         "owner_id": owner_id,
         "messaging_enabled": messaging_enabled,
-        "composite_score": float(restaurant.composite_score)
-        if restaurant.composite_score is not None
-        else None,
+        "composite_score": (
+            float(restaurant.composite_score)
+            if restaurant.composite_score is not None
+            else None
+        ),
         "grade": restaurant.grade_latest or "",
         "reviews": reviews_list,
     }
@@ -1118,8 +1143,12 @@ def _parse_unavailable_until(raw) -> str | None:
 
 def _cuisine_and_price_choices():
     return {
-        "cuisine_choices": [{"value": v, "label": lbl} for v, lbl in Restaurant.CUISINE_CHOICES],
-        "price_choices": [{"value": v, "label": lbl} for v, lbl in Restaurant.PRICE_CHOICES],
+        "cuisine_choices": [
+            {"value": v, "label": lbl} for v, lbl in Restaurant.CUISINE_CHOICES
+        ],
+        "price_choices": [
+            {"value": v, "label": lbl} for v, lbl in Restaurant.PRICE_CHOICES
+        ],
     }
 
 
@@ -1156,17 +1185,23 @@ def _serialize_owner_restaurant(restaurant: Restaurant) -> dict:
         "website": restaurant.website or "",
         "email": restaurant.email or "",
         "messaging_enabled": restaurant.messaging_enabled,
-        "response_hours_start": _response_hours_display(restaurant.response_hours_start),
+        "response_hours_start": _response_hours_display(
+            restaurant.response_hours_start
+        ),
         "response_hours_end": _response_hours_display(restaurant.response_hours_end),
         "is_temporarily_unavailable": restaurant.is_temporarily_unavailable,
         "unavailable_reason": restaurant.unavailable_reason or "",
         "unavailable_until": _unavailable_until_for_input(restaurant.unavailable_until),
-        "composite_score": float(restaurant.composite_score)
-        if restaurant.composite_score is not None
-        else None,
-        "inspection_rating": float(restaurant.grade_score_latest)
-        if restaurant.grade_score_latest is not None
-        else None,
+        "composite_score": (
+            float(restaurant.composite_score)
+            if restaurant.composite_score is not None
+            else None
+        ),
+        "inspection_rating": (
+            float(restaurant.grade_score_latest)
+            if restaurant.grade_score_latest is not None
+            else None
+        ),
         "review_count": review_count,
         "citywide_rank": rank,
         "citywide_total": total_visible,
@@ -1200,7 +1235,9 @@ def _search_results_payload(request):
     for restaurant in base_restaurants:
         fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
         if not fallback_cuisine and restaurant.cuisine_tags:
-            fallback_cuisine = ", ".join(str(tag) for tag in restaurant.cuisine_tags[:3])
+            fallback_cuisine = ", ".join(
+                str(tag) for tag in restaurant.cuisine_tags[:3]
+            )
         results.append(
             {
                 "id": restaurant.id,
@@ -1296,9 +1333,7 @@ def diner_recommendations_api(request):
     recommended = recommend_restaurants_for_user(request.user, limit=20)
     message = ""
     if not recommended:
-        message = (
-            "No restaurants currently match your saved preferences. Try updating your preferences."
-        )
+        message = "No restaurants currently match your saved preferences. Try updating your preferences."
 
     return JsonResponse(
         {
@@ -1354,7 +1389,10 @@ def restaurant_profile_api(request):
             restaurant.owner = request.user
             restaurant.save()
             return JsonResponse(
-                {"success": True, "restaurant": _serialize_owner_restaurant(restaurant)},
+                {
+                    "success": True,
+                    "restaurant": _serialize_owner_restaurant(restaurant),
+                },
                 status=201,
             )
 
@@ -1376,7 +1414,9 @@ def restaurant_availability_api(request):
             {
                 "is_temporarily_unavailable": restaurant.is_temporarily_unavailable,
                 "unavailable_reason": restaurant.unavailable_reason or "",
-                "unavailable_until": _unavailable_until_for_input(restaurant.unavailable_until),
+                "unavailable_until": _unavailable_until_for_input(
+                    restaurant.unavailable_until
+                ),
             }
         )
 
@@ -1399,7 +1439,9 @@ def restaurant_availability_api(request):
                 "success": True,
                 "is_temporarily_unavailable": restaurant.is_temporarily_unavailable,
                 "unavailable_reason": restaurant.unavailable_reason or "",
-                "unavailable_until": _unavailable_until_for_input(restaurant.unavailable_until),
+                "unavailable_until": _unavailable_until_for_input(
+                    restaurant.unavailable_until
+                ),
             }
         )
     errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
@@ -1419,8 +1461,12 @@ def restaurant_communication_api(request):
         return JsonResponse(
             {
                 "messaging_enabled": restaurant.messaging_enabled,
-                "response_hours_start": _response_hours_display(restaurant.response_hours_start),
-                "response_hours_end": _response_hours_display(restaurant.response_hours_end),
+                "response_hours_start": _response_hours_display(
+                    restaurant.response_hours_start
+                ),
+                "response_hours_end": _response_hours_display(
+                    restaurant.response_hours_end
+                ),
             }
         )
 
@@ -1441,8 +1487,12 @@ def restaurant_communication_api(request):
             {
                 "success": True,
                 "messaging_enabled": restaurant.messaging_enabled,
-                "response_hours_start": _response_hours_display(restaurant.response_hours_start),
-                "response_hours_end": _response_hours_display(restaurant.response_hours_end),
+                "response_hours_start": _response_hours_display(
+                    restaurant.response_hours_start
+                ),
+                "response_hours_end": _response_hours_display(
+                    restaurant.response_hours_end
+                ),
             }
         )
     errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
@@ -1454,6 +1504,7 @@ def restaurant_communication_api(request):
 # ---------------------------------------------------------------------------
 #  Review responses (restaurant owner)
 # ---------------------------------------------------------------------------
+
 
 @csrf_exempt
 @login_required(login_url="landing")
@@ -1494,21 +1545,24 @@ def review_respond_api(request, review_id):
         review_response.responder = request.user
         review_response.save(update_fields=["response_text", "responder", "updated_at"])
 
-    return JsonResponse({
-        "success": True,
-        "created": created,
-        "owner_response": {
-            "response_text": review_response.response_text,
-            "responder_username": review_response.responder.username,
-            "created_at": review_response.created_at.isoformat(),
-            "updated_at": review_response.updated_at.isoformat(),
-        },
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "created": created,
+            "owner_response": {
+                "response_text": review_response.response_text,
+                "responder_username": review_response.responder.username,
+                "created_at": review_response.created_at.isoformat(),
+                "updated_at": review_response.updated_at.isoformat(),
+            },
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 #  Admin: composite-score recalculation
 # ---------------------------------------------------------------------------
+
 
 @csrf_exempt
 @login_required(login_url="landing")
@@ -1524,7 +1578,7 @@ def admin_recalculate_scores_api(request):
     except json.JSONDecodeError:
         return _json_error("Invalid JSON.")
 
-    restaurant_id = (body.get("restaurant_id") or "")
+    restaurant_id = body.get("restaurant_id") or ""
     restaurant_name = (body.get("restaurant_name") or "").strip()
 
     queryset = Restaurant.objects.all().order_by("id")
@@ -1550,7 +1604,9 @@ def admin_recalculate_scores_api(request):
 
     total = queryset.count()
     if total == 0:
-        return JsonResponse({"success": True, "updated": 0, "anomaly_count": 0, "total": 0})
+        return JsonResponse(
+            {"success": True, "updated": 0, "anomaly_count": 0, "total": 0}
+        )
 
     updated = 0
     anomaly_count = 0
@@ -1580,17 +1636,20 @@ def admin_recalculate_scores_api(request):
         },
     )
 
-    return JsonResponse({
-        "success": True,
-        "updated": updated,
-        "total": total,
-        "anomaly_count": anomaly_count,
-    })
+    return JsonResponse(
+        {
+            "success": True,
+            "updated": updated,
+            "total": total,
+            "anomaly_count": anomaly_count,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 #  Admin: score anomalies
 # ---------------------------------------------------------------------------
+
 
 @login_required(login_url="landing")
 @require_GET
@@ -1600,24 +1659,25 @@ def admin_score_anomalies_api(request):
     if err:
         return err
 
-    anomalies = (
-        CompositeScoreAnomaly.objects.select_related("restaurant", "resolved_by")
-        .order_by("-created_at")[:200]
-    )
+    anomalies = CompositeScoreAnomaly.objects.select_related(
+        "restaurant", "resolved_by"
+    ).order_by("-created_at")[:200]
     items = []
     for a in anomalies:
-        items.append({
-            "id": a.id,
-            "restaurant_id": a.restaurant_id,
-            "restaurant_name": a.restaurant.display_name or a.restaurant.name,
-            "anomaly_type": a.anomaly_type,
-            "severity": a.severity,
-            "details": a.details or {},
-            "created_at": a.created_at.isoformat(),
-            "is_resolved": a.is_resolved,
-            "resolved_at": a.resolved_at.isoformat() if a.resolved_at else None,
-            "resolved_by": a.resolved_by.username if a.resolved_by else None,
-        })
+        items.append(
+            {
+                "id": a.id,
+                "restaurant_id": a.restaurant_id,
+                "restaurant_name": a.restaurant.display_name or a.restaurant.name,
+                "anomaly_type": a.anomaly_type,
+                "severity": a.severity,
+                "details": a.details or {},
+                "created_at": a.created_at.isoformat(),
+                "is_resolved": a.is_resolved,
+                "resolved_at": a.resolved_at.isoformat() if a.resolved_at else None,
+                "resolved_by": a.resolved_by.username if a.resolved_by else None,
+            }
+        )
     return JsonResponse({"anomalies": items})
 
 
@@ -1655,3 +1715,365 @@ def admin_resolve_score_anomaly_api(request, anomaly_id):
     )
 
     return JsonResponse({"success": True, "already_resolved": False})
+
+
+# ---------------------------------------------------------------------------
+#  Friend Chat  API
+# ---------------------------------------------------------------------------
+
+
+def _serialize_conversation(conv, request_user):
+    """Serialize a FriendConversation to a JSON-safe dict."""
+    participants = list(conv.get_participants().values_list("id", "username"))
+    last_msg = conv.messages.order_by("-created_at").first()
+    unread = conv.messages.filter(is_read=False).exclude(sender=request_user).count()
+    return {
+        "id": conv.id,
+        "name": conv.name,
+        "is_group": conv.is_group,
+        "creator_id": conv.creator_id,
+        "participants": [{"id": p[0], "username": p[1]} for p in participants],
+        "unread_count": unread,
+        "last_message": (
+            {
+                "body": last_msg.body or "",
+                "sender_username": last_msg.sender.username,
+                "created_at": last_msg.created_at.isoformat(),
+            }
+            if last_msg
+            else None
+        ),
+        "updated_at": conv.updated_at.isoformat(),
+    }
+
+
+def _serialize_friend_message(msg):
+    rec = msg.restaurant_recommendation
+    return {
+        "id": msg.id,
+        "sender_id": msg.sender_id,
+        "sender_username": msg.sender.username,
+        "body": msg.body or "",
+        "restaurant_recommendation": (
+            {
+                "id": rec.id,
+                "name": rec.name,
+            }
+            if rec
+            else None
+        ),
+        "is_read": msg.is_read,
+        "created_at": msg.created_at.isoformat(),
+    }
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["GET", "POST"])
+def friends_chat_list_api(request):
+    """
+    GET  → list current user's friend conversations (with unread counts).
+    POST → start a new 1-on-1 conversation with a target username.
+    """
+    if request.method == "GET":
+        convs = FriendConversation.objects.filter(participants=request.user).order_by(
+            "-updated_at"
+        )
+        other_users = list(
+            User.objects.filter(userprofile__role="diner")
+            .exclude(id=request.user.id)
+            .values("id", "username")
+        )
+        return JsonResponse(
+            {
+                "conversations": [
+                    _serialize_conversation(c, request.user) for c in convs
+                ],
+                "other_users": other_users,
+            }
+        )
+
+    # POST – start a new 1-on-1 conversation
+    data = (
+        json.loads(request.body)
+        if request.content_type == "application/json"
+        else request.POST
+    )
+    target_username = (data.get("username") or "").strip()
+
+    if target_username == request.user.username:
+        return _json_error("You cannot chat with yourself.", 400)
+
+    target_user = User.objects.filter(
+        username=target_username, userprofile__role="diner"
+    ).first()
+    if not target_user:
+        return _json_error(f"User '{target_username}' not found.", 404)
+
+    # Re-use existing 1-on-1 conversation
+    user1, user2 = (
+        (request.user, target_user)
+        if request.user.id < target_user.id
+        else (target_user, request.user)
+    )
+    conv = (
+        FriendConversation.objects.filter(is_group=False)
+        .filter(Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1))
+        .first()
+    )
+    if not conv:
+        conv = FriendConversation.objects.create(
+            user1=user1, user2=user2, is_group=False
+        )
+        conv.participants.add(user1, user2)
+
+    return JsonResponse(
+        {"conversation": _serialize_conversation(conv, request.user)}, status=201
+    )
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["GET", "POST"])
+def friends_chat_detail_api(request, conversation_id):
+    """
+    GET  → messages + shared restaurants for a conversation.
+    POST → send a new message.
+    """
+    conv = get_object_or_404(FriendConversation, id=conversation_id)
+    if not conv.can_access(request.user):
+        return _json_error("Access denied.", 403)
+
+    if request.method == "GET":
+        # Mark unread as read
+        conv.messages.filter(is_read=False).exclude(sender=request.user).update(
+            is_read=True
+        )
+
+        msgs = conv.messages.all().select_related("sender", "restaurant_recommendation")
+        shared = conv.shared_restaurants.all().select_related("restaurant", "added_by")
+        return JsonResponse(
+            {
+                "conversation": _serialize_conversation(conv, request.user),
+                "messages": [_serialize_friend_message(m) for m in msgs],
+                "shared_restaurants": [
+                    {
+                        "id": sr.id,
+                        "restaurant_id": sr.restaurant_id,
+                        "restaurant_name": sr.restaurant.name,
+                        "added_by": sr.added_by.username,
+                        "created_at": sr.created_at.isoformat(),
+                    }
+                    for sr in shared
+                ],
+            }
+        )
+
+    # POST – send a message
+    data = (
+        json.loads(request.body)
+        if request.content_type == "application/json"
+        else request.POST
+    )
+    body = (data.get("body") or "").strip()
+    if not body:
+        return _json_error("Message body is required.", 400)
+
+    msg = FriendMessage.objects.create(
+        conversation=conv, sender=request.user, body=body
+    )
+    conv.updated_at = timezone.now()
+    conv.save(update_fields=["updated_at"])
+
+    return JsonResponse({"message": _serialize_friend_message(msg)}, status=201)
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def friends_chat_group_create_api(request):
+    """
+    POST → create a new group conversation.
+    Body: { "name": "...", "participant_ids": [1, 2, ...] }
+    """
+    data = (
+        json.loads(request.body)
+        if request.content_type == "application/json"
+        else request.POST
+    )
+    group_name = (data.get("name") or "").strip()
+    if not group_name:
+        return _json_error("Group name is required.", 400)
+
+    participant_ids = data.get("participant_ids", [])
+    if isinstance(participant_ids, str):
+        participant_ids = json.loads(participant_ids)
+
+    conv = FriendConversation.objects.create(
+        name=group_name, is_group=True, creator=request.user
+    )
+    conv.participants.add(request.user)
+    for p_id in participant_ids:
+        try:
+            user = User.objects.get(id=int(p_id))
+            if hasattr(user, "userprofile") and user.userprofile.role == "diner":
+                conv.participants.add(user)
+        except (User.DoesNotExist, ValueError):
+            continue
+
+    return JsonResponse(
+        {"conversation": _serialize_conversation(conv, request.user)}, status=201
+    )
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def friends_chat_group_manage_api(request, conversation_id):
+    """
+    POST → add or remove a member from a group.
+    Body: { "action": "add"|"remove", "user_id": 5 }
+    """
+    conv = get_object_or_404(FriendConversation, id=conversation_id, is_group=True)
+    if conv.creator != request.user:
+        return _json_error("Only the group creator can manage members.", 403)
+
+    data = (
+        json.loads(request.body)
+        if request.content_type == "application/json"
+        else request.POST
+    )
+    action = data.get("action")
+    user_id = data.get("user_id")
+
+    if action not in ("add", "remove"):
+        return _json_error("action must be 'add' or 'remove'.", 400)
+
+    target = User.objects.filter(id=user_id).first()
+    if not target:
+        return _json_error("User not found.", 404)
+
+    if action == "add":
+        if not (hasattr(target, "userprofile") and target.userprofile.role == "diner"):
+            return _json_error("Only diners can be added to chat groups.", 400)
+        conv.participants.add(target)
+        return JsonResponse({"success": True, "detail": f"Added {target.username}."})
+
+    # remove
+    if target == conv.creator:
+        return _json_error("Cannot remove the group creator.", 400)
+    conv.participants.remove(target)
+    return JsonResponse({"success": True, "detail": f"Removed {target.username}."})
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def friends_chat_group_leave_api(request, conversation_id):
+    """
+    POST → leave a group conversation.
+    """
+    conv = get_object_or_404(FriendConversation, id=conversation_id, is_group=True)
+    if not conv.can_access(request.user):
+        return _json_error("Access denied.", 403)
+
+    if conv.creator == request.user:
+        return _json_error(
+            "Creators cannot leave their own groups. Assign a new admin or delete the group.",
+            400,
+        )
+
+    conv.participants.remove(request.user)
+    return JsonResponse({"success": True, "detail": f"You have left '{conv.name}'."})
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def friends_chat_recommend_api(request, conversation_id):
+    """
+    POST → send a restaurant recommendation to a conversation.
+    Body: { "restaurant_id": 42, "body": "optional message" }
+    """
+    conv = get_object_or_404(FriendConversation, id=conversation_id)
+    if not conv.can_access(request.user):
+        return _json_error("Access denied.", 403)
+
+    data = (
+        json.loads(request.body)
+        if request.content_type == "application/json"
+        else request.POST
+    )
+    restaurant_id = data.get("restaurant_id")
+    body = (data.get("body") or "").strip()
+
+    restaurant = None
+    if restaurant_id:
+        restaurant = Restaurant.objects.filter(id=restaurant_id).first()
+    if not restaurant:
+        restaurant_name = (data.get("restaurant_name") or "").strip()
+        if restaurant_name:
+            restaurant = Restaurant.objects.filter(name=restaurant_name).first()
+    if not restaurant:
+        return _json_error("Restaurant not found.", 404)
+
+    msg = FriendMessage.objects.create(
+        conversation=conv,
+        sender=request.user,
+        body=body,
+        restaurant_recommendation=restaurant,
+    )
+    conv.updated_at = timezone.now()
+    conv.save(update_fields=["updated_at"])
+
+    return JsonResponse({"message": _serialize_friend_message(msg)}, status=201)
+
+
+@csrf_exempt
+@login_required
+@require_http_methods(["POST"])
+def friends_chat_toggle_shared_api(request, conversation_id):
+    """
+    POST → add or remove a restaurant from the shared 'Together List'.
+    Body: { "restaurant_id": 42, "action": "add"|"remove" }
+    """
+    conv = get_object_or_404(FriendConversation, id=conversation_id)
+    if not conv.can_access(request.user):
+        return _json_error("Access denied.", 403)
+
+    data = (
+        json.loads(request.body)
+        if request.content_type == "application/json"
+        else request.POST
+    )
+    restaurant_id = data.get("restaurant_id")
+    action = data.get("action", "add")
+
+    restaurant = None
+    if restaurant_id:
+        restaurant = Restaurant.objects.filter(id=restaurant_id).first()
+    if not restaurant:
+        restaurant_name = (data.get("restaurant_name") or "").strip()
+        if restaurant_name:
+            restaurant = Restaurant.objects.filter(name=restaurant_name).first()
+    if not restaurant:
+        return _json_error("Restaurant not found.", 404)
+
+    if action == "add":
+        FriendSharedRestaurant.objects.get_or_create(
+            conversation=conv,
+            restaurant=restaurant,
+            defaults={"added_by": request.user},
+        )
+        return JsonResponse(
+            {"success": True, "detail": f"Added {restaurant.name} to shared list."}
+        )
+    elif action == "remove":
+        FriendSharedRestaurant.objects.filter(
+            conversation=conv, restaurant=restaurant
+        ).delete()
+        return JsonResponse(
+            {"success": True, "detail": f"Removed {restaurant.name} from shared list."}
+        )
+    else:
+        return _json_error("action must be 'add' or 'remove'.", 400)

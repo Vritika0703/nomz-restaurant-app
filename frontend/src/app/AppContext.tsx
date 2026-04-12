@@ -45,7 +45,9 @@ export function useLogout(navigate: (to: string) => void) {
     } catch {
       /* ignore */
     }
-    setUserData(null);
     navigate('/home/');
+    // Defer clearing user data so the navigation to /home/ commits
+    // before RequireAuth can re-evaluate and redirect to /signin/.
+    setTimeout(() => setUserData(null), 0);
   }, [navigate, setUserData]);
 }

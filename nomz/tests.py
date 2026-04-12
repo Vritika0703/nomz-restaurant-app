@@ -1717,8 +1717,7 @@ class MessagingWebsiteTests(TestCase):
         self.assertEqual(list_r.status_code, 200)
         self.assertTrue(
             any(
-                row["diner_username"] == "web_diner"
-                for row in list_r.json()["results"]
+                row["diner_username"] == "web_diner" for row in list_r.json()["results"]
             )
         )
 
@@ -1732,7 +1731,9 @@ class MessagingWebsiteTests(TestCase):
             reverse("api_conversation_messages", args=[conversation.id])
         )
         self.assertEqual(api_detail.status_code, 200)
-        self.assertEqual(api_detail.json()["messages"][0]["body"], "Do you have outdoor seating?")
+        self.assertEqual(
+            api_detail.json()["messages"][0]["body"], "Do you have outdoor seating?"
+        )
 
 
 # =============================================================================
@@ -1877,9 +1878,7 @@ class RestaurantCommunicationSettingsTests(TestCase):
         self.assertEqual(response.status_code, 400)
         data = response.json()
         self.assertFalse(data.get("success", True))
-        joined = " ".join(
-            " ".join(v) for v in (data.get("errors") or {}).values()
-        )
+        joined = " ".join(" ".join(v) for v in (data.get("errors") or {}).values())
         self.assertIn("before end", joined)
 
     # -------------------------------------------------------------------------
@@ -1894,9 +1893,7 @@ class RestaurantCommunicationSettingsTests(TestCase):
         self.client.login(username="comm_diner", password="pass12345")
         response = self.client.post(
             reverse("api_conversation_start"),
-            data=json.dumps(
-                {"restaurant_id": self.restaurant.id, "message": "Hello?"}
-            ),
+            data=json.dumps({"restaurant_id": self.restaurant.id, "message": "Hello?"}),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 403)
@@ -1906,9 +1903,7 @@ class RestaurantCommunicationSettingsTests(TestCase):
         self.client.login(username="comm_diner", password="pass12345")
         response = self.client.post(
             reverse("api_conversation_start"),
-            data=json.dumps(
-                {"restaurant_id": self.restaurant.id, "message": "Hello!"}
-            ),
+            data=json.dumps({"restaurant_id": self.restaurant.id, "message": "Hello!"}),
             content_type="application/json",
         )
         self.assertEqual(response.status_code, 201)
@@ -2000,9 +1995,9 @@ class RestaurantCommunicationSettingsTests(TestCase):
         self.assertEqual(unread_messages_count(req)["unread_messages_count"], 1)
 
         # Simulate owner opening thread (marks other's messages read)
-        Message.objects.filter(
-            conversation=conv, is_read=False
-        ).exclude(sender=self.owner).update(is_read=True)
+        Message.objects.filter(conversation=conv, is_read=False).exclude(
+            sender=self.owner
+        ).update(is_read=True)
 
         req.user = self.owner
         self.assertEqual(unread_messages_count(req)["unread_messages_count"], 0)
@@ -2060,12 +2055,6 @@ class AdminRestaurantAccountListApiTests(TestCase):
             cuisine_type="italian",
             price_range="$$",
         )
-
-        # Context processors are available in template context
-        self.assertEqual(response.context["unread_messages_count"], 2)
-        # Check for the red badge in the HTML
-        self.assertContains(response, "badge rounded-pill bg-danger")
-        self.assertContains(response, "2")
 
     def test_message_notification_created_and_visible_on_restaurant_dashboard(self):
         """A new diner message creates a dashboard notification with the correct thread link."""

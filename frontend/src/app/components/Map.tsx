@@ -21,6 +21,7 @@ type MapRestaurantPoint = {
 export function Map({ 
   onNavigateHome, 
   onNavigateMessages, 
+  onNavigateFriendChat,
   onNavigateProfile, 
   onLogout,
   isAdmin = false,
@@ -28,6 +29,7 @@ export function Map({
 }: { 
   onNavigateHome: () => void;
   onNavigateMessages: () => void;
+  onNavigateFriendChat?: () => void;
   onNavigateProfile: () => void;
   onLogout: () => void;
   isAdmin?: boolean;
@@ -292,6 +294,29 @@ export function Map({
               >
                 💬
               </button>
+
+              {onNavigateFriendChat && (
+                <button
+                  onClick={onNavigateFriendChat}
+                  className="text-xl transition-all p-2 rounded-lg"
+                  title="Friend Chat"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                  style={{ 
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: '#E06E7F',
+                    fontWeight: 'normal'
+                  }}
+                >
+                  🤝
+                </button>
+              )}
               
               <button
                 onClick={onNavigateProfile}
