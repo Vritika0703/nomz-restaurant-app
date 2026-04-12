@@ -260,6 +260,7 @@ function SignInPage() {
         onSignIn={afterAuth}
         onForgotPassword={() => navigate('/password-reset/')}
         onTwoFactorRequired={() => navigate('/signin/2fa/', { state })}
+        onSignUp={() => navigate('/register/')}
         adminPortal={adminPortal}
       />
     </div>

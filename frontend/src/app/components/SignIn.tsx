@@ -7,12 +7,14 @@ export function SignIn({
   onSignIn,
   onForgotPassword,
   onTwoFactorRequired,
+  onSignUp,
   adminPortal = false,
 }: {
   onBackClick: () => void;
   onSignIn: (accountType: 'diner' | 'restaurant' | 'admin', username: string) => void;
   onForgotPassword?: () => void;
   onTwoFactorRequired?: () => void;
+  onSignUp?: () => void;
   /** From URL `?admin` — show security code and POST /api/auth/admin-login/ (AdminLoginForm parity). */
   adminPortal?: boolean;
 }) {
@@ -251,7 +253,7 @@ export function SignIn({
           {!adminPortal && (
             <p className="text-center text-xs mt-6" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
               Don&apos;t have an account?{' '}
-              <span className="cursor-pointer transition-all" style={{ color: '#E06E7F' }}>
+              <span className="cursor-pointer transition-all" style={{ color: '#E06E7F' }} onClick={onSignUp}>
                 Sign up
               </span>
             </p>
