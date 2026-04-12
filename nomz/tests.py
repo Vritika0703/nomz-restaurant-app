@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from django.contrib import admin
 from django.test import TestCase, Client, TransactionTestCase
 from django.http import HttpResponseServerError
 from django.contrib.auth.models import User
@@ -28,6 +29,7 @@ from .models import (
     SystemAlert,
     SystemAuditLog,
     SystemPerformanceMetric,
+    SystemPerformanceSnapshot,
     UserProfile,
 )
 from .scoring import refresh_restaurant_composite
@@ -528,6 +530,117 @@ class SystemMonitoringTests(TransactionTestCase):
                 status_code=500, is_error=True
             ).exists()
         )
+
+
+class AdminMonitoringUserStoryTests(TestCase):
+    """
+    Acceptance-style tests for the admin monitoring / audit-log user story:
+    metrics and logs are exposed in Django Admin, and persisted data matches expectations.
+    """
+
+    def test_monitoring_models_registered_for_admin_review(self):
+        """Admin can access monitoring via registered models (changelist / detail)."""
+        for model in (
+            SystemPerformanceMetric,
+            SystemPerformanceSnapshot,
+            SystemAlert,
+            SystemAuditLog,
+        ):
+            with self.subTest(model=model.__name__):
+                self.assertTrue(
+                    admin.site.is_registered(model),
+                    f"{model.__name__} must be registered in admin",
+                )
+
+    def test_superuser_can_open_monitoring_admin_changelists(self):
+        """System-wide metrics, snapshots, alerts, and audit logs are reachable in Admin."""
+        User.objects.create_superuser(
+            "admintest", "admin-monitoring@example.com", "SecretPass123!"
+        )
+        self.client.login(username="admintest", password="SecretPass123!")
+        for model in (
+            SystemPerformanceMetric,
+            SystemPerformanceSnapshot,
+            SystemAlert,
+            SystemAuditLog,
+        ):
+            with self.subTest(model=model.__name__):
+                url = reverse(
+                    f"admin:{model._meta.app_label}_{model._meta.model_name}_changelist"
+                )
+                response = self.client.get(url)
+                self.assertEqual(
+                    response.status_code,
+                    200,
+                    msg=f"Expected 200 for {model.__name__} changelist at {url}",
+                )
+
+
+class AdminMonitoringMetricsTests(TransactionTestCase):
+    """Metrics and alert rules exercised against acceptance criteria."""
+
+    def test_successful_health_check_records_performance_metric(self):
+        """Healthy /health/ responses are recorded for performance visibility."""
+        response = self.client.get(reverse("health_check"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            SystemPerformanceMetric.objects.filter(
+                path__icontains="health",
+                status_code=200,
+                is_error=False,
+            ).exists()
+        )
+
+    @override_settings(
+        SYSTEM_METRICS_SNAPSHOT_INTERVAL_SECONDS=1,
+        SYSTEM_ALERT_ERROR_RATE_THRESHOLD=0.2,
+        SYSTEM_ALERT_AVG_LATENCY_MS_THRESHOLD=100000,
+    )
+    def test_high_error_rate_alert_when_server_errors_exceed_threshold(self):
+        """Alerts fire when error rate in a bucket crosses the configured threshold."""
+        import nomz.urls as nomz_urlconf
+
+        map_pattern = next(
+            p for p in nomz_urlconf.urlpatterns if getattr(p, "name", None) == "map"
+        )
+        original_callback = map_pattern.callback
+
+        def always_500(request):
+            return HttpResponseServerError("simulated failure")
+
+        try:
+            map_pattern.callback = always_500
+            self.client.get(reverse("map"))
+        finally:
+            map_pattern.callback = original_callback
+
+        self.assertTrue(
+            SystemAlert.objects.filter(
+                alert_type="HIGH_ERROR_RATE", is_active=True
+            ).exists()
+        )
+
+    def test_server_error_audit_log_stores_status_in_metadata(self):
+        """Audit logs for 5xx responses record critical context (status code)."""
+        import nomz.urls as nomz_urlconf
+
+        map_pattern = next(
+            p for p in nomz_urlconf.urlpatterns if getattr(p, "name", None) == "map"
+        )
+        original_callback = map_pattern.callback
+
+        def always_500(request):
+            return HttpResponseServerError("boom")
+
+        try:
+            map_pattern.callback = always_500
+            self.client.get(reverse("map"))
+        finally:
+            map_pattern.callback = original_callback
+
+        log = SystemAuditLog.objects.filter(action="server_error_response").first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.metadata.get("status_code"), 500)
 
 
 class RestaurantSortingTests(TestCase):
