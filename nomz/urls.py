@@ -132,6 +132,16 @@ urlpatterns = [
         name="toggle_user_status",
     ),
     path(
+        "nomz-admin/composite-scores/recalculate/",
+        views.admin_recalculate_scores,
+        name="admin_recalculate_scores",
+    ),
+    path(
+        "nomz-admin/composite-scores/anomalies/<int:anomaly_id>/resolve/",
+        views.admin_resolve_score_anomaly,
+        name="admin_resolve_score_anomaly",
+    ),
+    path(
         "dashboard-action/users/<int:user_id>/toggle/",
         views.admin_toggle_user_status,
         name="admin_toggle_user_status",
@@ -203,4 +213,15 @@ urlpatterns = [
         views.admin_resolve_report,
         name="admin_resolve_report",
     ),
+    path("friends-chat/", views.friends_chat_index, name="friends_chat_index"),
+    path("friends-chat/group/create/", views.create_group_chat, name="create_group_chat"),
+    path("friends-chat/group/<int:conversation_id>/manage/", views.manage_group_member, name="manage_group_member"),
+    path("friends-chat/group/<int:conversation_id>/leave/", views.leave_group, name="leave_group"),
+    path("friends-chat/<str:username>/", views.friends_chat_detail, name="friends_chat_detail"),
+    path("friends-chat/group/<int:conversation_id>/", views.friends_chat_detail, name="friends_chat_detail_by_id"),
+    path("friends-chat/<str:username>/recommend/", views.recommend_friend_restaurant, name="recommend_friend_restaurant"),
+    path("friends-chat/group/<int:conversation_id>/recommend/", views.recommend_friend_restaurant, name="recommend_friend_restaurant_by_id"),
+    path("friends-chat/<str:username>/toggle-shared/", views.toggle_shared_restaurant, name="toggle_shared_restaurant"),
+    path("friends-chat/group/<int:conversation_id>/toggle-shared/", views.toggle_shared_restaurant, name="toggle_shared_restaurant_by_id"),
+
 ]
