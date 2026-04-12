@@ -37,6 +37,7 @@ export function PasswordResetComplete({ onLoginClick }: { onLoginClick: () => vo
           <button
             onClick={onLoginClick}
             className="w-full py-3 rounded-lg font-medium transition-all text-white"
+            title="Log in"
             style={{
               backgroundColor: '#E06E7F',
               cursor: 'pointer',

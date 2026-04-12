@@ -70,6 +70,21 @@ export function RestaurantDetail({
   const [data, setData] = useState<RestaurantData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sessionUserId, setSessionUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch('/api/auth/session/');
+        const d = await r.json();
+        if (!cancelled && d.authenticated && typeof d.user_id === 'number') {
+          setSessionUserId(d.user_id);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,6 +130,7 @@ export function RestaurantDetail({
         <button
           onClick={onBack}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Back"
           style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: '#E06E7F' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -186,6 +202,7 @@ export function RestaurantDetail({
               <button
                 onClick={() => onWriteReview(data.id)}
                 className="px-4 py-2 rounded-lg text-sm text-white transition-all"
+                title="Write a Review"
                 style={{ backgroundColor: '#E06E7F', border: 'none', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
@@ -230,11 +247,12 @@ export function RestaurantDetail({
                       </p>
                     </div>
                   )}
-                  {onReportReview && (
+                  {onReportReview && sessionUserId != null && data.owner_id === sessionUserId && (
                     <div className="flex justify-end">
                       <button
                         onClick={() => onReportReview(review.id)}
                         className="text-xs px-3 py-1 rounded transition-all"
+                        title="Report this review"
                         style={{ color: '#dc2626', border: '1px solid rgba(220,38,38,0.2)', backgroundColor: 'transparent', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(220,38,38,0.05)'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -260,6 +278,7 @@ export function RestaurantDetail({
                     type="button"
                     onClick={() => onStartConversation?.(data.id, data.name)}
                     className="w-full py-2 rounded text-xs text-white"
+                    title="Message this restaurant"
                     style={{ backgroundColor: '#E06E7F', border: 'none', cursor: onStartConversation ? 'pointer' : 'not-allowed', fontFamily: 'Montserrat, sans-serif', opacity: onStartConversation ? 1 : 0.6 }}
                     disabled={!onStartConversation}
                   >
@@ -275,6 +294,7 @@ export function RestaurantDetail({
                   <button
                     onClick={() => onReportOwner(data.owner_id!)}
                     className="w-full py-2 rounded text-xs transition-all"
+                    title="Report owner or account"
                     style={{ border: '1px solid rgba(234,179,8,0.3)', backgroundColor: 'transparent', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif', color: '#a16207' }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(234,179,8,0.05)'}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}

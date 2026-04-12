@@ -38,6 +38,7 @@ export function PasswordResetDone({ onBack }: { onBack: () => void }) {
           <button
             onClick={onBack}
             className="w-full py-3 rounded-lg font-medium transition-all text-white"
+            title="Back to log in"
             style={{
               backgroundColor: '#E06E7F',
               cursor: 'pointer',

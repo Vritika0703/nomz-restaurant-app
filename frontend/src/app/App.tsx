@@ -220,7 +220,12 @@ function DinerDashboard() {
         onViewProfile={() => navigate('/profile/')}
         onViewMessages={() => navigate('/messages/')}
         onNavigateMap={() => navigate('/map/')}
-        onSearch={(q) => navigate(`/search/?q=${encodeURIComponent(q)}`)}
+        onSearch={(q, neighborhood) => {
+          const params = new URLSearchParams();
+          if (q) params.set('q', q);
+          if (neighborhood) params.set('neighborhood', neighborhood);
+          navigate(`/search/?${params.toString()}`);
+        }}
         onOpenRecommendations={() => navigate('/recommendations/')}
         onSelectRestaurant={(id) => navigate(`/restaurant/${id}/`)}
         username={userData?.username || 'Diner'}
@@ -495,7 +500,7 @@ function UserProfilePage() {
         onBack={() => navigate('/dashboard/')}
         onViewMessages={() => navigate('/messages/')}
         onNavigateMap={() => navigate('/map/')}
-        onNavigateHome={() => navigate('/home/')}
+        onNavigateHome={() => navigate('/dashboard/')}
         username={userData?.username || 'Diner'}
       />
     </div>
@@ -516,7 +521,11 @@ function RestaurantDetailPage() {
     <div className="h-screen w-screen overflow-hidden">
       <RestaurantDetail
         restaurantId={id}
-        onBack={() => navigate(-1)}
+        onBack={() => {
+          if (userData?.accountType === 'restaurant') navigate('/restaurant-profile/');
+          else if (userData?.accountType === 'admin') navigate('/nomz-admin/');
+          else navigate('/dashboard/');
+        }}
         onWriteReview={(rid) => navigate(`/restaurant/${rid}/review/`)}
         onReportReview={(reviewId) =>
           navigate(`/report/review/${reviewId}/`, { state: { fromDetail: id } })
@@ -587,6 +596,7 @@ function SearchPage() {
   const navigate = useNavigate();
   const [sp] = useSearchParams();
   const q = sp.get('q') ?? '';
+  const initialNeighborhood = sp.get('neighborhood') ?? '';
   const { userData } = useAppContext();
   const logout = useLogout((to) => navigate(to));
 
@@ -594,6 +604,7 @@ function SearchPage() {
     <div className="h-screen w-screen overflow-hidden">
       <SearchResults
         initialQuery={q}
+        initialNeighborhood={initialNeighborhood}
         onBack={() => navigate('/dashboard/')}
         onSelectRestaurant={(id) => navigate(`/restaurant/${id}/`)}
         onNavigateMap={() => navigate('/map/')}

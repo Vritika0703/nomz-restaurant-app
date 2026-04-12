@@ -133,6 +133,7 @@ export function AdminDashboard({
           <button
             onClick={onNavigateMap}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Map"
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             style={{
@@ -148,6 +149,7 @@ export function AdminDashboard({
           <button
             onClick={onLogout}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Logout"
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           style={{
@@ -343,6 +345,7 @@ export function AdminDashboard({
             {/* Moderation */}
             <button
               onClick={onViewModeration}
+              title="Review and moderate reported content"
               className="p-8 rounded-lg text-left transition-all"
               style={{
                 backgroundColor: 'white',
@@ -350,7 +353,7 @@ export function AdminDashboard({
                 cursor: 'pointer'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 e.currentTarget.style.borderColor = '#E06E7F';
               }}
               onMouseLeave={(e) => {
@@ -375,6 +378,7 @@ export function AdminDashboard({
             {/* Pending Approvals */}
             <button
               onClick={onViewPendingApprovals}
+              title="Review pending restaurant registrations"
               className="p-8 rounded-lg text-left transition-all"
               style={{
                 backgroundColor: 'white',
@@ -382,7 +386,7 @@ export function AdminDashboard({
                 cursor: 'pointer'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 e.currentTarget.style.borderColor = '#E06E7F';
               }}
               onMouseLeave={(e) => {
@@ -407,6 +411,7 @@ export function AdminDashboard({
             {/* Manage Users */}
             <button
               onClick={onViewPendingUsers}
+              title="View and manage user accounts"
               className="p-8 rounded-lg text-left transition-all"
               style={{
                 backgroundColor: 'white',
@@ -414,7 +419,7 @@ export function AdminDashboard({
                 cursor: 'pointer'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 e.currentTarget.style.borderColor = '#E06E7F';
               }}
               onMouseLeave={(e) => {
@@ -439,6 +444,7 @@ export function AdminDashboard({
             {/* Admin Logs */}
             <button
               onClick={onViewLogs}
+              title="View system logs and admin activity"
               className="p-8 rounded-lg text-left transition-all"
               style={{
                 backgroundColor: 'white',
@@ -446,7 +452,7 @@ export function AdminDashboard({
                 cursor: 'pointer'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 e.currentTarget.style.borderColor = '#E06E7F';
               }}
               onMouseLeave={(e) => {
@@ -472,6 +478,7 @@ export function AdminDashboard({
             <button
               type="button"
               onClick={onViewApprovedAccounts}
+              title="View approved restaurant accounts"
               className="p-8 rounded-lg text-left transition-all"
               style={{
                 backgroundColor: 'white',
@@ -479,7 +486,7 @@ export function AdminDashboard({
                 cursor: 'pointer'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 e.currentTarget.style.borderColor = '#E06E7F';
               }}
               onMouseLeave={(e) => {
@@ -504,6 +511,7 @@ export function AdminDashboard({
             <button
               type="button"
               onClick={onViewRejectedAccounts}
+              title="View rejected restaurant accounts"
               className="p-8 rounded-lg text-left transition-all"
               style={{
                 backgroundColor: 'white',
@@ -511,7 +519,7 @@ export function AdminDashboard({
                 cursor: 'pointer'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 e.currentTarget.style.borderColor = '#E06E7F';
               }}
               onMouseLeave={(e) => {
@@ -562,6 +570,7 @@ export function AdminDashboard({
               <button
                 disabled={recalcLoading}
                 onClick={() => void handleRecalculate()}
+                title="Recalculate composite scores"
                 className="px-6 py-2 rounded-lg text-sm text-white"
                 style={{ backgroundColor: '#E06E7F', border: 'none', cursor: recalcLoading ? 'wait' : 'pointer', fontFamily: 'Montserrat, sans-serif', opacity: recalcLoading ? 0.7 : 1 }}
               >
@@ -580,6 +589,7 @@ export function AdminDashboard({
               </h3>
               <button
                 onClick={() => { setShowAnomalies(!showAnomalies); if (!showAnomalies) void loadAnomalies(); }}
+                title="Toggle score anomalies view"
                 className="px-4 py-2 rounded-lg text-sm"
                 style={{ backgroundColor: showAnomalies ? '#E06E7F' : 'white', color: showAnomalies ? 'white' : '#E06E7F', border: showAnomalies ? 'none' : '2px solid rgba(224,110,127,0.2)', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
               >
@@ -607,6 +617,7 @@ export function AdminDashboard({
                       {!a.is_resolved && (
                         <button
                           onClick={() => void resolveAnomaly(a.id)}
+                          title="Mark this anomaly as resolved"
                           className="px-3 py-1 rounded text-xs text-white"
                           style={{ backgroundColor: '#16a34a', border: 'none', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
                         >

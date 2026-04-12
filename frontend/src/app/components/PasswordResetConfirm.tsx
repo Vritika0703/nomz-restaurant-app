@@ -86,6 +86,7 @@ export function PasswordResetConfirm({ onBack, onSubmit, isValidLink: initialVal
             <button
               onClick={onBack}
               className="w-full py-3 rounded-lg font-medium transition-all text-white"
+              title="Request new reset link"
               style={{
                 backgroundColor: '#E06E7F',
                 cursor: 'pointer',
@@ -174,6 +175,7 @@ export function PasswordResetConfirm({ onBack, onSubmit, isValidLink: initialVal
                   type="button"
                   onClick={() => setShowPassword1(!showPassword1)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-lg"
+                  title="Toggle password visibility"
                   style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
                 >
                   {showPassword1 ? '👁️' : '👁️‍🗨️'}
@@ -225,6 +227,7 @@ export function PasswordResetConfirm({ onBack, onSubmit, isValidLink: initialVal
                   type="button"
                   onClick={() => setShowPassword2(!showPassword2)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-lg"
+                  title="Toggle password visibility"
                   style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer' }}
                 >
                   {showPassword2 ? '👁️' : '👁️‍🗨️'}
@@ -252,6 +255,7 @@ export function PasswordResetConfirm({ onBack, onSubmit, isValidLink: initialVal
               type="submit"
               disabled={isLoading}
               className="w-full py-3 rounded-lg font-medium transition-all text-white"
+              title="Change password"
               style={{
                 backgroundColor: isLoading ? '#ccc' : '#E06E7F',
                 cursor: isLoading ? 'not-allowed' : 'pointer',

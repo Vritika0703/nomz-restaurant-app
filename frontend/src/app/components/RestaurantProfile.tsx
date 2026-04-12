@@ -303,6 +303,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
           <button
             onClick={onBack}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Back"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
             }}
@@ -333,6 +334,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
             <button
               onClick={onNavigateRestaurantMap || onNavigateMap}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Map"
               onMouseEnter={(e) => {
                 setShowMapTooltip(true);
                 e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
@@ -370,6 +372,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
             <button
               onClick={onNavigateMessages}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Messages"
               onMouseEnter={(e) => {
                 setShowMessagesTooltip(true);
                 e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
@@ -407,6 +410,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
             <button
               onClick={onLogout}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Logout"
               onMouseEnter={(e) => {
                 setShowLogoutText(true);
                 e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
@@ -625,6 +629,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
           <div className="mb-6 flex gap-2">
             <button
               onClick={() => setActiveTab('overview')}
+              title="Overview"
               className="py-3 px-6 rounded-lg text-sm transition-all"
               style={{ 
                 backgroundColor: activeTab === 'overview' ? '#E06E7F' : 'white',
@@ -637,6 +642,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
             </button>
             <button
               onClick={() => setActiveTab('performance')}
+              title="Performance metrics"
               className="py-3 px-6 rounded-lg text-sm transition-all"
               style={{ 
                 backgroundColor: activeTab === 'performance' ? '#E06E7F' : 'white',
@@ -649,6 +655,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
             </button>
             <button
               onClick={() => setActiveTab('details')}
+              title="Business details"
               className="py-3 px-6 rounded-lg text-sm transition-all"
               style={{ 
                 backgroundColor: activeTab === 'details' ? '#E06E7F' : 'white',
@@ -661,6 +668,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
             </button>
             <button
               onClick={() => setActiveTab('reviews')}
+              title="Reviews"
               className="py-3 px-6 rounded-lg text-sm transition-all"
               style={{ 
                 backgroundColor: activeTab === 'reviews' ? '#E06E7F' : 'white',
@@ -682,13 +690,14 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   type="button"
                   onClick={onPhotoManagement}
                   className="p-5 rounded-lg text-center transition-all"
+                  title="Manage photos"
                   style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     fontFamily: 'Montserrat, sans-serif'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                     e.currentTarget.style.borderColor = '#E06E7F';
                   }}
                   onMouseLeave={(e) => {
@@ -703,13 +712,14 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   type="button"
                   onClick={() => setShowAvailabilitySettings(true)}
                   className="p-5 rounded-lg text-center transition-all"
+                  title="Manage availability"
                   style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     fontFamily: 'Montserrat, sans-serif'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                     e.currentTarget.style.borderColor = '#E06E7F';
                   }}
                   onMouseLeave={(e) => {
@@ -724,13 +734,14 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   type="button"
                   onClick={() => setShowCommunicationSettings(true)}
                   className="p-5 rounded-lg text-center transition-all"
+                  title="Messaging settings"
                   style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     fontFamily: 'Montserrat, sans-serif'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                     e.currentTarget.style.borderColor = '#E06E7F';
                   }}
                   onMouseLeave={(e) => {
@@ -745,13 +756,14 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                   type="button"
                   onClick={onManageActivation}
                   className="p-5 rounded-lg text-center transition-all"
+                  title="Manage activation status"
                   style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     fontFamily: 'Montserrat, sans-serif'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                     e.currentTarget.style.borderColor = '#E06E7F';
                   }}
                   onMouseLeave={(e) => {
@@ -1552,7 +1564,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       opacity: savingProfile ? 0.7 : 1,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                       e.currentTarget.style.borderColor = '#E06E7F';
                     }}
                     onMouseLeave={(e) => {
@@ -1876,7 +1888,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                     e.currentTarget.style.borderColor = '#E06E7F';
                   }}
                   onMouseLeave={(e) => {
@@ -2086,7 +2098,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     cursor: 'pointer',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                     e.currentTarget.style.borderColor = '#E06E7F';
                   }}
                   onMouseLeave={(e) => {

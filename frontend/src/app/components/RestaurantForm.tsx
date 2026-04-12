@@ -124,6 +124,7 @@ export function RestaurantForm({ onBack }: { onBack: () => void }) {
           type="button"
           onClick={onBack}
           className="text-xl p-2 rounded-lg"
+          title="Back"
           style={{ border: 'none', background: 'transparent', color: '#E06E7F', cursor: 'pointer' }}
         >
           ←
@@ -304,6 +305,7 @@ export function RestaurantForm({ onBack }: { onBack: () => void }) {
               <button
                 type="submit"
                 disabled={saving}
+                title="Save restaurant profile"
                 className="px-6 py-3 rounded-lg text-sm text-white disabled:opacity-60"
                 style={{ backgroundColor: '#E06E7F', border: 'none', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
               >
@@ -312,6 +314,7 @@ export function RestaurantForm({ onBack }: { onBack: () => void }) {
               <button
                 type="button"
                 onClick={onBack}
+                title="Cancel and return to previous page"
                 className="px-6 py-3 rounded-lg text-sm"
                 style={{
                   backgroundColor: 'white',

@@ -24,6 +24,7 @@ function StarSelector({ value, onChange }: { value: number; onChange: (v: number
           onClick={() => onChange(star)}
           onMouseEnter={() => setHover(star)}
           onMouseLeave={() => setHover(0)}
+          title={`Rate ${star} star${star > 1 ? 's' : ''}`}
           style={{
             fontSize: '22px',
             background: 'none',
@@ -105,6 +106,7 @@ export function AddReview({
         <button
           onClick={onBack}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Back"
           style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: '#E06E7F' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -179,6 +181,7 @@ export function AddReview({
                   type="submit"
                   disabled={submitting}
                   className="w-full py-3 rounded-lg text-white text-sm font-medium transition-all"
+                  title="Post Review"
                   style={{ backgroundColor: submitting ? '#ccc' : '#E06E7F', border: 'none', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Montserrat, sans-serif' }}
                   onMouseEnter={(e) => { if (!submitting) e.currentTarget.style.transform = 'translateY(-1px)'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
@@ -189,8 +192,9 @@ export function AddReview({
                   type="button"
                   onClick={onBack}
                   className="w-full py-3 rounded-lg text-sm transition-all"
+                  title="Cancel review"
                   style={{ backgroundColor: 'transparent', border: '2px solid rgba(224,110,127,0.2)', color: '#E06E7F', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.03)'}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'}
                   onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
                   Cancel

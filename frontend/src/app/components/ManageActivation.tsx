@@ -65,6 +65,7 @@ export function ManageActivation({ onBack, isActive = true, onToggle }: { onBack
           <button
             onClick={onBack}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Back"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
             }}
@@ -150,6 +151,7 @@ export function ManageActivation({ onBack, isActive = true, onToggle }: { onBack
                   <button
                     type="button"
                     onClick={handleToggle}
+                    title="Toggle profile status"
                     className="relative w-16 h-8 rounded-full transition-all"
                     style={{
                       backgroundColor: isRestaurantActive ? '#4CAF50' : '#ccc',
@@ -201,7 +203,7 @@ export function ManageActivation({ onBack, isActive = true, onToggle }: { onBack
                   type="button"
                   onClick={onBack}
                   className="px-6 py-3 rounded-lg transition-all"
-                  style={{
+                  title="Back to Profile"                  style={{
                     backgroundColor: 'white',
                     border: '2px solid rgba(224, 110, 127, 0.2)',
                     color: '#E06E7F',
@@ -211,7 +213,7 @@ export function ManageActivation({ onBack, isActive = true, onToggle }: { onBack
                     fontWeight: '500'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'white';
@@ -223,6 +225,7 @@ export function ManageActivation({ onBack, isActive = true, onToggle }: { onBack
                   type="submit"
                   disabled={isSaving}
                   className="px-6 py-3 rounded-lg transition-all text-white"
+                  title="Save profile status"
                   style={{
                     backgroundColor: isSaving ? '#ccc' : '#E06E7F',
                     border: 'none',

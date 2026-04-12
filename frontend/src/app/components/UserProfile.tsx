@@ -200,6 +200,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
           <button
             onClick={onBack}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Back"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
             }}
@@ -228,6 +229,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
           <button
             onClick={onNavigateMap}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Map"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
             }}
@@ -248,6 +250,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
           <button
             onClick={onViewMessages}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Messages"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
             }}
@@ -268,6 +271,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
           <button
             onClick={onNavigateHome}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Home"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
             }}
@@ -372,14 +376,15 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
               
               <button
                 className="px-5 py-2 rounded-lg transition-all text-sm"
+                title={editingDetails ? 'Save' : 'Edit Profile'}
                 style={{ 
                   backgroundColor: editingDetails ? '#E06E7F' : 'transparent',
                   color: editingDetails ? 'white' : '#E06E7F',
                   border: '2px solid #E06E7F',
                   fontFamily: 'Montserrat, sans-serif'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; if (!editingDetails) e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; if (!editingDetails) e.currentTarget.style.backgroundColor = 'transparent'; }}
                 disabled={accountSaving || prefsSaving || prefsLoading || accountLoading}
                 onClick={async () => {
                   if (!editingDetails) {
@@ -437,6 +442,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
                   </div>
                   <button
                     className="text-xs transition-all w-full py-2 rounded-lg"
+                    title="Edit favorite cuisines"
                     style={{ 
                       color: '#E06E7F',
                       fontFamily: 'Montserrat, sans-serif',
@@ -445,7 +451,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
                       cursor: 'pointer'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
@@ -484,6 +490,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
                     type="button"
                     disabled={prefsSaving}
                     className="text-xs w-full py-2 rounded-lg transition-all"
+                    title="Save favorite cuisines"
                     style={{ 
                       backgroundColor: '#E06E7F',
                       color: 'white',
@@ -545,6 +552,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
                   </div>
                   <button
                     className="text-xs transition-all w-full py-2 rounded-lg"
+                    title="Edit dietary restrictions"
                     style={{ 
                       color: '#E06E7F',
                       fontFamily: 'Montserrat, sans-serif',
@@ -553,7 +561,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
                       cursor: 'pointer'
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
@@ -592,6 +600,7 @@ export function UserProfile({ onBack, onViewMessages, onNavigateMap, onNavigateH
                     type="button"
                     disabled={prefsSaving}
                     className="text-xs w-full py-2 rounded-lg transition-all"
+                    title="Save dietary restrictions"
                     style={{ 
                       backgroundColor: '#E06E7F',
                       color: 'white',

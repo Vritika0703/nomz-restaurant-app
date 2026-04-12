@@ -107,6 +107,7 @@ export function AdminPendingApprovals({
         <button
           onClick={onBack}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Back"
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           style={{
@@ -301,6 +302,7 @@ export function AdminPendingApprovals({
                   <div className="flex gap-3">
                     <button
                       onClick={() => handleAction(approval.id)}
+                      title="Review and decide on this business registration"
                       className="flex-1 px-4 py-2 rounded-lg transition-all"
                       style={{
                         backgroundColor: '#E06E7F',
@@ -418,6 +420,7 @@ export function AdminPendingApprovals({
             <div className="flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
+                title="Cancel approval decision"
                 className="flex-1 px-4 py-2 rounded-lg"
                 style={{
                   backgroundColor: 'transparent',
@@ -431,6 +434,7 @@ export function AdminPendingApprovals({
               </button>
               <button
                 onClick={handleSubmit}
+                title="Submit approval decision"
                 className="flex-1 px-4 py-2 rounded-lg"
                 style={{
                   backgroundColor: '#E06E7F',

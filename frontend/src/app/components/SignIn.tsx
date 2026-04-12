@@ -100,6 +100,7 @@ export function SignIn({
         onClick={onBackClick}
         className="absolute top-8 left-8 p-2 rounded-lg transition-all hover:bg-opacity-10"
         style={{ color: '#E06E7F' }}
+        title="Back"
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
         }}
@@ -213,7 +214,8 @@ export function SignIn({
                 <button
                   type="button"
                   onClick={onForgotPassword}
-                  className="text-xs transition-all"
+                  className="text-xs transition-all p-1 rounded"
+                  title="Forgot password?"
                   style={{
                     color: '#999',
                     backgroundColor: 'transparent',
@@ -223,9 +225,11 @@ export function SignIn({
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = '#E06E7F';
+                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.color = '#999';
+                    e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
                   Forgot password?
@@ -237,6 +241,7 @@ export function SignIn({
               type="submit"
               disabled={loading}
               className="py-2.5 rounded-lg text-white transition-all text-sm"
+              title="Log In"
               style={{
                 backgroundColor: loading ? '#ccc' : '#E06E7F',
                 fontFamily: 'Montserrat, sans-serif',
@@ -253,7 +258,7 @@ export function SignIn({
           {!adminPortal && (
             <p className="text-center text-xs mt-6" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
               Don&apos;t have an account?{' '}
-              <span className="cursor-pointer transition-all" style={{ color: '#E06E7F' }} onClick={onSignUp}>
+              <span className="cursor-pointer transition-all" style={{ color: '#E06E7F' }} onClick={onSignUp} title="Sign up for a new account">
                 Sign up
               </span>
             </p>

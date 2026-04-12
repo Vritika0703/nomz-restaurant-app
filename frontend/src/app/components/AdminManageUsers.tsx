@@ -123,6 +123,7 @@ export function AdminManageUsers({
         <button
           onClick={onBack}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Back"
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           style={{
@@ -155,6 +156,7 @@ export function AdminManageUsers({
                 <button
                   key={filter}
                   onClick={() => setFilterStatus(filter)}
+                  title={`Filter by ${filter} status`}
                   className="px-4 py-2 rounded-lg transition-all text-sm"
                   style={{
                     backgroundColor: filterStatus === filter ? '#E06E7F' : 'white',
@@ -290,6 +292,7 @@ export function AdminManageUsers({
                     <td className="px-6 py-4">
                       <button
                         onClick={() => handleAction(user.id)}
+                        title="Manage this user account"
                         className="text-xs px-3 py-1 rounded transition-all"
                         style={{
                           backgroundColor: 'transparent',
@@ -298,7 +301,7 @@ export function AdminManageUsers({
                           cursor: 'pointer',
                           fontFamily: 'Montserrat, sans-serif'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)'}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
                         Manage
@@ -330,6 +333,7 @@ export function AdminManageUsers({
             <div className="flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
+                title="Cancel user status change"
                 className="flex-1 px-4 py-2 rounded-lg"
                 style={{
                   backgroundColor: 'transparent',
@@ -343,6 +347,7 @@ export function AdminManageUsers({
               </button>
               <button
                 onClick={handleSubmitAction}
+                title="Update user active status"
                 className="flex-1 px-4 py-2 rounded-lg"
                 style={{
                   backgroundColor: '#E06E7F',

@@ -102,6 +102,7 @@ export function PhotoManagement({ onBack }: { onBack: () => void }) {
           <button
             onClick={onBack}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Back"
             style={{
               backgroundColor: "transparent",
               border: "none",
@@ -139,6 +140,7 @@ export function PhotoManagement({ onBack }: { onBack: () => void }) {
         <div className="mb-8">
           <button
             onClick={handleUploadClick}
+            title="Upload a new restaurant photo"
             className="py-3 px-8 rounded-lg text-sm transition-all"
             style={{
               backgroundColor: "#E06E7F",
@@ -188,6 +190,7 @@ export function PhotoManagement({ onBack }: { onBack: () => void }) {
                 {!photo.is_primary && (
                   <button
                     onClick={() => void handleSetMainPhoto(photo.id)}
+                    title="Set this photo as main restaurant image"
                     className="flex-1 py-2 px-4 rounded-lg text-xs transition-all"
                     style={{
                       backgroundColor: "white",
@@ -203,6 +206,7 @@ export function PhotoManagement({ onBack }: { onBack: () => void }) {
                 )}
                 <button
                   onClick={() => void handleDeletePhoto(photo.id)}
+                  title="Delete this photo"
                   className="py-2 px-4 rounded-lg text-xs transition-all"
                   style={{
                     backgroundColor: "white",

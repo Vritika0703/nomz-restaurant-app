@@ -90,6 +90,7 @@ export function AdminLogs({
         <button
           onClick={onBack}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Back"
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           style={{
@@ -127,6 +128,7 @@ export function AdminLogs({
               <div className="flex gap-2 min-w-max">
                 <button
                   onClick={() => setFilterAction('all')}
+                  title="Show all log entries"
                   className="px-4 py-2 rounded-lg transition-all text-sm whitespace-nowrap"
                   style={{
                     backgroundColor: filterAction === 'all' ? '#E06E7F' : 'white',
@@ -142,6 +144,7 @@ export function AdminLogs({
                   <button
                     key={action}
                     onClick={() => setFilterAction(action)}
+                    title={`Filter by ${action}`}
                     className="px-4 py-2 rounded-lg transition-all text-sm whitespace-nowrap"
                     style={{
                       backgroundColor: filterAction === action ? '#E06E7F' : 'white',

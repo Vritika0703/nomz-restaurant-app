@@ -76,6 +76,7 @@ export function SignUp({
         style={{
           color: '#E06E7F',
         }}
+        title="Back"
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
         }}
@@ -269,6 +270,7 @@ export function SignUp({
               type="submit"
               disabled={loading}
               className="py-2.5 rounded-lg text-white transition-all text-sm"
+              title="Sign Up"
               style={{
                 backgroundColor: loading ? '#ccc' : '#E06E7F',
                 fontFamily: 'Montserrat, sans-serif',
@@ -286,7 +288,7 @@ export function SignUp({
             fontFamily: 'Montserrat, sans-serif', 
             color: '#666' 
           }}>
-            Already have an account? <span className="cursor-pointer transition-all" style={{ 
+            Already have an account? <span className="cursor-pointer transition-all" title="Log in to your account" style={{ 
               color: '#E06E7F' 
             }}>Log in</span>
           </p>

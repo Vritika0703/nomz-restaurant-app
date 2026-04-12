@@ -120,6 +120,7 @@ export function PasswordResetForm({ onBack, onSubmit }: { onBack: () => void; on
               type="submit"
               disabled={isLoading}
               className="w-full py-3 rounded-lg font-medium transition-all text-white"
+              title="Send reset link"
               style={{
                 backgroundColor: isLoading ? '#ccc' : '#E06E7F',
                 cursor: isLoading ? 'not-allowed' : 'pointer',
@@ -148,7 +149,8 @@ export function PasswordResetForm({ onBack, onSubmit }: { onBack: () => void; on
           <div className="text-center mt-4">
             <button
               onClick={onBack}
-              className="text-sm transition-all"
+              className="text-sm transition-all p-1 rounded"
+              title="Back to login"
               style={{
                 color: '#999',
                 backgroundColor: 'transparent',
@@ -159,9 +161,11 @@ export function PasswordResetForm({ onBack, onSubmit }: { onBack: () => void; on
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.color = '#E06E7F';
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.color = '#999';
+                e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
               Back to log in

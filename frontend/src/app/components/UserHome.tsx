@@ -24,7 +24,7 @@ export function UserHome({
   onViewProfile: () => void;
   onViewMessages: () => void;
   onNavigateMap: () => void;
-  onSearch: (q: string) => void;
+  onSearch: (q: string, neighborhood?: string) => void;
   onOpenRecommendations: () => void;
   onSelectRestaurant: (id: number) => void;
   username: string;
@@ -34,6 +34,8 @@ export function UserHome({
   const [showMessagesTooltip, setShowMessagesTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
   const [searchInput, setSearchInput] = useState("");
+  const [cuisineFilter, setCuisineFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [recs, setRecs] = useState<RecRow[]>([]);
   const [recMessage, setRecMessage] = useState<string | null>(null);
 
@@ -64,7 +66,8 @@ export function UserHome({
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSearch(searchInput.trim());
+    const parts = [searchInput.trim(), cuisineFilter].filter(Boolean).join(' ');
+    onSearch(parts, locationFilter || undefined);
   };
 
   return (
@@ -82,6 +85,7 @@ export function UserHome({
             <button
               onClick={onNavigateMap}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Map"
               onMouseEnter={(e) => {
                 setShowMapTooltip(true);
                 e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
@@ -118,6 +122,7 @@ export function UserHome({
             <button
               onClick={onViewMessages}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Messages"
               onMouseEnter={(e) => {
                 setShowMessagesTooltip(true);
                 e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
@@ -154,6 +159,7 @@ export function UserHome({
             <button
               onClick={onViewProfile}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Profile"
               onMouseEnter={(e) => {
                 setShowProfileTooltip(true);
                 e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
@@ -190,6 +196,7 @@ export function UserHome({
             <button
               onClick={onLogout}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Logout"
               onMouseEnter={(e) => {
                 setShowLogoutText(true);
                 e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
@@ -240,8 +247,8 @@ export function UserHome({
             Discover amazing restaurants and delicious food near you
           </p>
 
-          <form onSubmit={handleSearchSubmit} className="mb-16 max-w-2xl mx-auto">
-            <div className="relative flex gap-2">
+          <form onSubmit={handleSearchSubmit} className="mb-16 max-w-3xl mx-auto">
+            <div className="relative flex gap-2 mb-3">
               <input
                 type="text"
                 value={searchInput}
@@ -263,6 +270,30 @@ export function UserHome({
               >
                 Search
               </button>
+            </div>
+            <div className="flex flex-col md:flex-row gap-3">
+              <select
+                value={cuisineFilter}
+                onChange={(e) => setCuisineFilter(e.target.value)}
+                className="flex-1 px-4 py-3 border-2 rounded-lg text-sm"
+                style={{ borderColor: 'rgba(224, 110, 127, 0.25)', fontFamily: 'Montserrat, sans-serif', backgroundColor: 'white' }}
+              >
+                <option value="">All Cuisines</option>
+                {["American","Asian","Italian","Mexican","Indian","French","Japanese","Chinese","Thai","Mediterranean","Fusion","Vegetarian","Vegan"].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="flex-1 px-4 py-3 border-2 rounded-lg text-sm"
+                style={{ borderColor: 'rgba(224, 110, 127, 0.25)', fontFamily: 'Montserrat, sans-serif', backgroundColor: 'white' }}
+              >
+                <option value="">All Locations</option>
+                {["Manhattan","Brooklyn","Queens","The Bronx","Staten Island"].map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
             </div>
             <p className="text-xs mt-2 text-center" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>
               Opens full results with neighborhood and sort, matching the server search page.

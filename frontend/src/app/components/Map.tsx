@@ -192,6 +192,7 @@ export function Map({
               <button
                 onClick={onNavigateProfile}
                 className="text-xl transition-all p-2 rounded-lg"
+                title="Back"
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 }}
@@ -220,6 +221,7 @@ export function Map({
             <button
               onClick={onLogout}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Logout"
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
               }}
@@ -243,6 +245,7 @@ export function Map({
               <button
                 onClick={onNavigateHome}
                 className="text-xl transition-all p-2 rounded-lg"
+                title="Home"
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 }}
@@ -272,6 +275,7 @@ export function Map({
               <button
                 onClick={onNavigateMessages}
                 className="text-xl transition-all p-2 rounded-lg"
+                title="Messages"
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 }}
@@ -292,6 +296,7 @@ export function Map({
               <button
                 onClick={onNavigateProfile}
                 className="text-xl transition-all p-2 rounded-lg"
+                title="Profile"
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 }}
@@ -312,6 +317,7 @@ export function Map({
               <button
                 onClick={onLogout}
                 className="text-xl transition-all p-2 rounded-lg"
+                title="Logout"
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                 }}
@@ -643,7 +649,7 @@ export function Map({
                         borderBottom: '1px solid rgba(224, 110, 127, 0.1)',
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                        e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.backgroundColor = 'transparent';

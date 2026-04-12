@@ -203,6 +203,7 @@ export function Messages({
           <button
             onClick={onNavigateHome}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Home"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = "rgba(224, 110, 127, 0.1)";
             }}
@@ -230,6 +231,9 @@ export function Messages({
           <button
             onClick={onNavigateMap}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Map"
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             style={{
               backgroundColor: "transparent",
               border: "none",
@@ -245,6 +249,9 @@ export function Messages({
             <button
               onClick={onNavigateProfile}
               className="text-xl transition-all p-2 rounded-lg"
+              title="Profile"
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
               style={{
                 backgroundColor: "transparent",
                 border: "none",
@@ -260,6 +267,9 @@ export function Messages({
           <button
             onClick={onLogout}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Logout"
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
             style={{
               backgroundColor: "transparent",
               border: "none",
@@ -308,6 +318,7 @@ export function Messages({
                 <button
                   type="button"
                   disabled={startSubmitting}
+                  title="Cancel message"
                   className="px-4 py-2 rounded-lg text-sm"
                   style={{
                     border: "1px solid rgba(224,110,127,0.3)",
@@ -323,6 +334,7 @@ export function Messages({
                 <button
                   type="button"
                   disabled={startSubmitting || !startMessageBody.trim()}
+                  title="Send initial message"
                   className="px-4 py-2 rounded-lg text-sm text-white"
                   style={{
                     backgroundColor: startSubmitting || !startMessageBody.trim() ? "#ccc" : "#E06E7F",
@@ -365,6 +377,7 @@ export function Messages({
                   key={c.id}
                   type="button"
                   onClick={() => setSelectedId(c.id)}
+                  title={`Open conversation with ${accountType === "Restaurant" ? c.diner_username : c.restaurant_name}`}
                   className="text-left px-3 py-3 border-b w-full"
                   style={{
                     fontFamily: "Montserrat, sans-serif",
@@ -435,6 +448,7 @@ export function Messages({
                 type="button"
                 disabled={selectedId == null || !composer.trim()}
                 onClick={() => void sendMessage()}
+                title="Send message"
                 className="px-4 py-2 rounded-lg text-sm text-white"
                 style={{
                   backgroundColor: selectedId == null || !composer.trim() ? "#ccc" : "#E06E7F",

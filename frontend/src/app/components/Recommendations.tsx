@@ -73,8 +73,11 @@ export function Recommendations({
           <button
             type="button"
             onClick={onBack}
-            className="text-xl p-2 rounded-lg"
+            className="text-xl p-2 rounded-lg transition-all"
+            title="Back"
             style={{ border: 'none', background: 'transparent', color: '#E06E7F', cursor: 'pointer' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             ←
           </button>
@@ -82,19 +85,18 @@ export function Recommendations({
             nomz
           </h1>
         </div>
-        <div className="flex items-center gap-4 text-sm" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
-          <span>{username}</span>
-          <button type="button" onClick={onNavigateMap} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#E06E7F' }}>
-            map
+        <div className="flex items-center gap-4">
+          <button type="button" onClick={onNavigateMap} title="Map" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            🗺️
           </button>
-          <button type="button" onClick={onNavigateMessages} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#E06E7F' }}>
-            messages
+          <button type="button" onClick={onNavigateMessages} title="Messages" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            💬
           </button>
-          <button type="button" onClick={onNavigateProfile} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#E06E7F' }}>
-            profile
+          <button type="button" onClick={onNavigateProfile} title="Profile" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            👤
           </button>
-          <button type="button" onClick={onLogout} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#E06E7F' }}>
-            logout
+          <button type="button" onClick={onLogout} title="Logout" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            →
           </button>
         </div>
       </nav>
@@ -131,6 +133,7 @@ export function Recommendations({
                 type="button"
                 onClick={onOpenPreferences}
                 className="px-5 py-2 rounded-lg text-sm text-white"
+                title="Open dining preferences"
                 style={{ backgroundColor: '#E06E7F', border: 'none', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
               >
                 Open preferences
@@ -152,12 +155,15 @@ export function Recommendations({
                 type="button"
                 onClick={() => onSelectRestaurant(row.id)}
                 className="w-full text-left p-5 rounded-lg transition-all"
+                title={`View ${row.name}`}
                 style={{
                   backgroundColor: 'white',
                   border: '2px solid rgba(224, 110, 127, 0.15)',
                   fontFamily: 'Montserrat, sans-serif',
                   cursor: 'pointer',
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.15)'; }}
               >
                 <h3 className="text-lg mb-1" style={{ color: '#333' }}>
                   {row.name}

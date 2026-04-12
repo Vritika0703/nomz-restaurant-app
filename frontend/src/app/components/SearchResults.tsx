@@ -24,6 +24,7 @@ type SearchPayload = {
 
 export function SearchResults({
   initialQuery,
+  initialNeighborhood = '',
   onBack,
   onSelectRestaurant,
   onNavigateMap,
@@ -33,6 +34,7 @@ export function SearchResults({
   username,
 }: {
   initialQuery: string;
+  initialNeighborhood?: string;
   onBack: () => void;
   onSelectRestaurant: (id: number) => void;
   onNavigateMap: () => void;
@@ -43,7 +45,7 @@ export function SearchResults({
 }) {
   const [q, setQ] = useState(initialQuery);
   const [committedQuery, setCommittedQuery] = useState(initialQuery);
-  const [neighborhood, setNeighborhood] = useState('');
+  const [neighborhood, setNeighborhood] = useState(initialNeighborhood);
   const [sortUi, setSortUi] = useState('composite-high-low');
   const [data, setData] = useState<SearchPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,8 +101,11 @@ export function SearchResults({
           <button
             type="button"
             onClick={onBack}
-            className="text-xl p-2 rounded-lg"
+            className="text-xl p-2 rounded-lg transition-all"
+            title="Back"
             style={{ border: 'none', background: 'transparent', color: '#E06E7F', cursor: 'pointer' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             ←
           </button>
@@ -108,19 +113,18 @@ export function SearchResults({
             nomz
           </h1>
         </div>
-        <div className="flex items-center gap-4 text-sm" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
-          <span>{username}</span>
-          <button type="button" onClick={onNavigateMap} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#E06E7F' }}>
-            map
+        <div className="flex items-center gap-4">
+          <button type="button" onClick={onNavigateMap} title="Map" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            🗺️
           </button>
-          <button type="button" onClick={onNavigateMessages} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#E06E7F' }}>
-            messages
+          <button type="button" onClick={onNavigateMessages} title="Messages" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            💬
           </button>
-          <button type="button" onClick={onNavigateProfile} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#E06E7F' }}>
-            profile
+          <button type="button" onClick={onNavigateProfile} title="Profile" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            👤
           </button>
-          <button type="button" onClick={onLogout} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#E06E7F' }}>
-            logout
+          <button type="button" onClick={onLogout} title="Logout" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+            →
           </button>
         </div>
       </nav>
@@ -167,6 +171,7 @@ export function SearchResults({
             <button
               type="submit"
               className="px-6 py-3 rounded-lg text-sm text-white"
+              title="Search restaurants"
               style={{ backgroundColor: '#E06E7F', fontFamily: 'Montserrat, sans-serif', border: 'none', cursor: 'pointer' }}
             >
               Search
@@ -206,12 +211,15 @@ export function SearchResults({
                 type="button"
                 onClick={() => onSelectRestaurant(row.id)}
                 className="w-full text-left p-5 rounded-lg transition-all"
+                title={`View ${row.name}`}
                 style={{
                   backgroundColor: 'white',
                   border: '2px solid rgba(224, 110, 127, 0.15)',
                   fontFamily: 'Montserrat, sans-serif',
                   cursor: 'pointer',
                 }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.15)'; }}
               >
                 <div className="flex justify-between gap-4">
                   <div>

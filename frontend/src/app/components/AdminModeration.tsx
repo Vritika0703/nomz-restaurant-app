@@ -146,6 +146,7 @@ export function AdminModeration({
         <button
           onClick={onBack}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Back"
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           style={{
@@ -304,6 +305,7 @@ export function AdminModeration({
 
                   <button
                     onClick={() => handleAction(report.id)}
+                    title="Review and take action on this report"
                     className="px-6 py-2 rounded-lg transition-all text-sm"
                     style={{
                       backgroundColor: '#E06E7F',
@@ -403,6 +405,7 @@ export function AdminModeration({
             <div className="flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
+                title="Cancel moderation action"
                 className="flex-1 px-4 py-2 rounded-lg"
                 style={{
                   backgroundColor: 'transparent',
@@ -416,6 +419,7 @@ export function AdminModeration({
               </button>
               <button
                 onClick={handleSubmitAction}
+                title="Confirm moderation action"
                 className="flex-1 px-4 py-2 rounded-lg"
                 style={{
                   backgroundColor: '#E06E7F',

@@ -105,6 +105,7 @@ export function AdminRestaurantAccounts({
           type="button"
           onClick={onBack}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Back"
           onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(224, 110, 127, 0.1)")}
           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
           style={{
@@ -176,6 +177,7 @@ export function AdminRestaurantAccounts({
                             <button
                               type="button"
                               disabled={busyId === row.id}
+                              title="Revoke approval for this business"
                               className="text-xs px-3 py-1.5 rounded-lg"
                               style={{
                                 border: "1px solid rgba(220, 38, 38, 0.35)",
@@ -192,6 +194,7 @@ export function AdminRestaurantAccounts({
                             <button
                               type="button"
                               disabled={busyId === row.id}
+                              title="Approve this business account"
                               className="text-xs px-3 py-1.5 rounded-lg text-white"
                               style={{
                                 border: "none",

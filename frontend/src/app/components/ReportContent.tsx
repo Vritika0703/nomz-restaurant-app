@@ -57,6 +57,7 @@ export function ReportContent({
         <button
           onClick={onBack}
           className="text-xl transition-all p-2 rounded-lg"
+          title="Back"
           style={{ backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: '#E06E7F' }}
           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'}
           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -116,6 +117,7 @@ export function ReportContent({
               <button
                 type="submit"
                 disabled={submitting}
+                title="Submit content report"
                 className="w-full py-3 rounded-lg text-white text-sm font-medium transition-all"
                 style={{ backgroundColor: submitting ? '#ccc' : '#dc2626', border: 'none', cursor: submitting ? 'not-allowed' : 'pointer', fontFamily: 'Montserrat, sans-serif' }}
               >
@@ -124,6 +126,7 @@ export function ReportContent({
               <button
                 type="button"
                 onClick={onBack}
+                title="Cancel report"
                 className="w-full py-3 rounded-lg text-sm transition-all"
                 style={{ backgroundColor: 'transparent', border: '2px solid rgba(224,110,127,0.2)', color: '#666', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
               >

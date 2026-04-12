@@ -128,6 +128,7 @@ export function TwoFactorAuth({ onBack, onVerify }: { onBack: () => void; onVeri
               type="submit"
               disabled={isVerifying}
               className="w-full py-3 rounded-lg font-medium transition-all text-white mb-3"
+              title="Verify code"
               style={{
                 backgroundColor: isVerifying ? '#ccc' : '#E06E7F',
                 cursor: isVerifying ? 'not-allowed' : 'pointer',
@@ -156,6 +157,7 @@ export function TwoFactorAuth({ onBack, onVerify }: { onBack: () => void; onVeri
               type="button"
               onClick={onBack}
               className="w-full py-3 rounded-lg font-medium transition-all"
+              title="Back to login"
               style={{
                 backgroundColor: 'white',
                 border: '2px solid rgba(224, 110, 127, 0.2)',
@@ -165,7 +167,7 @@ export function TwoFactorAuth({ onBack, onVerify }: { onBack: () => void; onVeri
                 fontSize: '14px'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.05)';
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'white';

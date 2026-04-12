@@ -16,14 +16,15 @@ export function Home({ onSignInClick, onSignUpClick }: { onSignInClick: () => vo
           <button
             onClick={onSignInClick}
             className="px-5 py-2 rounded-lg transition-all text-sm"
+            title="Log In"
             style={{ 
               backgroundColor: 'transparent',
               color: '#E06E7F',
               border: '2px solid #E06E7F',
               fontFamily: 'Montserrat, sans-serif'
             }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.transform = 'translateY(0)'; }}
           >
             Log In
           </button>
@@ -31,6 +32,7 @@ export function Home({ onSignInClick, onSignUpClick }: { onSignInClick: () => vo
           <button
             onClick={onSignUpClick}
             className="px-5 py-2 rounded-lg transition-all text-sm"
+            title="Sign Up"
             style={{ 
               backgroundColor: '#E06E7F',
               color: 'white',

@@ -178,6 +178,7 @@ export function ClaimRestaurant({
             type="button"
             onClick={onBack}
             className="text-xl transition-all p-2 rounded-lg"
+            title="Back"
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = "rgba(224, 110, 127, 0.1)";
             }}
@@ -267,6 +268,7 @@ export function ClaimRestaurant({
                   />
                   <button
                     type="submit"
+                    title="Search for restaurants"
                     className="px-5 py-2 rounded-lg text-sm transition-all"
                     style={{
                       fontFamily: "Montserrat, sans-serif",
@@ -402,6 +404,7 @@ export function ClaimRestaurant({
                   <div className="flex flex-wrap gap-3">
                     <button
                       type="submit"
+                      title="Submit restaurant ownership claim"
                       className="px-6 py-2 rounded-lg text-sm transition-all"
                       style={{
                         fontFamily: "Montserrat, sans-serif",
@@ -417,6 +420,7 @@ export function ClaimRestaurant({
                     <button
                       type="button"
                       onClick={onBack}
+                      title="Return to dashboard"
                       className="px-6 py-2 rounded-lg text-sm transition-all"
                       style={{
                         fontFamily: "Montserrat, sans-serif",
