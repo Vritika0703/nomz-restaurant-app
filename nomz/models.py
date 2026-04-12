@@ -1684,3 +1684,117 @@ class ModerationReport(models.Model):
             f"Review {self.review_id}" if self.review else f"User {self.reported_user}"
         )
         return f"Report by {self.reporter.username} on {target} ({self.status})"
+
+
+class FriendConversation(models.Model):
+    """
+    A conversation between two or more users.
+    Can be a 1-on-1 chat or a group chat.
+    """
+
+    # Participants in the conversation
+    participants = models.ManyToManyField(User, related_name="friend_chats", blank=True)
+
+    # Metadata for group chats
+    name = models.CharField(max_length=255, null=True, blank=True)
+    is_group = models.BooleanField(default=False)
+    creator = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_group_chats",
+    )
+
+    # Legacy fields (retained to avoid breaking existing data immediately)
+    user1 = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="friend_conversations_initiated_legacy",
+        null=True,
+        blank=True,
+    )
+    user2 = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="friend_conversations_received_legacy",
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        if self.is_group and self.name:
+            return f"Group: {self.name}"
+        return f"Chat: {', '.join([u.username for u in self.get_participants()])}"
+
+    def get_participants(self):
+        """Returns all participants, falling back to legacy fields if M2M not yet populated."""
+        parts = self.participants.all()
+        if parts.exists():
+            return parts
+        # If participants M2M is empty, return user1 and user2
+        return User.objects.filter(id__in=[self.user1_id, self.user2_id]).filter(
+            id__isnull=False
+        )
+
+    def can_access(self, user):
+        if not user or not user.is_authenticated:
+            return False
+        return self.get_participants().filter(id=user.id).exists()
+
+
+class FriendMessage(models.Model):
+    """
+    Individual message belonging to a FriendConversation.
+    """
+
+    conversation = models.ForeignKey(
+        FriendConversation,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="sent_friend_messages",
+    )
+    body = models.TextField(blank=True, null=True)
+    restaurant_recommendation = models.ForeignKey(
+        "Restaurant", on_delete=models.SET_NULL, null=True, blank=True
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"FriendMessage by {self.sender.username} at {self.created_at}"
+
+
+class FriendSharedRestaurant(models.Model):
+    """
+    Restaurants that friends in a conversation have added to their 'Together List'.
+    """
+
+    conversation = models.ForeignKey(
+        FriendConversation,
+        on_delete=models.CASCADE,
+        related_name="shared_restaurants",
+    )
+    restaurant = models.ForeignKey("Restaurant", on_delete=models.CASCADE)
+    added_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("conversation", "restaurant")]
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.restaurant.name} in {self.conversation}"
