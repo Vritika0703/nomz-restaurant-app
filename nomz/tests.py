@@ -31,7 +31,7 @@ from .models import (
     UserProfile,
 )
 from .scoring import refresh_restaurant_composite
-from .restaurant_sorting import normalize_sort_key
+from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 
 class RestaurantModelTests(TestCase):
@@ -627,6 +627,278 @@ class RestaurantSortingTests(TestCase):
             names,
             ["Sort Test A", "Sort Test C", "Sort Test B"],
         )
+
+
+class SortRestaurantQuerysetUnitTests(TestCase):
+    """
+    User story — Definition of Done: sorting logic at query level.
+    Tests `sort_restaurant_queryset` directly (no HTTP).
+    """
+
+    def setUp(self):
+        self.r_low = Restaurant.objects.create(
+            name="UnitSort Low",
+            is_active=True,
+            composite_score=Decimal("10.00"),
+            grade_score_latest=40,
+            price_range="$",
+        )
+        self.r_mid = Restaurant.objects.create(
+            name="UnitSort Mid",
+            is_active=True,
+            composite_score=Decimal("50.00"),
+            grade_score_latest=70,
+            price_range="$$",
+        )
+        self.r_high = Restaurant.objects.create(
+            name="UnitSort High",
+            is_active=True,
+            composite_score=Decimal("90.00"),
+            grade_score_latest=95,
+            price_range="$$$$",
+        )
+        # Do not attach InspectionRecords here: post_save signal calls
+        # refresh_restaurant_composite() and overwrites composite_score.
+
+    def _ids(self, queryset):
+        return list(queryset.values_list("id", flat=True))
+
+    def test_composite_desc_then_asc(self):
+        base = Restaurant.objects.filter(name__startswith="UnitSort").order_by("pk")
+        desc = self._ids(sort_restaurant_queryset(base, "composite_desc"))
+        self.assertEqual(desc, [self.r_high.id, self.r_mid.id, self.r_low.id])
+        asc = self._ids(sort_restaurant_queryset(base, "composite_asc"))
+        self.assertEqual(asc, [self.r_low.id, self.r_mid.id, self.r_high.id])
+
+    def test_rating_desc_then_asc(self):
+        base = Restaurant.objects.filter(name__startswith="UnitSort")
+        desc = self._ids(sort_restaurant_queryset(base, "rating_desc"))
+        self.assertEqual(desc, [self.r_high.id, self.r_mid.id, self.r_low.id])
+        asc = self._ids(sort_restaurant_queryset(base, "rating_asc"))
+        self.assertEqual(asc, [self.r_low.id, self.r_mid.id, self.r_high.id])
+
+    def test_price_asc_then_desc(self):
+        base = Restaurant.objects.filter(name__startswith="UnitSort")
+        asc = self._ids(sort_restaurant_queryset(base, "price_asc"))
+        self.assertEqual(asc, [self.r_low.id, self.r_mid.id, self.r_high.id])
+        desc = self._ids(sort_restaurant_queryset(base, "price_desc"))
+        self.assertEqual(desc, [self.r_high.id, self.r_mid.id, self.r_low.id])
+
+    def test_popularity_desc_then_asc(self):
+        """Popularity uses inspection count; records trigger composite refresh on those rows only."""
+        p_a = Restaurant.objects.create(
+            name="UnitPop A",
+            is_active=True,
+            composite_score=Decimal("50.00"),
+            grade_score_latest=70,
+            price_range="$$",
+        )
+        p_b = Restaurant.objects.create(
+            name="UnitPop B",
+            is_active=True,
+            composite_score=Decimal("50.00"),
+            grade_score_latest=70,
+            price_range="$$",
+        )
+        p_c = Restaurant.objects.create(
+            name="UnitPop C",
+            is_active=True,
+            composite_score=Decimal("50.00"),
+            grade_score_latest=70,
+            price_range="$$",
+        )
+        for i in range(4):
+            InspectionRecord.objects.create(
+                restaurant=p_c,
+                inspection_date=date(2022, 3, 1 + i),
+                inspection_key=f"unit-pop-c-{i}",
+            )
+        for i in range(2):
+            InspectionRecord.objects.create(
+                restaurant=p_b,
+                inspection_date=date(2022, 4, 1 + i),
+                inspection_key=f"unit-pop-b-{i}",
+            )
+        base = Restaurant.objects.filter(name__startswith="UnitPop")
+        desc = self._ids(sort_restaurant_queryset(base, "popularity_desc"))
+        self.assertEqual(desc[0], p_c.id)
+        self.assertEqual(set(desc), {p_a.id, p_b.id, p_c.id})
+        asc = self._ids(sort_restaurant_queryset(base, "popularity_asc"))
+        self.assertEqual(asc[0], p_a.id)
+
+    def test_name_asc_desc(self):
+        base = Restaurant.objects.filter(name__startswith="UnitSort")
+        asc = self._ids(sort_restaurant_queryset(base, "name_asc"))
+        self.assertEqual(
+            asc,
+            sorted(
+                [self.r_low.id, self.r_mid.id, self.r_high.id],
+                key=lambda pk: Restaurant.objects.get(pk=pk).name,
+            ),
+        )
+        desc = self._ids(sort_restaurant_queryset(base, "name_desc"))
+        self.assertEqual(list(reversed(asc)), desc)
+
+    def test_invalid_sort_key_falls_back_to_composite_desc(self):
+        base = Restaurant.objects.filter(name__startswith="UnitSort")
+        got = self._ids(sort_restaurant_queryset(base, "not_a_valid_sort"))
+        expected = self._ids(sort_restaurant_queryset(base, "composite_desc"))
+        self.assertEqual(got, expected)
+
+
+class RestaurantSortUserStoryAcceptanceTests(TestCase):
+    """
+    User story acceptance criteria:
+    - Results reorder correctly with search/filters (map API + search view).
+    - Server exposes stable sort key for repeated requests (persistence contract).
+    """
+
+    def setUp(self):
+        self.client = Client()
+        # NYC bbox + no owner => visible in map API
+        self.manhattan_cheap = Restaurant.objects.create(
+            name="Story Manhattan Cheap",
+            is_active=True,
+            latitude=Decimal("40.758000"),
+            longitude=Decimal("-73.985500"),
+            borough="Manhattan",
+            neighborhood="Midtown",
+            cuisine_tags=["Thai", "Noodles"],
+            composite_score=Decimal("35.00"),
+            grade_score_latest=50,
+            price_range="$",
+        )
+        self.manhattan_pricey = Restaurant.objects.create(
+            name="Story Manhattan Pricey",
+            is_active=True,
+            latitude=Decimal("40.761000"),
+            longitude=Decimal("-73.982000"),
+            borough="Manhattan",
+            neighborhood="Midtown",
+            cuisine_tags=["Thai", "Curry"],
+            composite_score=Decimal("85.00"),
+            grade_score_latest=90,
+            price_range="$$$",
+        )
+        self.brooklyn_mid = Restaurant.objects.create(
+            name="Story Brooklyn Mid",
+            is_active=True,
+            latitude=Decimal("40.678000"),
+            longitude=Decimal("-73.985000"),
+            borough="Brooklyn",
+            neighborhood="Boerum Hill",
+            cuisine_tags=["Italian"],
+            composite_score=Decimal("60.00"),
+            grade_score_latest=70,
+            price_range="$$",
+        )
+
+    def test_map_api_sort_combined_with_text_search_and_cuisine(self):
+        """Sort + search + cuisine filter together."""
+        response = self.client.get(
+            reverse("api_restaurants_map"),
+            {
+                "search": "Thai",
+                "cuisine": "Thai",
+                "sort_by": "composite_desc",
+                "limit": "100",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = [r["id"] for r in response.json()["results"]]
+        self.assertIn(self.manhattan_pricey.id, ids)
+        self.assertIn(self.manhattan_cheap.id, ids)
+        self.assertNotIn(self.brooklyn_mid.id, ids)
+        thai_ids = [self.manhattan_pricey.id, self.manhattan_cheap.id]
+        order = [i for i in ids if i in thai_ids]
+        self.assertEqual(order, [self.manhattan_pricey.id, self.manhattan_cheap.id])
+
+    def test_map_api_sort_combined_with_borough_and_min_score(self):
+        """Sort + borough + min_score together."""
+        response = self.client.get(
+            reverse("api_restaurants_map"),
+            {
+                "borough": "Manhattan",
+                "min_score": "50",
+                "sort_by": "composite_asc",
+                "limit": "100",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        ids = [r["id"] for r in response.json()["results"]]
+        self.assertIn(self.manhattan_pricey.id, ids)
+        self.assertNotIn(self.manhattan_cheap.id, ids)
+        self.assertNotIn(self.brooklyn_mid.id, ids)
+
+    def test_map_api_same_sort_param_yields_identical_order(self):
+        """Repeated requests with same sort (client can persist sort_by)."""
+        params = {
+            "borough": "Manhattan",
+            "sort_by": "price_desc",
+            "limit": "100",
+        }
+        first = [
+            r["id"]
+            for r in self.client.get(reverse("api_restaurants_map"), params).json()[
+                "results"
+            ]
+        ]
+        second = [
+            r["id"]
+            for r in self.client.get(reverse("api_restaurants_map"), params).json()[
+                "results"
+            ]
+        ]
+        subset = [
+            i for i in first if i in {self.manhattan_cheap.id, self.manhattan_pricey.id}
+        ]
+        self.assertEqual(subset, [self.manhattan_pricey.id, self.manhattan_cheap.id])
+        self.assertEqual(first, second)
+
+    def test_restaurant_search_sort_with_neighborhood_and_query(self):
+        """Search + neighborhood + sort together."""
+        user = User.objects.create_user(username="story_diner", password="pass12345")
+        UserProfile.objects.create(user=user, role="diner")
+        self.client.login(username="story_diner", password="pass12345")
+        response = self.client.get(
+            reverse("restaurant_search"),
+            {
+                "q": "Story",
+                "neighborhood": "Midtown",
+                "sort_by": "composite_desc",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.context["results"]]
+        self.assertIn("Story Manhattan Pricey", names)
+        self.assertIn("Story Manhattan Cheap", names)
+        self.assertNotIn("Story Brooklyn Mid", names)
+        self.assertEqual(
+            names[:2],
+            ["Story Manhattan Pricey", "Story Manhattan Cheap"],
+        )
+
+    def test_restaurant_search_context_sort_by_normalized(self):
+        """Template can re-select sort (persistence of selected criterion)."""
+        user = User.objects.create_user(username="story_diner2", password="pass12345")
+        UserProfile.objects.create(user=user, role="diner")
+        self.client.login(username="story_diner2", password="pass12345")
+        response = self.client.get(
+            reverse("restaurant_search"),
+            {"q": "Story", "sort_by": "score_asc"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["sort_by"], "composite_asc")
+
+    def test_search_results_template_exposes_sort_control(self):
+        """User can select sorting option (form field present)."""
+        user = User.objects.create_user(username="story_diner3", password="pass12345")
+        UserProfile.objects.create(user=user, role="diner")
+        self.client.login(username="story_diner3", password="pass12345")
+        response = self.client.get(reverse("restaurant_search"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="sort_by"')
+        self.assertContains(response, "Composite: High")
 
 
 class RestaurantClaimFlowTests(TestCase):
