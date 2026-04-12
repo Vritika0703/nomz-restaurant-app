@@ -36,16 +36,19 @@ from .forms import (
     ModerationReportForm,
 )
 from .models import (
+    CompositeScoreAnomaly,
     LoginLog,
     ModerationReport,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
     Review,
+    ReviewResponse,
     SystemAuditLog,
     UserPreference,
     UserProfile,
 )
+from .scoring import refresh_restaurant_composite
 from .restaurant_sorting import normalize_sort_key, recommend_restaurants_for_user, sort_restaurant_queryset
 
 from .api_views import (  # reuse helpers
@@ -929,26 +932,39 @@ def restaurant_detail_data(request, restaurant_id):
                 restaurant.owner.userprofile, "is_flagged", False
             )
 
-    reviews_qs = restaurant.reviews.filter(is_deleted=False).order_by("-created_at")
+    reviews_qs = (
+        restaurant.reviews.filter(is_deleted=False)
+        .select_related("user", "restaurant_response", "restaurant_response__responder")
+        .order_by("-created_at")
+    )
     reviews_list = []
     for r in reviews_qs:
-        reviews_list.append(
-            {
-                "id": r.id,
-                "username": r.user.username,
-                "rating": r.rating,
-                "food_quality_rating": r.food_quality_rating,
-                "service_quality_rating": r.service_quality_rating,
-                "ambience_rating": r.ambience_rating,
-                "location_rating": r.location_rating,
-                "value_rating": r.value_rating,
-                "dietary_accommodation_rating": r.dietary_accommodation_rating,
-                "cleanliness_rating": r.cleanliness_rating,
-                "comment": r.comment or "",
-                "created_at": r.created_at.isoformat(),
-                "is_flagged": r.is_flagged,
+        review_data = {
+            "id": r.id,
+            "username": r.user.username,
+            "rating": r.rating,
+            "food_quality_rating": r.food_quality_rating,
+            "service_quality_rating": r.service_quality_rating,
+            "ambience_rating": r.ambience_rating,
+            "location_rating": r.location_rating,
+            "value_rating": r.value_rating,
+            "dietary_accommodation_rating": r.dietary_accommodation_rating,
+            "cleanliness_rating": r.cleanliness_rating,
+            "comment": r.comment or "",
+            "created_at": r.created_at.isoformat(),
+            "is_flagged": r.is_flagged,
+        }
+        try:
+            resp = r.restaurant_response
+            review_data["owner_response"] = {
+                "response_text": resp.response_text,
+                "responder_username": resp.responder.username,
+                "created_at": resp.created_at.isoformat(),
+                "updated_at": resp.updated_at.isoformat(),
             }
-        )
+        except ReviewResponse.DoesNotExist:
+            review_data["owner_response"] = None
+        reviews_list.append(review_data)
 
     data = {
         "id": restaurant.id,
@@ -1433,3 +1449,209 @@ def restaurant_communication_api(request):
     if "__all__" in form.errors:
         errors["__all__"] = [str(e) for e in form.errors["__all__"]]
     return JsonResponse({"success": False, "errors": errors}, status=400)
+
+
+# ---------------------------------------------------------------------------
+#  Review responses (restaurant owner)
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+@login_required(login_url="landing")
+@require_http_methods(["POST"])
+def review_respond_api(request, review_id):
+    """Create or update a restaurant owner's public response to a review."""
+    review = get_object_or_404(
+        Review.objects.select_related("restaurant", "restaurant__owner"),
+        id=review_id,
+    )
+    restaurant = review.restaurant
+
+    if restaurant.owner_id != request.user.id:
+        return _json_error("Only the owner of this restaurant can respond.", status=403)
+
+    if review.is_deleted:
+        return _json_error("Cannot respond to a deleted review.", status=400)
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON.")
+
+    response_text = (body.get("response_text") or "").strip()
+    if not response_text:
+        return _json_error("Response text is required.", status=400)
+
+    review_response, created = ReviewResponse.objects.get_or_create(
+        review=review,
+        defaults={
+            "restaurant": restaurant,
+            "responder": request.user,
+            "response_text": response_text,
+        },
+    )
+    if not created:
+        review_response.response_text = response_text
+        review_response.responder = request.user
+        review_response.save(update_fields=["response_text", "responder", "updated_at"])
+
+    return JsonResponse({
+        "success": True,
+        "created": created,
+        "owner_response": {
+            "response_text": review_response.response_text,
+            "responder_username": review_response.responder.username,
+            "created_at": review_response.created_at.isoformat(),
+            "updated_at": review_response.updated_at.isoformat(),
+        },
+    })
+
+
+# ---------------------------------------------------------------------------
+#  Admin: composite-score recalculation
+# ---------------------------------------------------------------------------
+
+@csrf_exempt
+@login_required(login_url="landing")
+@require_http_methods(["POST"])
+def admin_recalculate_scores_api(request):
+    """Recalculate composite scores for one or all restaurants (JSON)."""
+    err = _staff_json_required(request)
+    if err:
+        return err
+
+    try:
+        body = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return _json_error("Invalid JSON.")
+
+    restaurant_id = (body.get("restaurant_id") or "")
+    restaurant_name = (body.get("restaurant_name") or "").strip()
+
+    queryset = Restaurant.objects.all().order_by("id")
+    if restaurant_id:
+        try:
+            queryset = queryset.filter(id=int(restaurant_id))
+        except (ValueError, TypeError):
+            return _json_error("Restaurant ID must be a number.", status=400)
+    elif restaurant_name:
+        exact = queryset.filter(name__iexact=restaurant_name)
+        if exact.count() == 1:
+            queryset = exact
+        elif exact.count() > 1:
+            return _json_error("Multiple restaurants share that name.", status=400)
+        else:
+            partial = queryset.filter(name__icontains=restaurant_name)
+            if partial.count() == 1:
+                queryset = partial
+            elif partial.count() > 1:
+                return _json_error("Multiple restaurants match that name.", status=400)
+            else:
+                return _json_error("No restaurant found with that name.", status=404)
+
+    total = queryset.count()
+    if total == 0:
+        return JsonResponse({"success": True, "updated": 0, "anomaly_count": 0, "total": 0})
+
+    updated = 0
+    anomaly_count = 0
+    for restaurant in queryset.iterator():
+        score_data = refresh_restaurant_composite(
+            restaurant,
+            trigger_source="admin_dashboard",
+            triggered_by=request.user,
+            trigger_note="Admin SPA dashboard trigger",
+        )
+        updated += 1
+        anomaly_count += int(score_data.get("anomaly_count") or 0)
+
+    SystemAuditLog.objects.create(
+        actor_user=request.user,
+        actor_username=request.user.username,
+        level="INFO",
+        action="admin_composite_score_recalculation",
+        request_path=request.path,
+        http_method=request.method,
+        ip_address=request.META.get("REMOTE_ADDR"),
+        metadata={
+            "restaurant_id_filter": restaurant_id or None,
+            "restaurant_name_filter": restaurant_name or None,
+            "restaurants_updated": updated,
+            "anomaly_flags_detected": anomaly_count,
+        },
+    )
+
+    return JsonResponse({
+        "success": True,
+        "updated": updated,
+        "total": total,
+        "anomaly_count": anomaly_count,
+    })
+
+
+# ---------------------------------------------------------------------------
+#  Admin: score anomalies
+# ---------------------------------------------------------------------------
+
+@login_required(login_url="landing")
+@require_GET
+def admin_score_anomalies_api(request):
+    """Return list of score anomalies (pending and resolved)."""
+    err = _staff_json_required(request)
+    if err:
+        return err
+
+    anomalies = (
+        CompositeScoreAnomaly.objects.select_related("restaurant", "resolved_by")
+        .order_by("-created_at")[:200]
+    )
+    items = []
+    for a in anomalies:
+        items.append({
+            "id": a.id,
+            "restaurant_id": a.restaurant_id,
+            "restaurant_name": a.restaurant.display_name or a.restaurant.name,
+            "anomaly_type": a.anomaly_type,
+            "severity": a.severity,
+            "details": a.details or {},
+            "created_at": a.created_at.isoformat(),
+            "is_resolved": a.is_resolved,
+            "resolved_at": a.resolved_at.isoformat() if a.resolved_at else None,
+            "resolved_by": a.resolved_by.username if a.resolved_by else None,
+        })
+    return JsonResponse({"anomalies": items})
+
+
+@csrf_exempt
+@login_required(login_url="landing")
+@require_http_methods(["POST"])
+def admin_resolve_score_anomaly_api(request, anomaly_id):
+    """Mark a score anomaly as resolved."""
+    err = _staff_json_required(request)
+    if err:
+        return err
+
+    anomaly = get_object_or_404(CompositeScoreAnomaly, id=anomaly_id)
+    if anomaly.is_resolved:
+        return JsonResponse({"success": True, "already_resolved": True})
+
+    anomaly.is_resolved = True
+    anomaly.resolved_at = timezone.now()
+    anomaly.resolved_by = request.user
+    anomaly.save(update_fields=["is_resolved", "resolved_at", "resolved_by"])
+
+    SystemAuditLog.objects.create(
+        actor_user=request.user,
+        actor_username=request.user.username,
+        level="INFO",
+        action="admin_score_anomaly_resolved",
+        request_path=request.path,
+        http_method=request.method,
+        ip_address=request.META.get("REMOTE_ADDR"),
+        metadata={
+            "anomaly_id": anomaly.id,
+            "restaurant_id": anomaly.restaurant_id,
+            "anomaly_type": anomaly.anomaly_type,
+        },
+    )
+
+    return JsonResponse({"success": True, "already_resolved": False})

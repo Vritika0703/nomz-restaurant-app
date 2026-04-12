@@ -178,6 +178,26 @@ urlpatterns = [
         spa_api.restaurant_communication_api,
         name="api_restaurant_communication",
     ),
+    path(
+        "api/reviews/<int:review_id>/respond/",
+        spa_api.review_respond_api,
+        name="api_review_respond",
+    ),
+    path(
+        "api/admin/recalculate-scores/",
+        spa_api.admin_recalculate_scores_api,
+        name="api_admin_recalculate_scores",
+    ),
+    path(
+        "api/admin/score-anomalies/",
+        spa_api.admin_score_anomalies_api,
+        name="api_admin_score_anomalies",
+    ),
+    path(
+        "api/admin/score-anomalies/<int:anomaly_id>/resolve/",
+        spa_api.admin_resolve_score_anomaly_api,
+        name="api_admin_resolve_score_anomaly",
+    ),
 ]
 
 # --- Short redirects kept for old bookmarks --------------------------------

@@ -9,7 +9,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
   const [showMapTooltip, setShowMapTooltip] = useState(false);
   const [showMessagesTooltip, setShowMessagesTooltip] = useState(false);
   const [showProfileTooltip, setShowProfileTooltip] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'details'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'performance' | 'details' | 'reviews'>('overview');
   const [isEditing, setIsEditing] = useState(false);
   const [showCommunicationSettings, setShowCommunicationSettings] = useState(false);
   const [showAvailabilitySettings, setShowAvailabilitySettings] = useState(false);
@@ -55,7 +55,25 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
   const [ownerCitywideRank, setOwnerCitywideRank] = useState<number | null>(null);
   const [ownerCitywideTotal, setOwnerCitywideTotal] = useState(0);
 
+  // Reviews state for restaurant owner
+  interface OwnerReview {
+    id: number;
+    username: string;
+    rating: number;
+    comment: string;
+    created_at: string;
+    owner_response: { response_text: string; responder_username: string; updated_at: string } | null;
+  }
+  const [ownerReviews, setOwnerReviews] = useState<OwnerReview[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [respondingToReviewId, setRespondingToReviewId] = useState<number | null>(null);
+  const [responseText, setResponseText] = useState("");
+  const [respondError, setRespondError] = useState<string | null>(null);
+  const [respondSaving, setRespondSaving] = useState(false);
+  const [restaurantId, setRestaurantId] = useState<number | null>(null);
+
   const applyRestaurantPayload = useCallback((r: Record<string, unknown>, cuisines: Choice[], prices: Choice[]) => {
+    setRestaurantId(typeof r.id === "number" ? r.id : null);
     setBusinessName(String(r.name ?? ""));
     setEmail(String(r.email ?? ""));
     setPhone(String(r.phone ?? ""));
@@ -130,6 +148,41 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  const loadReviews = useCallback(async () => {
+    if (!restaurantId) return;
+    setReviewsLoading(true);
+    try {
+      const r = await apiFetch(`/api/restaurants/${restaurantId}/`);
+      if (!r.ok) return;
+      const d = await r.json();
+      setOwnerReviews(Array.isArray(d.reviews) ? d.reviews : []);
+    } catch { /* ignore */ } finally {
+      setReviewsLoading(false);
+    }
+  }, [restaurantId]);
+
+  useEffect(() => {
+    if (activeTab === 'reviews' && restaurantId) void loadReviews();
+  }, [activeTab, restaurantId, loadReviews]);
+
+  const handleRespondToReview = async (reviewId: number) => {
+    if (!responseText.trim()) return;
+    setRespondError(null);
+    setRespondSaving(true);
+    try {
+      const r = await apiFetch(`/api/reviews/${reviewId}/respond/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ response_text: responseText }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setRespondError(d.error || "Could not save response."); return; }
+      setRespondingToReviewId(null);
+      setResponseText("");
+      void loadReviews();
+    } catch { setRespondError("Network error."); } finally { setRespondSaving(false); }
+  };
 
   const handleSave = async () => {
     if (!hasRestaurant) {
@@ -605,6 +658,18 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
               }}
             >
               Business Details
+            </button>
+            <button
+              onClick={() => setActiveTab('reviews')}
+              className="py-3 px-6 rounded-lg text-sm transition-all"
+              style={{ 
+                backgroundColor: activeTab === 'reviews' ? '#E06E7F' : 'white',
+                color: activeTab === 'reviews' ? 'white' : '#666',
+                border: activeTab === 'reviews' ? 'none' : '2px solid rgba(224, 110, 127, 0.2)',
+                fontFamily: 'Montserrat, sans-serif'
+              }}
+            >
+              Reviews
             </button>
           </div>
 
@@ -1517,6 +1582,96 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                     {savingProfile ? 'Saving…' : 'Save Changes'}
                   </button>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Reviews Tab */}
+          {activeTab === 'reviews' && (
+            <div className="space-y-4">
+              <h3 className="text-lg" style={{ fontFamily: 'Montserrat, sans-serif', color: '#333' }}>Customer Reviews</h3>
+              {reviewsLoading ? (
+                <p style={{ fontFamily: 'Montserrat, sans-serif', color: '#E06E7F' }}>Loading reviews…</p>
+              ) : ownerReviews.length === 0 ? (
+                <div className="rounded-lg p-6 text-center" style={{ backgroundColor: 'rgba(224,110,127,0.03)', border: '2px solid rgba(224,110,127,0.1)' }}>
+                  <p style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>No reviews yet.</p>
+                </div>
+              ) : (
+                ownerReviews.map((rev) => (
+                  <div key={rev.id} className="rounded-lg p-5" style={{ backgroundColor: 'white', border: '2px solid rgba(224,110,127,0.1)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <strong className="text-sm" style={{ fontFamily: 'Montserrat, sans-serif', color: '#333' }}>{rev.username}</strong>
+                        <span style={{ color: '#eab308', letterSpacing: '1px' }}>
+                          {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
+                        </span>
+                      </div>
+                      <span className="text-xs" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>
+                        {new Date(rev.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                    </div>
+                    {rev.comment && (
+                      <p className="text-sm mb-3" style={{ fontFamily: 'Montserrat, sans-serif', color: '#555', lineHeight: 1.6 }}>{rev.comment}</p>
+                    )}
+                    {rev.owner_response ? (
+                      <div className="p-3 rounded-lg" style={{ backgroundColor: 'rgba(224,110,127,0.05)', borderLeft: '3px solid #E06E7F' }}>
+                        <p className="text-xs mb-1" style={{ fontFamily: 'Montserrat, sans-serif', color: '#E06E7F', fontWeight: 600 }}>Your Response</p>
+                        <p className="text-sm" style={{ fontFamily: 'Montserrat, sans-serif', color: '#555' }}>{rev.owner_response.response_text}</p>
+                        <p className="text-xs mt-1" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>
+                          Updated {new Date(rev.owner_response.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                        <button
+                          className="text-xs mt-2 px-3 py-1 rounded transition-all"
+                          style={{ color: '#E06E7F', border: '1px solid rgba(224,110,127,0.3)', backgroundColor: 'transparent', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
+                          onClick={() => { setRespondingToReviewId(rev.id); setResponseText(rev.owner_response!.response_text); setRespondError(null); }}
+                        >
+                          Edit Response
+                        </button>
+                      </div>
+                    ) : (
+                      respondingToReviewId !== rev.id && (
+                        <button
+                          className="text-xs px-3 py-1 rounded transition-all"
+                          style={{ color: '#E06E7F', border: '1px solid rgba(224,110,127,0.3)', backgroundColor: 'transparent', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
+                          onClick={() => { setRespondingToReviewId(rev.id); setResponseText(""); setRespondError(null); }}
+                        >
+                          Respond
+                        </button>
+                      )
+                    )}
+                    {respondingToReviewId === rev.id && (
+                      <div className="mt-3 space-y-2">
+                        <textarea
+                          value={responseText}
+                          onChange={(e) => setResponseText(e.target.value)}
+                          rows={3}
+                          className="w-full p-3 rounded-lg text-sm"
+                          style={{ fontFamily: 'Montserrat, sans-serif', border: '2px solid rgba(224,110,127,0.2)', outline: 'none' }}
+                          placeholder="Thank the customer, clarify concerns, or explain next steps."
+                        />
+                        {respondError && <p className="text-xs" style={{ color: '#b91c1c', fontFamily: 'Montserrat, sans-serif' }}>{respondError}</p>}
+                        <div className="flex gap-2">
+                          <button
+                            disabled={respondSaving}
+                            className="text-xs px-4 py-2 rounded text-white"
+                            style={{ backgroundColor: '#E06E7F', border: 'none', cursor: respondSaving ? 'wait' : 'pointer', fontFamily: 'Montserrat, sans-serif', opacity: respondSaving ? 0.7 : 1 }}
+                            onClick={() => void handleRespondToReview(rev.id)}
+                          >
+                            {respondSaving ? 'Saving…' : 'Submit Response'}
+                          </button>
+                          <button
+                            disabled={respondSaving}
+                            className="text-xs px-4 py-2 rounded"
+                            style={{ backgroundColor: 'white', color: '#666', border: '1px solid rgba(224,110,127,0.2)', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
+                            onClick={() => { setRespondingToReviewId(null); setResponseText(""); setRespondError(null); }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
               )}
             </div>
           )}

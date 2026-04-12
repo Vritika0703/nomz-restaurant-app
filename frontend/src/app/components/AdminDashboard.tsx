@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { Footer } from "./Footer";
 import { apiFetch } from "../api";
 
+interface ScoreAnomaly {
+  id: number;
+  restaurant_id: number;
+  restaurant_name: string;
+  anomaly_type: string;
+  severity: string;
+  created_at: string;
+  is_resolved: boolean;
+  resolved_by: string | null;
+}
+
 export function AdminDashboard({ 
   onLogout, 
   onNavigateMap,
@@ -30,6 +41,18 @@ export function AdminDashboard({
     flaggedContent: 0,
   });
 
+  // Score recalculation
+  const [recalcId, setRecalcId] = useState("");
+  const [recalcName, setRecalcName] = useState("");
+  const [recalcLoading, setRecalcLoading] = useState(false);
+  const [recalcMsg, setRecalcMsg] = useState<string | null>(null);
+  const [recalcError, setRecalcError] = useState<string | null>(null);
+
+  // Score anomalies
+  const [anomalies, setAnomalies] = useState<ScoreAnomaly[]>([]);
+  const [anomaliesLoading, setAnomaliesLoading] = useState(false);
+  const [showAnomalies, setShowAnomalies] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -54,6 +77,46 @@ export function AdminDashboard({
       cancelled = true;
     };
   }, []);
+
+  const handleRecalculate = async () => {
+    setRecalcLoading(true);
+    setRecalcMsg(null);
+    setRecalcError(null);
+    try {
+      const body: Record<string, string> = {};
+      if (recalcId.trim()) body.restaurant_id = recalcId.trim();
+      else if (recalcName.trim()) body.restaurant_name = recalcName.trim();
+      const r = await apiFetch("/api/admin/recalculate-scores/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) { setRecalcError(d.error || "Failed to recalculate."); return; }
+      setRecalcMsg(`Updated ${d.updated}/${d.total} restaurant(s). ${d.anomaly_count} anomaly flag(s) detected.`);
+      setRecalcId("");
+      setRecalcName("");
+    } catch { setRecalcError("Network error."); } finally { setRecalcLoading(false); }
+  };
+
+  const loadAnomalies = async () => {
+    setAnomaliesLoading(true);
+    try {
+      const r = await apiFetch("/api/admin/score-anomalies/");
+      if (!r.ok) return;
+      const d = await r.json();
+      setAnomalies(Array.isArray(d.anomalies) ? d.anomalies : []);
+    } catch { /* ignore */ } finally { setAnomaliesLoading(false); }
+  };
+
+  const resolveAnomaly = async (id: number) => {
+    try {
+      const r = await apiFetch(`/api/admin/score-anomalies/${id}/resolve/`, { method: "POST", headers: { "Content-Type": "application/json" } });
+      if (r.ok) {
+        setAnomalies((prev) => prev.map((a) => a.id === id ? { ...a, is_resolved: true } : a));
+      }
+    } catch { /* ignore */ }
+  };
 
   return (
     <div className="size-full flex flex-col overflow-y-auto" style={{ backgroundColor: '#FFF9F5' }}>
@@ -469,6 +532,95 @@ export function AdminDashboard({
                 Denied or revoked accounts; approve again if appropriate
               </p>
             </button>
+          </div>
+
+          {/* Score Recalculation */}
+          <div className="mt-10 p-6 rounded-lg" style={{ backgroundColor: 'white', border: '2px solid rgba(224,110,127,0.1)' }}>
+            <h3 className="text-lg mb-4" style={{ fontFamily: 'Montserrat, sans-serif', color: '#E06E7F' }}>
+              📊 Recalculate Composite Scores
+            </h3>
+            <p className="text-sm mb-4" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
+              Recalculate scores for a specific restaurant or leave both fields empty to recalculate all.
+            </p>
+            <div className="flex gap-3 items-end flex-wrap mb-3">
+              <div>
+                <label className="block text-xs mb-1" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>Restaurant ID</label>
+                <input
+                  type="text" value={recalcId} onChange={(e) => setRecalcId(e.target.value)}
+                  className="px-3 py-2 rounded-lg text-sm" style={{ border: '2px solid rgba(224,110,127,0.2)', fontFamily: 'Montserrat, sans-serif', width: '120px', outline: 'none' }}
+                  placeholder="e.g. 42"
+                />
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>or Restaurant Name</label>
+                <input
+                  type="text" value={recalcName} onChange={(e) => setRecalcName(e.target.value)}
+                  className="px-3 py-2 rounded-lg text-sm" style={{ border: '2px solid rgba(224,110,127,0.2)', fontFamily: 'Montserrat, sans-serif', width: '240px', outline: 'none' }}
+                  placeholder="e.g. Sushi Palace"
+                />
+              </div>
+              <button
+                disabled={recalcLoading}
+                onClick={() => void handleRecalculate()}
+                className="px-6 py-2 rounded-lg text-sm text-white"
+                style={{ backgroundColor: '#E06E7F', border: 'none', cursor: recalcLoading ? 'wait' : 'pointer', fontFamily: 'Montserrat, sans-serif', opacity: recalcLoading ? 0.7 : 1 }}
+              >
+                {recalcLoading ? 'Recalculating…' : 'Recalculate'}
+              </button>
+            </div>
+            {recalcMsg && <p className="text-sm" style={{ color: '#16a34a', fontFamily: 'Montserrat, sans-serif' }}>{recalcMsg}</p>}
+            {recalcError && <p className="text-sm" style={{ color: '#b91c1c', fontFamily: 'Montserrat, sans-serif' }}>{recalcError}</p>}
+          </div>
+
+          {/* Score Anomalies */}
+          <div className="mt-6 p-6 rounded-lg" style={{ backgroundColor: 'white', border: '2px solid rgba(224,110,127,0.1)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg" style={{ fontFamily: 'Montserrat, sans-serif', color: '#E06E7F' }}>
+                ⚡ Score Anomalies
+              </h3>
+              <button
+                onClick={() => { setShowAnomalies(!showAnomalies); if (!showAnomalies) void loadAnomalies(); }}
+                className="px-4 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: showAnomalies ? '#E06E7F' : 'white', color: showAnomalies ? 'white' : '#E06E7F', border: showAnomalies ? 'none' : '2px solid rgba(224,110,127,0.2)', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
+              >
+                {showAnomalies ? 'Hide' : 'Show Anomalies'}
+              </button>
+            </div>
+            {showAnomalies && (
+              anomaliesLoading ? (
+                <p style={{ fontFamily: 'Montserrat, sans-serif', color: '#E06E7F' }}>Loading…</p>
+              ) : anomalies.length === 0 ? (
+                <p className="text-sm" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>No anomalies found.</p>
+              ) : (
+                <div className="space-y-2">
+                  {anomalies.map((a) => (
+                    <div key={a.id} className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: a.is_resolved ? 'rgba(22,163,74,0.05)' : 'rgba(234,179,8,0.05)', border: `1px solid ${a.is_resolved ? 'rgba(22,163,74,0.2)' : 'rgba(234,179,8,0.2)'}` }}>
+                      <div>
+                        <p className="text-sm" style={{ fontFamily: 'Montserrat, sans-serif', color: '#333' }}>
+                          <strong>{a.restaurant_name}</strong> — {a.anomaly_type.replace(/_/g, ' ')}
+                        </p>
+                        <p className="text-xs" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>
+                          Severity: {a.severity} · {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {a.is_resolved && a.resolved_by ? ` · Resolved by ${a.resolved_by}` : ''}
+                        </p>
+                      </div>
+                      {!a.is_resolved && (
+                        <button
+                          onClick={() => void resolveAnomaly(a.id)}
+                          className="px-3 py-1 rounded text-xs text-white"
+                          style={{ backgroundColor: '#16a34a', border: 'none', cursor: 'pointer', fontFamily: 'Montserrat, sans-serif' }}
+                        >
+                          Resolve
+                        </button>
+                      )}
+                      {a.is_resolved && (
+                        <span className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'rgba(22,163,74,0.1)', color: '#16a34a', fontFamily: 'Montserrat, sans-serif' }}>Resolved</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
           </div>
         </div>
       </main>

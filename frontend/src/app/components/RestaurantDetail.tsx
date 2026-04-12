@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '../api';
 import { Footer } from './Footer';
 
+interface OwnerResponse {
+  response_text: string;
+  responder_username: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ReviewData {
   id: number;
   username: string;
@@ -16,6 +23,7 @@ interface ReviewData {
   comment: string;
   created_at: string;
   is_flagged: boolean;
+  owner_response: OwnerResponse | null;
 }
 
 interface RestaurantData {
@@ -209,6 +217,19 @@ export function RestaurantDetail({
                   <p className="text-xs mb-2" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>
                     Food {review.food_quality_rating}/5 · Service {review.service_quality_rating}/5 · Ambience {review.ambience_rating}/5 · Location {review.location_rating}/5 · Value {review.value_rating}/5 · Dietary {review.dietary_accommodation_rating}/5 · Cleanliness {review.cleanliness_rating}/5
                   </p>
+                  {review.owner_response && (
+                    <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: 'rgba(224,110,127,0.05)', borderLeft: '3px solid #E06E7F' }}>
+                      <p className="text-xs mb-1" style={{ fontFamily: 'Montserrat, sans-serif', color: '#E06E7F', fontWeight: 600 }}>
+                        Owner Response
+                      </p>
+                      <p className="text-sm" style={{ fontFamily: 'Montserrat, sans-serif', color: '#555', lineHeight: 1.6 }}>
+                        {review.owner_response.response_text}
+                      </p>
+                      <p className="text-xs mt-1" style={{ fontFamily: 'Montserrat, sans-serif', color: '#999' }}>
+                        — {review.owner_response.responder_username}, {new Date(review.owner_response.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                    </div>
+                  )}
                   {onReportReview && (
                     <div className="flex justify-end">
                       <button
