@@ -238,6 +238,25 @@ urlpatterns = [
     ),
 ]
 
+# --- Server-side views (POST actions that redirect) -------------------------
+urlpatterns += [
+    path(
+        "nomz-admin/recalculate-scores/",
+        views.admin_recalculate_scores,
+        name="admin_recalculate_scores",
+    ),
+    path(
+        "nomz-admin/score-anomalies/<int:anomaly_id>/resolve/",
+        views.admin_resolve_score_anomaly,
+        name="admin_resolve_score_anomaly",
+    ),
+    path(
+        "reviews/<int:review_id>/respond/",
+        views.respond_to_review,
+        name="respond_to_review",
+    ),
+]
+
 # --- Short redirects kept for old bookmarks --------------------------------
 urlpatterns += [
     path(

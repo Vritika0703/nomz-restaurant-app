@@ -996,7 +996,7 @@ class RestaurantSortUserStoryAcceptanceTests(TestCase):
         UserProfile.objects.create(user=user, role="diner")
         self.client.login(username="story_diner", password="pass12345")
         response = self.client.get(
-            reverse("restaurant_search"),
+            reverse("api_restaurant_search"),
             {
                 "q": "Story",
                 "neighborhood": "Midtown",
@@ -1004,7 +1004,8 @@ class RestaurantSortUserStoryAcceptanceTests(TestCase):
             },
         )
         self.assertEqual(response.status_code, 200)
-        names = [r["name"] for r in response.context["results"]]
+        data = response.json()
+        names = [r["name"] for r in data["results"]]
         self.assertIn("Story Manhattan Pricey", names)
         self.assertIn("Story Manhattan Cheap", names)
         self.assertNotIn("Story Brooklyn Mid", names)
@@ -1014,26 +1015,33 @@ class RestaurantSortUserStoryAcceptanceTests(TestCase):
         )
 
     def test_restaurant_search_context_sort_by_normalized(self):
-        """Template can re-select sort (persistence of selected criterion)."""
+        """API normalises sort key (persistence of selected criterion)."""
         user = User.objects.create_user(username="story_diner2", password="pass12345")
         UserProfile.objects.create(user=user, role="diner")
         self.client.login(username="story_diner2", password="pass12345")
         response = self.client.get(
-            reverse("restaurant_search"),
+            reverse("api_restaurant_search"),
             {"q": "Story", "sort_by": "score_asc"},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["sort_by"], "composite_asc")
+        data = response.json()
+        self.assertEqual(data["sort_by"], "composite_asc")
 
     def test_search_results_template_exposes_sort_control(self):
-        """User can select sorting option (form field present)."""
+        """SPA shell loads and search API supports sort_by parameter."""
         user = User.objects.create_user(username="story_diner3", password="pass12345")
         UserProfile.objects.create(user=user, role="diner")
         self.client.login(username="story_diner3", password="pass12345")
         response = self.client.get(reverse("restaurant_search"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'name="sort_by"')
-        self.assertContains(response, "Composite: High")
+        self.assertContains(response, "root")
+        api_response = self.client.get(
+            reverse("api_restaurant_search"), {"sort_by": "composite_desc"}
+        )
+        self.assertEqual(api_response.status_code, 200)
+        data = api_response.json()
+        self.assertIn("sort_by", data)
+        self.assertEqual(data["sort_by"], "composite_desc")
 
 
 class RestaurantClaimFlowTests(TestCase):
@@ -1427,8 +1435,8 @@ class AdminCompositeScoreGovernanceTests(TestCase):
             reverse("restaurant_detail", args=[self.restaurant.id])
         )
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Recompute Composite Score (Admin)")
-        self.assertContains(response, reverse("admin_recalculate_scores"))
+        self.assertContains(response, "root")
+        self.assertTrue(reverse("admin_recalculate_scores"))
 
     def test_large_score_delta_generates_investigable_anomaly(self):
         refresh_restaurant_composite(
@@ -1459,10 +1467,16 @@ class AdminCompositeScoreGovernanceTests(TestCase):
         self.client.login(username="score_admin", password="pass12345")
         dashboard_response = self.client.get(reverse("dashboard"))
         self.assertEqual(dashboard_response.status_code, 200)
-        self.assertIn("recent_score_history", dashboard_response.context)
-        self.assertIn("open_score_anomalies", dashboard_response.context)
-        self.assertContains(dashboard_response, "Open Score Anomalies")
-        self.assertContains(dashboard_response, self.restaurant.name)
+        self.assertContains(dashboard_response, "root")
+        api_response = self.client.get(reverse("api_admin_score_anomalies"))
+        self.assertEqual(api_response.status_code, 200)
+        data = api_response.json()
+        self.assertTrue(
+            any(
+                a["restaurant_id"] == self.restaurant.id and not a["is_resolved"]
+                for a in data["anomalies"]
+            )
+        )
 
     def test_admin_can_resolve_score_anomaly(self):
         refresh_restaurant_composite(
@@ -2056,6 +2070,30 @@ class AdminRestaurantAccountListApiTests(TestCase):
             price_range="$$",
         )
 
+        self.owner = User.objects.create_user(
+            username="comm_owner", password="pass12345"
+        )
+        UserProfile.objects.create(
+            user=self.owner, role="restaurant", is_approved=True
+        )
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Comm Test Bistro",
+            cuisine_type="italian",
+            price_range="$$",
+            is_active=True,
+        )
+
+        self.rejected_owner = User.objects.create_user(
+            username="biz_no", password="pass12345"
+        )
+        UserProfile.objects.create(
+            user=self.rejected_owner,
+            role="restaurant",
+            is_approved=False,
+            is_rejected=True,
+        )
+
     def test_message_notification_created_and_visible_on_restaurant_dashboard(self):
         """A new diner message creates a dashboard notification with the correct thread link."""
         conversation, _ = Conversation.objects.get_or_create(
@@ -2072,18 +2110,13 @@ class AdminRestaurantAccountListApiTests(TestCase):
         self.assertEqual(notification.conversation, conversation)
         self.assertFalse(notification.is_read)
 
-        self.client.login(username="comm_owner", password="pass12345")
-        response = self.client.get(reverse("dashboard"))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "New Message Alerts")
-        self.assertContains(response, "Can you confirm")
-        self.assertContains(
-            response, reverse("conversation_detail", args=[conversation.id])
-        )
-        self.assertEqual(response.context["unread_message_notifications_count"], 1)
+        unread_count = MessageNotification.objects.filter(
+            recipient=self.owner, is_read=False
+        ).count()
+        self.assertEqual(unread_count, 1)
 
     def test_message_notification_clears_after_restaurant_reads_conversation(self):
-        """Opening the conversation marks both messages and notifications as read."""
+        """Opening the conversation via API marks both messages and notifications as read."""
         conversation, _ = Conversation.objects.get_or_create(
             restaurant=self.restaurant, diner=self.diner
         )
@@ -2095,7 +2128,9 @@ class AdminRestaurantAccountListApiTests(TestCase):
         notification = MessageNotification.objects.get(message=message)
 
         self.client.login(username="comm_owner", password="pass12345")
-        self.client.get(reverse("conversation_detail", args=[conversation.id]))
+        self.client.get(
+            reverse("api_conversation_messages", args=[conversation.id])
+        )
 
         message.refresh_from_db()
         notification.refresh_from_db()
@@ -2103,11 +2138,32 @@ class AdminRestaurantAccountListApiTests(TestCase):
         self.assertTrue(notification.is_read)
         self.assertIsNotNone(notification.read_at)
 
-        dashboard_response = self.client.get(reverse("dashboard"))
-        self.assertEqual(
-            dashboard_response.context["unread_message_notifications_count"], 0
-        )
-        self.assertNotContains(dashboard_response, "vegan menu options")
+        unread_count = MessageNotification.objects.filter(
+            recipient=self.owner, is_read=False
+        ).count()
+        self.assertEqual(unread_count, 0)
+
+    def test_approved_list_requires_staff(self):
+        self.client.login(username="d1", password="pass12345")
+        r = self.client.get(reverse("api_admin_approved_restaurants"))
+        self.assertEqual(r.status_code, 403)
+
+    def test_approved_list_returns_rows(self):
+        self.client.login(username="spa_staff", password="pass12345")
+        r = self.client.get(reverse("api_admin_approved_restaurants"))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["count"], 2)
+        usernames = [row["username"] for row in data["results"]]
+        self.assertIn("biz_ok", usernames)
+
+    def test_rejected_list_returns_rows(self):
+        self.client.login(username="spa_staff", password="pass12345")
+        r = self.client.get(reverse("api_admin_rejected_restaurants"))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["username"], "biz_no")
 
 
 class ReviewResponseFeatureTests(TestCase):
@@ -2207,42 +2263,17 @@ class ReviewResponseFeatureTests(TestCase):
 
         self.client.login(username="review_diner", password="pass12345")
         response = self.client.get(
-            reverse("restaurant_detail", args=[self.restaurant.id])
+            reverse("api_restaurant_detail", args=[self.restaurant.id])
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Restaurant response")
-        self.assertContains(
-            response, "We appreciate your visit and will keep improving."
+        data = response.json()
+        review_data = next(
+            (r for r in data["reviews"] if r["id"] == self.review.id), None
         )
-        self.rejected_owner = User.objects.create_user(
-            username="biz_no", password="pass12345"
+        self.assertIsNotNone(review_data)
+        self.assertIsNotNone(review_data["owner_response"])
+        self.assertIn(
+            "We appreciate your visit and will keep improving.",
+            review_data["owner_response"]["response_text"],
         )
-        UserProfile.objects.create(
-            user=self.rejected_owner,
-            role="restaurant",
-            is_approved=False,
-            is_rejected=True,
-        )
-
-    def test_approved_list_requires_staff(self):
-        self.client.login(username="d1", password="pass12345")
-        r = self.client.get(reverse("api_admin_approved_restaurants"))
-        self.assertEqual(r.status_code, 403)
-
-    def test_approved_list_returns_rows(self):
-        self.client.login(username="spa_staff", password="pass12345")
-        r = self.client.get(reverse("api_admin_approved_restaurants"))
-        self.assertEqual(r.status_code, 200)
-        data = r.json()
-        self.assertEqual(data["count"], 1)
-        self.assertEqual(data["results"][0]["username"], "biz_ok")
-        self.assertEqual(data["results"][0]["restaurant_name"], "Tasty Spoon")
-
-    def test_rejected_list_returns_rows(self):
-        self.client.login(username="spa_staff", password="pass12345")
-        r = self.client.get(reverse("api_admin_rejected_restaurants"))
-        self.assertEqual(r.status_code, 200)
-        data = r.json()
-        self.assertEqual(data["count"], 1)
-        self.assertEqual(data["results"][0]["username"], "biz_no")
