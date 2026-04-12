@@ -12,7 +12,13 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
 from .forms import RestaurantOwnershipClaimForm
-from .models import Conversation, Message, MessageNotification, Restaurant, RestaurantOwnershipClaim
+from .models import (
+    Conversation,
+    Message,
+    MessageNotification,
+    Restaurant,
+    RestaurantOwnershipClaim,
+)
 from .restaurant_sorting import normalize_sort_key, sort_restaurant_queryset
 
 NYC_MIN_LAT = 40.0
