@@ -2073,9 +2073,7 @@ class AdminRestaurantAccountListApiTests(TestCase):
         self.owner = User.objects.create_user(
             username="comm_owner", password="pass12345"
         )
-        UserProfile.objects.create(
-            user=self.owner, role="restaurant", is_approved=True
-        )
+        UserProfile.objects.create(user=self.owner, role="restaurant", is_approved=True)
         self.restaurant = Restaurant.objects.create(
             owner=self.owner,
             name="Comm Test Bistro",
@@ -2128,9 +2126,7 @@ class AdminRestaurantAccountListApiTests(TestCase):
         notification = MessageNotification.objects.get(message=message)
 
         self.client.login(username="comm_owner", password="pass12345")
-        self.client.get(
-            reverse("api_conversation_messages", args=[conversation.id])
-        )
+        self.client.get(reverse("api_conversation_messages", args=[conversation.id]))
 
         message.refresh_from_db()
         notification.refresh_from_db()
