@@ -48,6 +48,12 @@ after_success:
   - coverage xml
   - coveralls 
 
+# Build React frontend before deploying
+before_deploy:
+  - nvm install 20
+  - nvm use 20
+  - cd frontend && npm install && npm run build && cd ..
+
 # Deploy to AWS Elastic Beanstalk on production branch
 deploy:
   provider: elasticbeanstalk

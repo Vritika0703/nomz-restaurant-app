@@ -264,9 +264,10 @@ def _build_restaurant_score_insights(restaurant):
 
 def landing_page(request):
     """
-    Landing page - splash screen entry point for the application
-    Shows "Nomz" with "Click to start" message
-    Always shows splash screen regardless of authentication status
+    Site root for unauthenticated users: renders nomz/splash.html.
+
+    Note: templates/nomz/landing.html is legacy (older sign-in shell) and is not used by any view.
+    The React SPA is typically loaded from the Vite dev server or a static bundle, not this URL.
     """
     if request.user.is_authenticated:
         return redirect("dashboard")
@@ -556,8 +557,10 @@ def register(request):
 @require_http_methods(["GET", "POST"])
 def admin_login(request):
     """
-    Secure Login for administrators only.
-    Requires a specialized form with a security code.
+    Legacy secure login for the built-in emergency admin account (AdminLoginForm + security code).
+
+    Staff with normal Nomz accounts should use the React app Sign In (/api/auth/login/); that flow
+    uses standard authentication and 2FA when enabled. This view is not duplicated in the SPA.
     """
     if request.user.is_authenticated:
         if request.user.is_staff or request.user.is_superuser:
@@ -629,6 +632,9 @@ def toggle_user_status(request, user_id):
 def dashboard(request):
     """
     Dashboard dynamically routes based on the database profile and includes user preferences.
+
+    Renders nomz/restaurant_dashboard.html, nomz/admin_dashboard.html, or nomz/user_dashboard.html
+    by role. templates/nomz/dashboard.html is legacy and is not referenced by this view.
     """
     # 1. Determine User Role
     if request.user.is_superuser or request.user.is_staff:
