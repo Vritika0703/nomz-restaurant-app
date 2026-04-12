@@ -42,6 +42,7 @@ from .models import (
     RestaurantOwnershipClaim,
     RestaurantPhoto,
     Review,
+    SystemAuditLog,
     UserPreference,
     UserProfile,
 )
@@ -792,12 +793,36 @@ def admin_resolve_report_api(request, report_id):
             Restaurant.objects.filter(owner=report.reported_user).update(is_flagged=False)
             report.action_taken = "User and associated restaurant(s) un-flagged"
         report.status = "PENDING"
+    elif action == "delete":
+        if report.review:
+            report.review.is_deleted = True
+            report.review.save()
+            report.action_taken = "Review soft-deleted"
+        report.status = "RESOLVED"
+    elif action == "reevaluate":
+        report.status = "PENDING"
+        report.action_taken = "Moved back to pending for re-evaluation"
     else:
         return _json_error("Invalid action.", status=400)
 
     report.moderator_note = moderator_note
     report.resolved_at = timezone.now()
     report.save()
+
+    SystemAuditLog.objects.create(
+        actor_user=request.user,
+        actor_username=request.user.username,
+        level="WARNING" if action not in ("dismiss", "reevaluate") else "INFO",
+        action=f"moderation_{action}",
+        request_path=request.path,
+        http_method=request.method,
+        ip_address=request.META.get("REMOTE_ADDR"),
+        metadata={
+            "report_id": report.id,
+            "action": action,
+            "target": str(report),
+        },
+    )
     return JsonResponse({"ok": True})
 
 

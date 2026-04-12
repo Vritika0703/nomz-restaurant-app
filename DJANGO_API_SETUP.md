@@ -1,401 +1,118 @@
-# Django Backend API Setup Guide
+# Django API setup (SPA) — current implementation
 
 ## Overview
 
-The React frontend requires specific API endpoints from Django. This guide documents what needs to be implemented or configured in the Django backend.
-
-## Phase 1: Authentication Endpoints
-
-### Required Endpoints
-
-#### 1. **POST /api/auth/login/**
-Request:
-```json
-{
-  "username": "string",
-  "password": "string"
-}
-```
-
-Response (if 2FA enabled):
-```json
-{
-  "session_token": "string",
-  "requires_2fa": true
-}
-```
-
-Response (if 2FA disabled or not required):
-```json
-{
-  "access": "jwt_token",
-  "refresh": "refresh_token",
-  "user": {
-    "id": 1,
-    "username": "string",
-    "email": "string",
-    "role": "diner|restaurant|admin"
-  }
-}
-```
-
-#### 2. **POST /api/auth/verify-2fa/**
-Request:
-```json
-{
-  "token": "session_token",
-  "code": "six_digit_code"
-}
-```
-
-Response:
-```json
-{
-  "access": "jwt_token",
-  "refresh": "refresh_token",
-  "user": {
-    "id": 1,
-    "username": "string",
-    "email": "string",
-    "role": "diner|restaurant|admin"
-  }
-}
-```
-
-#### 3. **POST /api/auth/register/**
-Request:
-```json
-{
-  "username": "string",
-  "email": "string",
-  "password": "string",
-  "password_confirm": "string",
-  "role": "diner|restaurant"
-}
-```
-
-Response: Same as login success response
-
-#### 4. **POST /api/auth/token/refresh/**
-Request:
-```json
-{
-  "refresh": "refresh_token"
-}
-```
-
-Response:
-```json
-{
-  "access": "new_jwt_token",
-  "refresh": "new_refresh_token"
-}
-```
-
-#### 5. **GET /api/auth/user/**
-Response:
-```json
-{
-  "id": 1,
-  "username": "string",
-  "email": "string",
-  "role": "diner|restaurant|admin",
-  "profile": {
-    "is_approved": true,
-    "is_rejected": false,
-    "is_flagged": false
-  }
-}
-```
-
-#### 6. **POST /api/auth/logout/**
-Response:
-```json
-{
-  "detail": "Successfully logged out"
-}
-```
-
-## Phase 2: Restaurant Endpoints
-
-### GET /api/restaurants/
-Query Parameters:
-- `limit` (default: 20)
-- `offset` (default: 0)
-- `search` (optional)
-- `cuisine` (optional, comma-separated)
-- `price_range` (optional: 1-4)
-- `sort_by` (optional: rating, name, review_count, distance)
-
-### GET /api/restaurants/{id}/
-Response: Full restaurant details + photos
-
-### GET /api/restaurants/search/
-Query Parameters: Same as list
-
-### GET /api/restaurants/map-data/
-**Already exists** - Verify returns MapData format:
-```json
-[
-  {
-    "id": 1,
-    "name": "string",
-    "latitude": 40.123,
-    "longitude": -74.123,
-    "rating": 4.5,
-    "cuisine": ["Italian", "Pizza"],
-    "price_range": 2
-  }
-]
-```
-
-### POST /api/restaurants/
-**Create restaurant** (owner only)
-
-### PUT /api/restaurants/{id}/
-**Update restaurant** (owner/admin only)
-
-### DELETE /api/restaurants/{id}/
-**Delete restaurant** (admin only)
-
-### GET /api/restaurants/{id}/photos/
-Returns list of RestaurantPhoto objects
-
-### POST /api/restaurants/{id}/photos/
-**Upload photo** - multipart/form-data with `image` field
-
-### PATCH /api/restaurants/{id}/photos/{photo_id}/set-primary/
-Set as primary restaurant photo
-
-### DELETE /api/restaurants/{id}/photos/{photo_id}/
-Delete photo
-
-## Phase 3: Review Endpoints
-
-### GET /api/restaurants/{id}/reviews/
-Query: `limit`, `offset`
-
-### POST /api/restaurants/{restaurant_id}/reviews/
-Create review with 8-point rating system:
-```json
-{
-  "food_rating": 5,
-  "service_rating": 4,
-  "ambience_rating": 4,
-  "location_rating": 3,
-  "value_rating": 5,
-  "dietary_rating": 4,
-  "cleanliness_rating": 5,
-  "overall_rating": 4,
-  "comment": "string"
-}
-```
-
-### GET /api/reviews/{id}/
-Get single review
-
-### PATCH /api/reviews/{id}/
-Update review (owner only)
-
-### DELETE /api/reviews/{id}/
-Delete review (owner/admin only)
-
-### GET /api/reviews/my-reviews/
-Get current user's reviews (authenticated)
-
-### POST /api/reviews/report/
-Report review for moderation:
-```json
-{
-  "review_id": 1,
-  "reason": "string",
-  "details": "string"
-}
-```
-
-## Phase 4: Messaging Endpoints
-
-### GET /api/messages/conversations/
-Query: `limit`, `offset`
-
-### POST /api/messages/conversations/
-Start conversation:
-```json
-{
-  "restaurant_id": 1,
-  "initial_message": "optional message"
-}
-```
-
-### GET /api/messages/conversations/{id}/
-Get single conversation
-
-### GET /api/messages/conversations/{id}/messages/
-Query: `limit`, `offset`
-
-### POST /api/messages/conversations/{id}/send/
-Send message:
-```json
-{
-  "content": "string"
-}
-```
-
-### PATCH /api/messages/conversations/{id}/mark-read/
-Mark conversation as read
-
-### GET /api/messages/unread-count/
-Get count of unread messages
-
-## Phase 5: User Endpoints
-
-### GET /api/users/profile/
-Get current user profile (authenticated)
-
-### PUT /api/users/profile/
-Update user profile
-
-### GET /api/users/preferences/
-Get user preferences
-
-### PUT /api/users/preferences/
-Update preferences:
-```json
-{
-  "cuisines": ["Italian", "Pizza"],
-  "dietary_restrictions": ["vegetarian"],
-  "price_range": 2,
-  "neighborhoods": ["Manhattan", "Brooklyn"]
-}
-```
-
-### POST /api/restaurants/claims/
-Claim restaurant:
-```json
-{
-  "restaurant_id": 1
-}
-```
-
-## Phase 6: Admin Endpoints
-
-### GET /api/admin/users/
-Query: `limit`, `offset`, `status` (pending, approved, rejected)
-
-### PUT /api/admin/users/{id}/approve/
-Approve user account
-
-### PUT /api/admin/users/{id}/reject/
-Reject user account
-
-### GET /api/admin/reports/
-Moderation reports queue
-
-### PUT /api/admin/reports/{id}/resolve/
-Resolve moderation report:
-```json
-{
-  "action": "approve|reject",
-  "notes": "optional"
-}
-```
-
-### GET /api/admin/claims/
-Restaurant ownership claims queue
-
-### PUT /api/admin/claims/{id}/approve/
-Approve restaurant claim
-
-### PUT /api/admin/claims/{id}/reject/
-Reject restaurant claim
-
-## Django Configuration Needed
-
-### 1. Install Django REST Framework
-```bash
-pip install djangorestframework
-pip install django-cors-headers
-pip install djangorestframework-simplejwt
-```
-
-### 2. Update settings.py
-
-```python
-INSTALLED_APPS = [
-    # ...
-    'rest_framework',
-    'corsheaders',
-]
-
-# CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # React dev
-    "http://localhost:3000",  # Alternative
-    "https://yourdomain.com",  # Production
-]
-
-# JWT Configuration
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'ALGORITHM': 'HS256',
-}
-
-# REST Framework
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
-    ],
-}
-```
-
-### 3. Create API Serializers
-Create `nomz/serializers.py` with DRF serializers for:
-- UserSerializer
-- RestaurantSerializer
-- ReviewSerializer
-- ConversationSerializer
-- MessageSerializer
-
-### 4. Create API Views
-Create `nomz/api/views.py` with ViewSets for:
-- AuthViewSet (login, register, verify_2fa, logout)
-- RestaurantViewSet
-- ReviewViewSet
-- ConversationViewSet
-- MessageViewSet
-- AdminViewSet
-
-### 5. Update URLs
-Create `nomz/api/urls.py` with proper routing
-
-## Testing Checklist
-
-- [ ] Login endpoint returns session_token + requires_2fa
-- [ ] 2FA verification endpoint accepts token + code
-- [ ] JWT token is returned after successful auth
-- [ ] Token refresh endpoint works
-- [ ] CORS headers present in responses
-- [ ] API returns 401 for missing/invalid tokens
-- [ ] All restaurant endpoints return proper data
-- [ ] Review endpoints support 8-point rating system
-- [ ] Messaging endpoints work bidirectionally
-- [ ] Admin endpoints restricted to admin role
-- [ ] Pagination works on list endpoints
-
-## Migration Path
-
-1. **Week 1**: Set up DRF + JWT, implement auth endpoints
-2. **Week 2**: Implement restaurant, review, and user endpoints
-3. **Week 3**: Implement messaging and admin endpoints
-4. **Week 4**: Testing, documentation, optimization
-
-## References
-
-- [Django REST Framework](https://www.django-rest-framework.org/)
-- [Simple JWT](https://django-rest-framework-simplejwt.readthedocs.io/)
-- [Django CORS Headers](https://github.com/adamchainz/django-cors-headers)
+The React app talks to Django over **JSON endpoints** under `/api/…`. Authentication is **Django session cookies** (same-origin `fetch` with `credentials: "include"`), implemented in `nomz/spa_api.py` and consumed by `frontend/src/app/api.ts` (`apiFetch`).
+
+There is **no JWT** in the live stack: no `access` / `refresh` tokens, no `POST /api/auth/token/refresh/`, and no `GET /api/auth/user/` alias—the session shape is returned by **`GET /api/auth/session/`**.
+
+Mutating auth and many write endpoints use **`@csrf_exempt`** on the server (see `spa_api.py`); the browser still sends cookies for authentication.
+
+---
+
+## Authentication (`nomz/spa_api.py`)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/auth/session/` | Current user: `authenticated`, `username`, `role`, `is_staff`, `userprofile`, etc. |
+| POST | `/api/auth/register/` | Register + log in (session established). |
+| POST | `/api/auth/login/` | Password login. If 2FA device exists: `{ "requires_2fa": true }` (pending server session key `_2fa_user_id`). |
+| POST | `/api/auth/admin-login/` | Staff admin login + security code (parity with Django admin login form). |
+| POST | `/api/auth/2fa/verify/` | Body: `{ "token": "<TOTP code>" }` — completes login and sets session. |
+| POST | `/api/auth/logout/` | Clears session. |
+| POST | `/api/auth/password-reset/` | Triggers email (SPA template). |
+| POST | `/api/auth/password-reset/confirm/` | Body: `uid`, `token`, `new_password1`, `new_password2`. |
+
+**2FA:** No separate “session_token” in JSON—the server keeps pending 2FA state in the **Django session** until `POST /api/auth/2fa/verify/`.
+
+**CORS:** `django-cors-headers` is configured for dev origins (e.g. Vite on 5173). Production same-origin (Django serving the built SPA) does not need CORS for the HTML app.
+
+---
+
+## Map & messaging (`nomz/api_views.py`)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/restaurants/map-data/` | Map markers / filters. |
+| GET | `/api/messages/conversations/` | List conversations. |
+| POST | `/api/messages/conversations/start/` | Start thread (diner). |
+| GET | `/api/messages/conversations/<id>/` | Messages in thread. |
+| POST | `/api/messages/conversations/<id>/send/` | Send message. |
+| GET/POST | `/api/restaurant-claim/` | Claim flow (JSON). |
+
+---
+
+## Restaurant, diner, reviews, search (`nomz/spa_api.py`)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/restaurants/<id>/` | Detail + embedded reviews. |
+| POST | `/api/restaurants/<id>/review/` | Submit review (JSON body; `ReviewForm` fields). |
+| POST | `/api/report/` | Report review or user (`content_type`, `content_id`, …). |
+| GET | `/api/search/` | Authenticated restaurant search (parity with legacy search). |
+| GET | `/api/recommendations/` | Diner recommendations. |
+| GET/POST | `/api/restaurant/profile/` | Owner create/update profile. |
+| GET/POST | `/api/restaurant/availability/` | Owner availability. |
+| GET/POST | `/api/restaurant/communication/` | Owner messaging settings. |
+| GET/POST | `/api/restaurant/activation/` | Owner activation toggle. |
+| GET | `/api/restaurant/photos/data/` | List photos. |
+| POST | `/api/restaurant/photos/upload/` | Multipart upload. |
+| POST | `/api/restaurant/photos/<id>/delete/` | Delete photo. |
+| POST | `/api/restaurant/photos/<id>/set-primary/` | Set primary. |
+| GET/POST | `/api/diner/preferences/` | Diner preferences. |
+| GET/POST | `/api/diner/account/` | Diner account fields. |
+
+---
+
+## Admin JSON (`nomz/spa_api.py`, staff)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/admin/dashboard-summary/` | Dashboard metrics. |
+| GET | `/api/admin/pending-approvals/` | Pending restaurant accounts / claims. |
+| GET | `/api/admin/approved-restaurants/` | Approved accounts list. |
+| GET | `/api/admin/rejected-restaurants/` | Rejected accounts list. |
+| POST | `/api/admin/approve/<user_id>/` | Approve user / claim. |
+| POST | `/api/admin/reject/<user_id>/` | Reject. |
+| GET | `/api/admin/moderation/` | Moderation queue payload. |
+| POST | `/api/admin/moderation/reports/<id>/resolve/` | Resolve report (JSON `action`, …). |
+| GET | `/api/admin/users/` | User list. |
+| POST | `/api/admin/users/<id>/toggle-active/` | Toggle active. |
+| GET | `/api/admin/login-logs/` | Login logs. |
+
+---
+
+## Not implemented (older planning docs only)
+
+These were listed in early JWT/DRF checklists and are **not** part of the current `nomz/urls.py` contract:
+
+- `POST /api/auth/token/refresh/`, JWT access/refresh responses on login
+- `GET /api/auth/user/` (use `/api/auth/session/` instead)
+- Generic `GET/POST /api/restaurants/` CRUD resource
+- Standalone `GET /api/restaurants/<id>/reviews/` (reviews are on detail JSON)
+- `PATCH/DELETE /api/reviews/<id>/`, `GET /api/reviews/my-reviews/`
+- `PATCH .../mark-read/` for conversations
+- DRF ViewSets + `djangorestframework-simplejwt` as the primary auth mechanism
+
+If you add mobile or third-party clients later, you can introduce JWT **in addition to** or **instead of** sessions; the SPA would need a new client module—today it only assumes cookies.
+
+---
+
+## Settings relevant to the SPA
+
+- `CORS_ALLOWED_ORIGINS` — dev cross-origin (e.g. `http://127.0.0.1:5173`).
+- `CSRF_TRUSTED_ORIGINS` — must include the origin that performs credentialed requests.
+- `LOGIN_URL` — browser challenges redirect to `/signin/` (React shell), not the django-two-factor HTML login.
+- `FRONTEND_DIST_DIR` / SPA shell — see `nomz/spa_shell_views.py` and `nomz/urls.py`.
+
+---
+
+## References in code
+
+- URL wiring: `nomz/urls.py`
+- Session auth JSON: `nomz/spa_api.py` (`session_payload`, `auth_*`)
+- Map/messages/claim API: `nomz/api_views.py`
+- Frontend HTTP helper: `frontend/src/app/api.ts` (`apiFetch`, `credentials: "include"`)
+
+**Document version:** 2.0 (session-auth, aligned with repo)  
+**Last updated:** April 2026

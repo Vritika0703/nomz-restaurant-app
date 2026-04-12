@@ -23,7 +23,14 @@ from django.views.generic import RedirectView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    # Legacy /login/ bookmark → SPA sign-in
     path("login/", RedirectView.as_view(url="/signin/", permanent=False), name="login"),
-    path("", include(tf_urls)),
+    # django-two-factor registers this URL as two_factor:login; send users to the React app instead
+    path(
+        "account/login/",
+        RedirectView.as_view(url="/signin/", permanent=False),
+    ),
+    # SPA shell + /api/* before two_factor so /signin/ and deep links are never shadowed
     path("", include("nomz.urls")),
+    path("", include(tf_urls)),
 ]

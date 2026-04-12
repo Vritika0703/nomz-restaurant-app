@@ -342,6 +342,17 @@ def send_message(request, conversation_id):
     if not body:
         return _json_error("message is required.")
 
+    # Issue #62: diners cannot send when the restaurant has disabled messaging;
+    # owners can still reply (parity with conversation_detail template view).
+    if (
+        not conversation.restaurant.messaging_enabled
+        and request.user.id == conversation.diner_id
+    ):
+        return _json_error(
+            "This restaurant has messaging disabled and is not accepting messages.",
+            status=403,
+        )
+
     message = Message.objects.create(
         conversation=conversation,
         sender=request.user,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../api";
 
 interface Report {
@@ -13,9 +13,12 @@ interface Report {
 }
 
 export function AdminModeration({
-  onBack
+  onBack,
+  initialReportId = null,
 }: {
   onBack: () => void;
+  /** Deep link from `/nomz-admin/moderation/resolve/:id/` — open resolve modal when the report is pending. */
+  initialReportId?: number | null;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -24,6 +27,11 @@ export function AdminModeration({
   const [showModal, setShowModal] = useState(false);
   const [action, setAction] = useState('dismiss');
   const [notes, setNotes] = useState('');
+  const openedInitialReportRef = useRef(false);
+
+  useEffect(() => {
+    openedInitialReportRef.current = false;
+  }, [initialReportId]);
 
   const loadReports = useCallback(async () => {
     setLoadError(null);
@@ -78,6 +86,17 @@ export function AdminModeration({
   useEffect(() => {
     void loadReports();
   }, [loadReports]);
+
+  useEffect(() => {
+    if (openedInitialReportRef.current || initialReportId == null) return;
+    if (loadError) return;
+    const found = reports.some((r) => r.id === initialReportId);
+    if (found) {
+      openedInitialReportRef.current = true;
+      setSelectedReport(initialReportId);
+      setShowModal(true);
+    }
+  }, [reports, initialReportId, loadError]);
 
   const handleAction = (reportId: number) => {
     setSelectedReport(reportId);

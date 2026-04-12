@@ -1,12 +1,10 @@
 import { useState } from 'react';
 import { apiFetch } from '../api';
 
-export function TwoFactorAuth({ onBack, onVerify, onResend }: { onBack: () => void; onVerify: (data: { username: string; role?: string; is_staff?: boolean }) => void; onResend?: () => void }) {
+export function TwoFactorAuth({ onBack, onVerify }: { onBack: () => void; onVerify: (data: { username: string; role?: string; is_staff?: boolean }) => void }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
-  const [resendCount, setResendCount] = useState(0);
-  const [showResendOption, setShowResendOption] = useState(false);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,17 +40,6 @@ export function TwoFactorAuth({ onBack, onVerify, onResend }: { onBack: () => vo
     }
   };
 
-  const handleResend = () => {
-    onResend?.();
-    setResendCount(resendCount + 1);
-    setError('');
-    setCode('');
-    // Show resend option again after 60 seconds
-    setTimeout(() => {
-      setShowResendOption(true);
-    }, 60000);
-  };
-
   return (
     <div className="size-full flex flex-col items-center justify-center" style={{ backgroundColor: '#FFF9F5' }}>
       <div className="w-full max-w-md px-8">
@@ -80,7 +67,7 @@ export function TwoFactorAuth({ onBack, onVerify, onResend }: { onBack: () => vo
               color: '#999',
               fontSize: '14px'
             }}>
-              Enter the code from your authentication app or SMS.
+              Enter the code from your authenticator app (TOTP).
             </p>
           </div>
 
@@ -188,43 +175,6 @@ export function TwoFactorAuth({ onBack, onVerify, onResend }: { onBack: () => vo
             </button>
           </form>
 
-          {/* Resend Option */}
-          {onResend && (
-            <div className="mt-4 text-center">
-              <p style={{
-                fontFamily: 'Montserrat, sans-serif',
-                color: '#999',
-                fontSize: '13px',
-                marginBottom: '10px'
-              }}>
-                Didn't receive your code?
-              </p>
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={!showResendOption && resendCount > 0}
-                className="text-sm transition-all"
-                style={{
-                  color: showResendOption || resendCount === 0 ? '#E06E7F' : '#999',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  cursor: showResendOption || resendCount === 0 ? 'pointer' : 'not-allowed',
-                  fontFamily: 'Montserrat, sans-serif',
-                  textDecoration: 'underline'
-                }}
-                onMouseEnter={(e) => {
-                  if (showResendOption || resendCount === 0) {
-                    e.currentTarget.style.color = '#d1596d';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = showResendOption || resendCount === 0 ? '#E06E7F' : '#999';
-                }}
-              >
-                {resendCount > 0 ? 'Resend code' : 'Send code again'}
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Help Text */}
@@ -235,7 +185,7 @@ export function TwoFactorAuth({ onBack, onVerify, onResend }: { onBack: () => vo
           textAlign: 'center',
           marginTop: '16px'
         }}>
-          Use an authentication app or the code sent to your device
+          Codes refresh every 30 seconds; use the current value from your app.
         </p>
       </div>
     </div>

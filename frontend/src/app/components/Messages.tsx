@@ -28,6 +28,7 @@ export function Messages({
   pendingStartRestaurantId = null,
   pendingStartRestaurantName = "",
   onConsumedPendingStart,
+  initialConversationId = null,
 }: {
   onNavigateMap: () => void;
   onNavigateHome: () => void;
@@ -37,6 +38,8 @@ export function Messages({
   pendingStartRestaurantId?: number | null;
   pendingStartRestaurantName?: string;
   onConsumedPendingStart?: () => void;
+  /** Deep link: open this thread after load (e.g. `/messages/conversations/:id/`). */
+  initialConversationId?: number | null;
 }) {
   const [conversations, setConversations] = useState<ConvRow[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -104,6 +107,11 @@ export function Messages({
     void loadSession();
     void loadConversations();
   }, [loadSession, loadConversations]);
+
+  useEffect(() => {
+    if (initialConversationId == null || !Number.isFinite(initialConversationId)) return;
+    setSelectedId(initialConversationId);
+  }, [initialConversationId]);
 
   useEffect(() => {
     if (pendingStartRestaurantId == null) {
