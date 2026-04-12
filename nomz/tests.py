@@ -664,9 +664,7 @@ class SortRestaurantQuerysetUnitTests(TestCase):
         return list(queryset.values_list("id", flat=True))
 
     def test_composite_desc_then_asc(self):
-        base = Restaurant.objects.filter(
-            name__startswith="UnitSort"
-        ).order_by("pk")
+        base = Restaurant.objects.filter(name__startswith="UnitSort").order_by("pk")
         desc = self._ids(sort_restaurant_queryset(base, "composite_desc"))
         self.assertEqual(desc, [self.r_high.id, self.r_mid.id, self.r_low.id])
         asc = self._ids(sort_restaurant_queryset(base, "composite_asc"))
@@ -839,9 +837,21 @@ class RestaurantSortUserStoryAcceptanceTests(TestCase):
             "sort_by": "price_desc",
             "limit": "100",
         }
-        first = [r["id"] for r in self.client.get(reverse("api_restaurants_map"), params).json()["results"]]
-        second = [r["id"] for r in self.client.get(reverse("api_restaurants_map"), params).json()["results"]]
-        subset = [i for i in first if i in {self.manhattan_cheap.id, self.manhattan_pricey.id}]
+        first = [
+            r["id"]
+            for r in self.client.get(reverse("api_restaurants_map"), params).json()[
+                "results"
+            ]
+        ]
+        second = [
+            r["id"]
+            for r in self.client.get(reverse("api_restaurants_map"), params).json()[
+                "results"
+            ]
+        ]
+        subset = [
+            i for i in first if i in {self.manhattan_cheap.id, self.manhattan_pricey.id}
+        ]
         self.assertEqual(subset, [self.manhattan_pricey.id, self.manhattan_cheap.id])
         self.assertEqual(first, second)
 
