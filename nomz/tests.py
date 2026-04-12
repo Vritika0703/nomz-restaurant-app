@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -218,12 +219,15 @@ class RestaurantProfileViewTests(TestCase):
         UserProfile.objects.create(user=self.diner_user, role="diner")
 
     def test_restaurant_profile_view_requires_login(self):
-        """Test that profile view requires authentication"""
+        """SPA shell is public; JSON API enforces auth."""
         response = self.client.get(reverse("restaurant_profile"))
-        self.assertEqual(response.status_code, 302)  # Redirect to login
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "root")
+        r = self.client.get(reverse("api_restaurant_profile"))
+        self.assertEqual(r.status_code, 302)
 
     def test_restaurant_profile_view_for_restaurant_owner(self):
-        """Test that restaurant owner can view profile"""
+        """Restaurant owner reads profile via JSON API."""
         Restaurant.objects.create(
             owner=self.user,
             name="Test Restaurant",
@@ -233,30 +237,33 @@ class RestaurantProfileViewTests(TestCase):
 
         self.client.login(username="restaurantowner", password="testpass123")
         response = self.client.get(reverse("restaurant_profile"))
-
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Test Restaurant")
+        self.assertContains(response, "root")
+
+        api_r = self.client.get(reverse("api_restaurant_profile"))
+        self.assertEqual(api_r.status_code, 200)
+        self.assertEqual(api_r.json()["restaurant"]["name"], "Test Restaurant")
 
     def test_diner_cannot_access_restaurant_profile(self):
-        """Test that diner cannot access restaurant profile management"""
+        """Diner cannot use owner profile API."""
         self.client.login(username="diner", password="testpass123")
         response = self.client.get(reverse("restaurant_profile"))
-
-        self.assertEqual(response.status_code, 302)  # Redirect
+        self.assertEqual(response.status_code, 200)
+        api_r = self.client.get(reverse("api_restaurant_profile"))
+        self.assertEqual(api_r.status_code, 403)
 
     def test_create_restaurant_profile_get(self):
-        """Test GET request to create restaurant profile"""
+        """Create-profile page is the SPA shell."""
         self.client.login(username="restaurantowner", password="testpass123")
         response = self.client.get(reverse("create_restaurant"))
-
         self.assertEqual(response.status_code, 200)
-        self.assertIn("form", response.context)
+        self.assertContains(response, "root")
 
     def test_create_restaurant_profile_post(self):
-        """Test POST request to create restaurant profile"""
+        """Create profile via JSON API."""
         self.client.login(username="restaurantowner", password="testpass123")
 
-        data = {
+        body = {
             "name": "New Restaurant",
             "description": "Great food",
             "cuisine_type": "italian",
@@ -267,14 +274,18 @@ class RestaurantProfileViewTests(TestCase):
             "phone": "(555) 123-4567",
         }
 
-        response = self.client.post(reverse("create_restaurant"), data)
+        response = self.client.post(
+            reverse("api_restaurant_profile"),
+            data=json.dumps(body),
+            content_type="application/json",
+        )
 
-        self.assertEqual(response.status_code, 302)  # Redirect after success
+        self.assertEqual(response.status_code, 201)
         restaurant = Restaurant.objects.get(owner=self.user)
         self.assertEqual(restaurant.name, "New Restaurant")
 
     def test_edit_restaurant_profile_get(self):
-        """Test GET request to edit restaurant profile"""
+        """Edit-profile page is the SPA shell."""
         Restaurant.objects.create(
             owner=self.user,
             name="Test Restaurant",
@@ -284,12 +295,11 @@ class RestaurantProfileViewTests(TestCase):
 
         self.client.login(username="restaurantowner", password="testpass123")
         response = self.client.get(reverse("edit_restaurant"))
-
         self.assertEqual(response.status_code, 200)
-        self.assertIn("form", response.context)
+        self.assertContains(response, "root")
 
     def test_edit_restaurant_profile_post(self):
-        """Test POST request to edit restaurant profile"""
+        """Update profile via JSON API."""
         restaurant = Restaurant.objects.create(
             owner=self.user,
             name="Test Restaurant",
@@ -301,7 +311,7 @@ class RestaurantProfileViewTests(TestCase):
 
         self.client.login(username="restaurantowner", password="testpass123")
 
-        data = {
+        body = {
             "name": "Updated Restaurant",
             "description": "Updated description",
             "cuisine_type": "french",
@@ -311,7 +321,11 @@ class RestaurantProfileViewTests(TestCase):
             "address": "456 Oak Ave",
         }
 
-        self.client.post(reverse("edit_restaurant"), data)
+        self.client.post(
+            reverse("api_restaurant_profile"),
+            data=json.dumps(body),
+            content_type="application/json",
+        )
 
         restaurant.refresh_from_db()
         self.assertEqual(restaurant.name, "Updated Restaurant")
@@ -337,20 +351,23 @@ class RestaurantAvailabilityViewTests(TestCase):
         )
 
     def test_manage_availability_view(self):
-        """Test availability management view"""
+        """Availability UI is the SPA shell."""
         self.client.login(username="restaurantowner", password="testpass123")
         response = self.client.get(reverse("manage_availability"))
-
         self.assertEqual(response.status_code, 200)
-        self.assertIn("form", response.context)
+        self.assertContains(response, "root")
 
     def test_mark_temporarily_unavailable(self):
-        """Test marking restaurant as temporarily unavailable"""
+        """Mark unavailable via JSON API."""
         self.client.login(username="restaurantowner", password="testpass123")
 
-        data = {"is_temporarily_unavailable": True, "unavailable_reason": "Renovations"}
+        body = {"is_temporarily_unavailable": True, "unavailable_reason": "Renovations"}
 
-        self.client.post(reverse("manage_availability"), data)
+        self.client.post(
+            reverse("api_restaurant_availability"),
+            data=json.dumps(body),
+            content_type="application/json",
+        )
 
         self.restaurant.refresh_from_db()
         self.assertTrue(self.restaurant.is_temporarily_unavailable)
@@ -386,32 +403,31 @@ class RestaurantPhotoViewTests(TestCase):
         )
 
     def test_upload_photo_view_get(self):
-        """Test GET request to upload photo"""
+        """Upload page is the SPA shell."""
         self.client.login(username="restaurantowner", password="testpass123")
         response = self.client.get(reverse("upload_photo"))
-
         self.assertEqual(response.status_code, 200)
-        self.assertIn("form", response.context)
+        self.assertContains(response, "root")
 
     def test_upload_photo_view_post(self):
-        """Test POST request to upload photo"""
+        """Upload photo via multipart JSON API."""
         self.client.login(username="restaurantowner", password="testpass123")
 
         data = {
             "photo": self.create_test_image(),
             "caption": "Dining area",
-            "is_primary": True,
+            "is_primary": "on",
         }
 
-        response = self.client.post(reverse("upload_photo"), data)
+        response = self.client.post(reverse("api_restaurant_photo_upload"), data)
 
-        self.assertEqual(response.status_code, 302)  # Redirect after success
+        self.assertEqual(response.status_code, 201)
         photo = RestaurantPhoto.objects.get(restaurant=self.restaurant)
         self.assertEqual(photo.caption, "Dining area")
         self.assertTrue(photo.is_primary)
 
     def test_restaurant_photos_view(self):
-        """Test viewing all restaurant photos"""
+        """Gallery page is SPA; list comes from JSON API."""
         RestaurantPhoto.objects.create(
             restaurant=self.restaurant,
             photo=self.create_test_image(),
@@ -420,12 +436,14 @@ class RestaurantPhotoViewTests(TestCase):
 
         self.client.login(username="restaurantowner", password="testpass123")
         response = self.client.get(reverse("restaurant_photos"))
-
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Test Photo")
+        self.assertContains(response, "root")
+        api_r = self.client.get(reverse("api_restaurant_photos_data"))
+        self.assertEqual(api_r.status_code, 200)
+        self.assertEqual(api_r.json()["photos"][0]["caption"], "Test Photo")
 
     def test_delete_photo(self):
-        """Test deleting a photo"""
+        """Delete photo via JSON API."""
         photo = RestaurantPhoto.objects.create(
             restaurant=self.restaurant,
             photo=self.create_test_image(),
@@ -433,13 +451,15 @@ class RestaurantPhotoViewTests(TestCase):
         )
 
         self.client.login(username="restaurantowner", password="testpass123")
-        response = self.client.post(reverse("delete_photo", args=[photo.id]))
+        response = self.client.post(
+            reverse("api_restaurant_photo_delete", args=[photo.id]),
+        )
 
-        self.assertEqual(response.status_code, 302)  # Redirect after delete
+        self.assertEqual(response.status_code, 200)
         self.assertFalse(RestaurantPhoto.objects.filter(id=photo.id).exists())
 
     def test_set_primary_photo(self):
-        """Test setting a photo as primary"""
+        """Set primary via JSON API."""
         photo1 = RestaurantPhoto.objects.create(
             restaurant=self.restaurant,
             photo=self.create_test_image(),
@@ -454,9 +474,11 @@ class RestaurantPhotoViewTests(TestCase):
         )
 
         self.client.login(username="restaurantowner", password="testpass123")
-        response = self.client.post(reverse("set_primary_photo", args=[photo2.id]))
+        response = self.client.post(
+            reverse("api_restaurant_photo_set_primary", args=[photo2.id]),
+        )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
 
         photo2.refresh_from_db()
         photo1.refresh_from_db()
@@ -618,11 +640,11 @@ class RestaurantSortingTests(TestCase):
         UserProfile.objects.create(user=user, role="diner")
         self.client.login(username="sort_diner", password="pass12345")
         response = self.client.get(
-            reverse("restaurant_search"),
+            reverse("api_restaurant_search"),
             {"q": "Sort Test", "sort_by": "price_asc"},
         )
         self.assertEqual(response.status_code, 200)
-        names = [r["name"] for r in response.context["results"]]
+        names = [r["name"] for r in response.json()["results"]]
         self.assertEqual(
             names,
             ["Sort Test A", "Sort Test C", "Sort Test B"],
@@ -924,29 +946,37 @@ class RestaurantClaimFlowTests(TestCase):
 
     def test_register_restaurant_redirects_to_claim_page(self):
         response = self.client.post(
-            reverse("register"),
-            {
-                "email": "newclaim@example.com",
-                "username": "newclaimuser",
-                "role": "restaurant",
-                "password1": "pass12345AA!",
-                "password2": "pass12345AA!",
-            },
+            reverse("api_auth_register"),
+            data=json.dumps(
+                {
+                    "email": "newclaim@example.com",
+                    "username": "newclaimuser",
+                    "role": "restaurant",
+                    "password1": "pass12345AA!",
+                    "password2": "pass12345AA!",
+                }
+            ),
+            content_type="application/json",
         )
-        self.assertRedirects(response, reverse("claim_restaurant"))
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json().get("authenticated"))
 
     def test_claim_restaurant_creates_pending_claim(self):
         self.client.login(username="claim_owner", password="pass12345")
         response = self.client.post(
-            reverse("claim_restaurant"),
-            {
-                "restaurant": self.unowned_restaurant.pk,
-                "business_email": "owner@claimablespot.com",
-                "contact_phone": "+1 212-555-1234",
-                "proof_details": "Business license and matching domain email.",
-            },
+            reverse("api_restaurant_claim"),
+            data=json.dumps(
+                {
+                    "restaurant_id": self.unowned_restaurant.pk,
+                    "business_email": "owner@claimablespot.com",
+                    "contact_phone": "+1 212-555-1234",
+                    "proof_details": "Business license and matching domain email.",
+                }
+            ),
+            content_type="application/json",
         )
-        self.assertRedirects(response, reverse("profile"))
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.json().get("success"))
         claim = RestaurantOwnershipClaim.objects.get(
             claimant=self.user,
             restaurant=self.unowned_restaurant,
@@ -970,9 +1000,9 @@ class RestaurantClaimFlowTests(TestCase):
 
         self.client.login(username="claim_admin", password="pass12345")
         response = self.client.post(
-            reverse("admin_approve_restaurant", args=[self.user.id]),
+            reverse("api_admin_approve_user", args=[self.user.id]),
         )
-        self.assertRedirects(response, reverse("admin_pending_approvals"))
+        self.assertEqual(response.status_code, 200)
 
         claim.refresh_from_db()
         self.unowned_restaurant.refresh_from_db()
@@ -1003,10 +1033,13 @@ class RestaurantClaimFlowTests(TestCase):
 
         self.client.login(username="claim_admin_2", password="pass12345")
         response = self.client.get(reverse("admin_pending_approvals"))
-
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Claimable Spot")
-        self.assertContains(response, "Approve Claim")
+        self.assertContains(response, "root")
+
+        api_r = self.client.get(reverse("api_admin_pending_approvals_data"))
+        self.assertEqual(api_r.status_code, 200)
+        rows = api_r.json().get("results", [])
+        self.assertTrue(any("Claimable" in str(r) for r in rows))
 
 
 class RestaurantOwnerScoreDashboardTests(TestCase):
@@ -1074,33 +1107,37 @@ class RestaurantOwnerScoreDashboardTests(TestCase):
         )
 
     def test_owner_dashboard_exposes_score_breakdown_comparison_and_trend(self):
+        from .views import _build_restaurant_score_insights
+
         self.client.login(username="owner_score", password="pass12345")
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "root")
 
-        self.assertIn("score_summary", response.context)
-        self.assertIn("score_breakdown", response.context)
-        self.assertIn("review_factor_breakdown", response.context)
-        self.assertIn("neighborhood_comparison", response.context)
-        self.assertIn("trend_points", response.context)
-        self.assertIn("trend_summary", response.context)
+        ctx = _build_restaurant_score_insights(self.restaurant)
+        self.assertIn("score_summary", ctx)
+        self.assertIn("score_breakdown", ctx)
+        self.assertIn("review_factor_breakdown", ctx)
+        self.assertIn("neighborhood_comparison", ctx)
+        self.assertIn("trend_points", ctx)
+        self.assertIn("trend_summary", ctx)
 
-        score_summary = response.context["score_summary"]
+        score_summary = ctx["score_summary"]
         self.assertEqual(score_summary["grade"], "A")
         self.assertGreater(float(score_summary["composite_score"]), 80.0)
 
-        score_breakdown = response.context["score_breakdown"]
+        score_breakdown = ctx["score_breakdown"]
         self.assertGreaterEqual(len(score_breakdown), 4)
         self.assertEqual(score_breakdown[0]["label"], "User Experience Signal")
 
-        comparison = response.context["neighborhood_comparison"]
+        comparison = ctx["neighborhood_comparison"]
         self.assertEqual(comparison["location_scope"], "Midtown")
         self.assertEqual(comparison["peer_count"], 3)
         self.assertIsNotNone(comparison["rank"])
         self.assertIsNotNone(comparison["percentile"])
 
-        trend_points = response.context["trend_points"]
-        trend_summary = response.context["trend_summary"]
+        trend_points = ctx["trend_points"]
+        trend_summary = ctx["trend_summary"]
         self.assertEqual(len(trend_points), 2)
         self.assertTrue(trend_summary["has_data"])
 
@@ -1531,15 +1568,22 @@ class MessagingWebsiteTests(TestCase):
 
     def test_diner_can_open_thread_from_restaurant_page(self):
         self.client.login(username="web_diner", password="pass12345")
-        response = self.client.get(
-            reverse("message_restaurant", args=[self.restaurant.id])
+        response = self.client.post(
+            reverse("api_conversation_start"),
+            data=json.dumps(
+                {
+                    "restaurant_id": self.restaurant.id,
+                    "message": "Hello from diner",
+                }
+            ),
+            content_type="application/json",
         )
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 201)
         conversation = Conversation.objects.get(
             restaurant=self.restaurant,
             diner=self.diner,
         )
-        self.assertIn(str(conversation.id), response.url)
+        self.assertEqual(conversation.messages.count(), 1)
 
     def test_restaurant_can_view_inbox_and_thread(self):
         conversation = Conversation.objects.create(
@@ -1554,13 +1598,28 @@ class MessagingWebsiteTests(TestCase):
         self.client.login(username="web_owner", password="pass12345")
         inbox_response = self.client.get(reverse("message_inbox"))
         self.assertEqual(inbox_response.status_code, 200)
-        self.assertContains(inbox_response, "web_diner")
+        self.assertContains(inbox_response, "root")
+
+        list_r = self.client.get(reverse("api_conversation_list"))
+        self.assertEqual(list_r.status_code, 200)
+        self.assertTrue(
+            any(
+                row["diner_username"] == "web_diner"
+                for row in list_r.json()["results"]
+            )
+        )
 
         detail_response = self.client.get(
             reverse("conversation_detail", args=[conversation.id])
         )
         self.assertEqual(detail_response.status_code, 200)
-        self.assertContains(detail_response, "Do you have outdoor seating?")
+        self.assertContains(detail_response, "root")
+
+        api_detail = self.client.get(
+            reverse("api_conversation_messages", args=[conversation.id])
+        )
+        self.assertEqual(api_detail.status_code, 200)
+        self.assertEqual(api_detail.json()["messages"][0]["body"], "Do you have outdoor seating?")
 
 
 # =============================================================================
@@ -1611,35 +1670,44 @@ class RestaurantCommunicationSettingsTests(TestCase):
     # -------------------------------------------------------------------------
 
     def test_settings_page_requires_login(self):
-        """Unauthenticated user is redirected away from the settings page."""
+        """SPA shell is public; API requires auth."""
         response = self.client.get(reverse("manage_communication_settings"))
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "root")
+        r = self.client.get(reverse("api_restaurant_communication"))
+        self.assertEqual(r.status_code, 302)
 
     def test_diner_cannot_access_settings_page(self):
-        """A diner is redirected when attempting to access the settings page."""
+        """Diner cannot load communication JSON."""
         self.client.login(username="comm_diner", password="pass12345")
         response = self.client.get(reverse("manage_communication_settings"))
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
+        api_r = self.client.get(reverse("api_restaurant_communication"))
+        self.assertEqual(api_r.status_code, 403)
 
     def test_owner_can_get_settings_page(self):
-        """Restaurant owner can load the communication settings page."""
+        """Owner reads settings via JSON API."""
         self.client.login(username="comm_owner", password="pass12345")
         response = self.client.get(reverse("manage_communication_settings"))
         self.assertEqual(response.status_code, 200)
-        self.assertIn("form", response.context)
+        self.assertContains(response, "root")
+        api_r = self.client.get(reverse("api_restaurant_communication"))
+        self.assertEqual(api_r.status_code, 200)
+        self.assertTrue(api_r.json().get("messaging_enabled"))
 
     # -------------------------------------------------------------------------
     # Toggling messaging off/on
     # -------------------------------------------------------------------------
 
     def test_owner_can_disable_messaging(self):
-        """POST to settings page with messaging_enabled=False disables messaging."""
+        """Disable messaging via JSON API."""
         self.client.login(username="comm_owner", password="pass12345")
         response = self.client.post(
-            reverse("manage_communication_settings"),
-            {"messaging_enabled": False},
+            reverse("api_restaurant_communication"),
+            data=json.dumps({"messaging_enabled": False}),
+            content_type="application/json",
         )
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
         self.restaurant.refresh_from_db()
         self.assertFalse(self.restaurant.messaging_enabled)
 
@@ -1650,8 +1718,9 @@ class RestaurantCommunicationSettingsTests(TestCase):
 
         self.client.login(username="comm_owner", password="pass12345")
         self.client.post(
-            reverse("manage_communication_settings"),
-            {"messaging_enabled": True},
+            reverse("api_restaurant_communication"),
+            data=json.dumps({"messaging_enabled": True}),
+            content_type="application/json",
         )
         self.restaurant.refresh_from_db()
         self.assertTrue(self.restaurant.messaging_enabled)
@@ -1661,63 +1730,75 @@ class RestaurantCommunicationSettingsTests(TestCase):
     # -------------------------------------------------------------------------
 
     def test_owner_can_set_response_hours(self):
-        """Owner can save response hours via the settings form."""
+        """Save response hours via JSON API."""
         self.client.login(username="comm_owner", password="pass12345")
         self.client.post(
-            reverse("manage_communication_settings"),
-            {
-                "messaging_enabled": True,
-                "response_hours_start": "09:00",
-                "response_hours_end": "17:00",
-            },
+            reverse("api_restaurant_communication"),
+            data=json.dumps(
+                {
+                    "messaging_enabled": True,
+                    "response_hours_start": "09:00",
+                    "response_hours_end": "17:00",
+                }
+            ),
+            content_type="application/json",
         )
         self.restaurant.refresh_from_db()
         self.assertEqual(str(self.restaurant.response_hours_start), "09:00:00")
         self.assertEqual(str(self.restaurant.response_hours_end), "17:00:00")
 
     def test_response_hours_start_must_be_before_end(self):
-        """Form validation rejects start >= end for response hours."""
+        """API returns 400 when start >= end."""
         self.client.login(username="comm_owner", password="pass12345")
         response = self.client.post(
-            reverse("manage_communication_settings"),
-            {
-                "messaging_enabled": True,
-                "response_hours_start": "18:00",
-                "response_hours_end": "09:00",
-            },
+            reverse("api_restaurant_communication"),
+            data=json.dumps(
+                {
+                    "messaging_enabled": True,
+                    "response_hours_start": "18:00",
+                    "response_hours_end": "09:00",
+                }
+            ),
+            content_type="application/json",
         )
-        # Form is invalid → stays on the page (200) with errors
-        self.assertEqual(response.status_code, 200)
-        self.assertFormError(
-            response.context["form"],
-            None,
-            "Response hours start time must be before end time.",
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertFalse(data.get("success", True))
+        joined = " ".join(
+            " ".join(v) for v in (data.get("errors") or {}).values()
         )
+        self.assertIn("before end", joined)
 
     # -------------------------------------------------------------------------
     # Messaging enforcement for diners
     # -------------------------------------------------------------------------
 
     def test_diner_blocked_from_messaging_disabled_restaurant(self):
-        """Diner is redirected with an error when messaging is disabled."""
+        """API blocks starting a conversation when messaging is disabled."""
         self.restaurant.messaging_enabled = False
         self.restaurant.save(update_fields=["messaging_enabled"])
 
         self.client.login(username="comm_diner", password="pass12345")
-        response = self.client.get(
-            reverse("message_restaurant", args=[self.restaurant.id])
+        response = self.client.post(
+            reverse("api_conversation_start"),
+            data=json.dumps(
+                {"restaurant_id": self.restaurant.id, "message": "Hello?"}
+            ),
+            content_type="application/json",
         )
-        self.assertEqual(response.status_code, 302)
-        # Redirect should go to restaurant detail, not conversation
-        self.assertIn("restaurant", response.url)
+        self.assertEqual(response.status_code, 403)
 
     def test_diner_can_message_enabled_restaurant(self):
-        """Diner is redirected to conversation when messaging is enabled."""
+        """Diner can start a conversation when messaging is enabled."""
         self.client.login(username="comm_diner", password="pass12345")
-        response = self.client.get(
-            reverse("message_restaurant", args=[self.restaurant.id])
+        response = self.client.post(
+            reverse("api_conversation_start"),
+            data=json.dumps(
+                {"restaurant_id": self.restaurant.id, "message": "Hello!"}
+            ),
+            content_type="application/json",
         )
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 201)
         self.assertTrue(
             Conversation.objects.filter(
                 restaurant=self.restaurant, diner=self.diner
@@ -1725,25 +1806,24 @@ class RestaurantCommunicationSettingsTests(TestCase):
         )
 
     def test_diner_cannot_send_message_in_disabled_conversation(self):
-        """Diner POST is blocked with an error when messaging is disabled mid-conversation."""
+        """Diner cannot send when messaging is disabled (API)."""
         conversation = Conversation.objects.create(
             restaurant=self.restaurant, diner=self.diner
         )
-        # Disable messaging after conversation exists
         self.restaurant.messaging_enabled = False
         self.restaurant.save(update_fields=["messaging_enabled"])
 
         self.client.login(username="comm_diner", password="pass12345")
         response = self.client.post(
-            reverse("conversation_detail", args=[conversation.id]),
-            {"message": "Can I still message?"},
+            reverse("api_send_message", args=[conversation.id]),
+            data=json.dumps({"message": "Can I still message?"}),
+            content_type="application/json",
         )
-        # Should redirect (no new message created)
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 403)
         self.assertEqual(Message.objects.filter(conversation=conversation).count(), 0)
 
     def test_restaurant_owner_can_still_reply_when_messaging_disabled(self):
-        """Restaurant owner is not blocked by the messaging toggle — they can always reply."""
+        """Restaurant owner can still reply via API when messaging is disabled."""
         conversation = Conversation.objects.create(
             restaurant=self.restaurant, diner=self.diner
         )
@@ -1752,10 +1832,11 @@ class RestaurantCommunicationSettingsTests(TestCase):
 
         self.client.login(username="comm_owner", password="pass12345")
         response = self.client.post(
-            reverse("conversation_detail", args=[conversation.id]),
-            {"message": "Sorry, we are temporarily closed."},
+            reverse("api_send_message", args=[conversation.id]),
+            data=json.dumps({"message": "Sorry, we are temporarily closed."}),
+            content_type="application/json",
         )
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 201)
         self.assertEqual(Message.objects.filter(conversation=conversation).count(), 1)
 
     # -------------------------------------------------------------------------
@@ -1790,51 +1871,82 @@ class RestaurantCommunicationSettingsTests(TestCase):
         self.assertEqual(response.status_code, 201)
 
     def test_unread_message_count_and_alerts(self):
-        """Test that unread messages generate alerts and are correctly marked as read."""
-        # Logged in as diner
-        self.client.login(username="comm_diner", password="pass12345")
+        """Unread counts for the owner; template inbox is replaced by SPA shell."""
+        from django.test import RequestFactory
 
-        # Start a conversation
+        from .context_processors import unread_messages_count
+
         conv, _ = Conversation.objects.get_or_create(
             restaurant=self.restaurant, diner=self.diner
         )
-        # Send a message
-        self.client.post(
-            reverse("conversation_detail", args=[conv.id]), {"message": "Hello!"}
-        )
+        Message.objects.create(conversation=conv, sender=self.diner, body="Hello!")
 
-        # Restaurant owner logs in
-        self.client.logout()
-        self.client.login(username="comm_owner", password="pass12345")
+        factory = RequestFactory()
+        req = factory.get("/")
+        req.user = self.owner
+        self.assertEqual(unread_messages_count(req)["unread_messages_count"], 1)
 
-        response = self.client.get(reverse("message_inbox"))
-        # Check that unread_count is annotated correctly
-        self.assertEqual(response.context["conversations"][0].unread_count, 1)
-        self.assertContains(response, "NEW")
+        # Simulate owner opening thread (marks other's messages read)
+        Message.objects.filter(
+            conversation=conv, is_read=False
+        ).exclude(sender=self.owner).update(is_read=True)
 
-        # View conversation -> should mark as read
-        conv_id = response.context["conversations"][0].id
-        self.client.get(reverse("conversation_detail", args=[conv_id]))
+        req.user = self.owner
+        self.assertEqual(unread_messages_count(req)["unread_messages_count"], 0)
 
-        # Check unread count again in inbox
-        response = self.client.get(reverse("message_inbox"))
-        self.assertEqual(response.context["conversations"][0].unread_count, 0)
-        self.assertNotContains(response, "NEW")
+        inbox = self.client.get(reverse("message_inbox"))
+        self.assertEqual(inbox.status_code, 200)
+        self.assertContains(inbox, "root")
 
     def test_global_unread_count_context_processor(self):
-        """Test the unread_messages_count context processor provides correct count globally."""
-        # Diner sends 2 messages (no client POST, just DB for speed)
+        """Context processor counts unread messages for authenticated users."""
+        from django.test import RequestFactory
+
+        from .context_processors import unread_messages_count
+
         conv, _ = Conversation.objects.get_or_create(
             restaurant=self.restaurant, diner=self.diner
         )
         Message.objects.create(conversation=conv, sender=self.diner, body="Msg 1")
         Message.objects.create(conversation=conv, sender=self.diner, body="Msg 2")
 
-        # Restaurant owner logs in
-        self.client.login(username="comm_owner", password="pass12345")
+        factory = RequestFactory()
+        req = factory.get("/")
+        req.user = self.owner
+        self.assertEqual(unread_messages_count(req)["unread_messages_count"], 2)
 
-        # Global nav bar should show "2" on any page (e.g., profile)
+        # SPA shell no longer runs Django template context processors on the response
         response = self.client.get(reverse("profile"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "root")
+
+
+class AdminRestaurantAccountListApiTests(TestCase):
+    """Staff JSON endpoints for approved / rejected restaurant accounts (SPA)."""
+
+    def setUp(self):
+        self.client = Client()
+        self.staff = User.objects.create_user(
+            username="spa_staff", password="pass12345", is_staff=True
+        )
+        self.diner = User.objects.create_user(username="d1", password="pass12345")
+        UserProfile.objects.create(user=self.diner, role="diner")
+
+        self.approved_owner = User.objects.create_user(
+            username="biz_ok", password="pass12345"
+        )
+        UserProfile.objects.create(
+            user=self.approved_owner,
+            role="restaurant",
+            is_approved=True,
+            is_rejected=False,
+        )
+        Restaurant.objects.create(
+            owner=self.approved_owner,
+            name="Tasty Spoon",
+            cuisine_type="italian",
+            price_range="$$",
+        )
 
         # Context processors are available in template context
         self.assertEqual(response.context["unread_messages_count"], 2)
@@ -2001,3 +2113,34 @@ class ReviewResponseFeatureTests(TestCase):
         self.assertContains(
             response, "We appreciate your visit and will keep improving."
         )
+        self.rejected_owner = User.objects.create_user(
+            username="biz_no", password="pass12345"
+        )
+        UserProfile.objects.create(
+            user=self.rejected_owner,
+            role="restaurant",
+            is_approved=False,
+            is_rejected=True,
+        )
+
+    def test_approved_list_requires_staff(self):
+        self.client.login(username="d1", password="pass12345")
+        r = self.client.get(reverse("api_admin_approved_restaurants"))
+        self.assertEqual(r.status_code, 403)
+
+    def test_approved_list_returns_rows(self):
+        self.client.login(username="spa_staff", password="pass12345")
+        r = self.client.get(reverse("api_admin_approved_restaurants"))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["username"], "biz_ok")
+        self.assertEqual(data["results"][0]["restaurant_name"], "Tasty Spoon")
+
+    def test_rejected_list_returns_rows(self):
+        self.client.login(username="spa_staff", password="pass12345")
+        r = self.client.get(reverse("api_admin_rejected_restaurants"))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["count"], 1)
+        self.assertEqual(data["results"][0]["username"], "biz_no")
