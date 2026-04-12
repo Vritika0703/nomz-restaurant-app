@@ -571,7 +571,158 @@ class DataIngestionRun(models.Model):
         return f"{self.dataset} | {self.status} | {self.started_at:%Y-%m-%d %H:%M}"
 
 
+class CompositeScoreHistory(models.Model):
+    TRIGGER_SIGNAL_REVIEW = "signal_review"
+    TRIGGER_SIGNAL_REVIEW_DELETE = "signal_review_delete"
+    TRIGGER_SIGNAL_INSPECTION = "signal_inspection"
+    TRIGGER_SIGNAL_INSPECTION_DELETE = "signal_inspection_delete"
+    TRIGGER_ADMIN_ACTION = "admin_action"
+    TRIGGER_ADMIN_DASHBOARD = "admin_dashboard"
+    TRIGGER_MANAGEMENT_COMMAND = "management_command"
+    TRIGGER_INGESTION = "ingestion"
+    TRIGGER_OTHER = "other"
+
+    TRIGGER_CHOICES = [
+        (TRIGGER_SIGNAL_REVIEW, "Review Saved Signal"),
+        (TRIGGER_SIGNAL_REVIEW_DELETE, "Review Deleted Signal"),
+        (TRIGGER_SIGNAL_INSPECTION, "Inspection Saved Signal"),
+        (TRIGGER_SIGNAL_INSPECTION_DELETE, "Inspection Deleted Signal"),
+        (TRIGGER_ADMIN_ACTION, "Django Admin Action"),
+        (TRIGGER_ADMIN_DASHBOARD, "Admin Dashboard"),
+        (TRIGGER_MANAGEMENT_COMMAND, "Management Command"),
+        (TRIGGER_INGESTION, "Ingestion Pipeline"),
+        (TRIGGER_OTHER, "Other"),
+    ]
+
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="score_history",
+    )
+    calculated_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    algorithm_version = models.CharField(max_length=32, default="v2")
+    trigger_source = models.CharField(
+        max_length=32,
+        choices=TRIGGER_CHOICES,
+        default=TRIGGER_OTHER,
+        db_index=True,
+    )
+    trigger_note = models.CharField(max_length=255, blank=True, default="")
+    triggered_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="composite_score_recalculations",
+    )
+
+    composite_score = models.DecimalField(max_digits=5, decimal_places=2, null=True)
+    previous_composite_score = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True
+    )
+    delta_from_previous = models.DecimalField(
+        max_digits=6, decimal_places=2, null=True, blank=True
+    )
+    grade = models.CharField(max_length=12, blank=True, default="")
+    grade_score = models.IntegerField(default=0)
+    last_inspection_date = models.DateField(blank=True, null=True)
+
+    inspection_component_score = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0
+    )
+    review_component_score = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0
+    )
+    price_value_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    operational_score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    review_count = models.IntegerField(default=0)
+    review_confidence = models.DecimalField(max_digits=4, decimal_places=3, default=0)
+
+    score_breakdown = models.JSONField(default=list, blank=True)
+    score_inputs = models.JSONField(default=dict, blank=True)
+    anomaly_flags = models.JSONField(default=list, blank=True)
+    is_anomalous = models.BooleanField(default=False, db_index=True)
+
+    class Meta:
+        ordering = ["-calculated_at"]
+        indexes = [
+            models.Index(fields=["restaurant", "-calculated_at"]),
+            models.Index(fields=["trigger_source", "-calculated_at"]),
+            models.Index(fields=["is_anomalous", "-calculated_at"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.restaurant_id} score={self.composite_score} "
+            f"({self.trigger_source}) @{self.calculated_at:%Y-%m-%d %H:%M}"
+        )
+
+
+class CompositeScoreAnomaly(models.Model):
+    TYPE_LARGE_DELTA = "large_delta"
+    TYPE_LOW_CONFIDENCE_HIGH_SCORE = "low_confidence_high_score"
+    TYPE_STALE_INSPECTION_HIGH_SCORE = "stale_inspection_high_score"
+
+    TYPE_CHOICES = [
+        (TYPE_LARGE_DELTA, "Large Score Delta"),
+        (TYPE_LOW_CONFIDENCE_HIGH_SCORE, "Low Confidence With High Score"),
+        (TYPE_STALE_INSPECTION_HIGH_SCORE, "Stale Inspection With High Score"),
+    ]
+
+    SEVERITY_LOW = "LOW"
+    SEVERITY_MEDIUM = "MEDIUM"
+    SEVERITY_HIGH = "HIGH"
+    SEVERITY_CRITICAL = "CRITICAL"
+    SEVERITY_CHOICES = [
+        (SEVERITY_LOW, "Low"),
+        (SEVERITY_MEDIUM, "Medium"),
+        (SEVERITY_HIGH, "High"),
+        (SEVERITY_CRITICAL, "Critical"),
+    ]
+
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="score_anomalies",
+    )
+    score_history = models.ForeignKey(
+        CompositeScoreHistory,
+        on_delete=models.CASCADE,
+        related_name="anomalies",
+    )
+    anomaly_type = models.CharField(max_length=64, choices=TYPE_CHOICES, db_index=True)
+    severity = models.CharField(
+        max_length=16, choices=SEVERITY_CHOICES, default=SEVERITY_MEDIUM, db_index=True
+    )
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    is_resolved = models.BooleanField(default=False, db_index=True)
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    resolved_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="resolved_score_anomalies",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["restaurant", "is_resolved"]),
+            models.Index(fields=["anomaly_type", "severity", "is_resolved"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.restaurant_id} {self.anomaly_type} "
+            f"({'resolved' if self.is_resolved else 'open'})"
+        )
+
+
 # User preferences model to store diner preferences for personalized recommendations and search filtering
+
+
 class UserPreference(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, related_name="preferences"

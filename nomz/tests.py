@@ -14,6 +14,8 @@ from unittest.mock import patch
 from django.test.utils import override_settings
 
 from .models import (
+    CompositeScoreAnomaly,
+    CompositeScoreHistory,
     Conversation,
     InspectionRecord,
     Message,
@@ -28,6 +30,7 @@ from .models import (
     SystemPerformanceMetric,
     UserProfile,
 )
+from .scoring import refresh_restaurant_composite
 from .restaurant_sorting import normalize_sort_key
 
 
@@ -889,6 +892,185 @@ class CompositeScoreAutomationTests(TestCase):
         other.refresh_from_db()
         self.assertIsNotNone(self.restaurant.composite_score)
         self.assertIsNone(other.composite_score)
+
+    def test_recalculation_persists_score_history_records(self):
+        call_command("recalculate_composite_scores", restaurant_id=self.restaurant.id)
+        history = CompositeScoreHistory.objects.filter(restaurant=self.restaurant)
+        self.assertGreaterEqual(history.count(), 1)
+        self.assertEqual(history.first().trigger_source, "management_command")
+
+
+class AdminCompositeScoreGovernanceTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.admin = User.objects.create_superuser(
+            username="score_admin",
+            email="score_admin@example.com",
+            password="pass12345",
+        )
+        self.owner = User.objects.create_user(
+            username="score_owner",
+            email="score_owner@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=self.owner, role="restaurant", is_approved=True)
+        self.other_owner = User.objects.create_user(
+            username="score_owner_two",
+            email="score_owner_two@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(
+            user=self.other_owner, role="restaurant", is_approved=True
+        )
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner,
+            name="Audit Trail Diner",
+            is_active=True,
+            price_range="$$",
+            cuisine_type="other",
+        )
+        self.other_restaurant = Restaurant.objects.create(
+            owner=self.other_owner,
+            name="Audit Trail Cafe",
+            is_active=True,
+            price_range="$$",
+            cuisine_type="other",
+        )
+        self.inspection = InspectionRecord.objects.create(
+            restaurant=self.restaurant,
+            inspection_date=date(2025, 1, 12),
+            inspection_key="audit-insp-1",
+            grade="C",
+            score=35,
+            critical_violations=5,
+            noncritical_violations=8,
+        )
+        InspectionRecord.objects.create(
+            restaurant=self.other_restaurant,
+            inspection_date=date(2025, 2, 2),
+            inspection_key="audit-insp-2",
+            grade="B",
+            score=19,
+            critical_violations=2,
+            noncritical_violations=3,
+        )
+
+    def test_admin_can_trigger_recalculation_from_dashboard(self):
+        self.client.login(username="score_admin", password="pass12345")
+        response = self.client.post(
+            reverse("admin_recalculate_scores"),
+            {"restaurant_id": self.restaurant.id},
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.restaurant.refresh_from_db()
+        self.assertIsNotNone(self.restaurant.composite_score)
+        history = CompositeScoreHistory.objects.filter(
+            restaurant=self.restaurant,
+            trigger_source="admin_dashboard",
+        ).first()
+        self.assertIsNotNone(history)
+        self.assertEqual(history.triggered_by, self.admin)
+
+    def test_admin_can_trigger_recalculation_by_restaurant_name(self):
+        self.client.login(username="score_admin", password="pass12345")
+        response = self.client.post(
+            reverse("admin_recalculate_scores"),
+            {"restaurant_name": "Audit Trail Cafe"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            CompositeScoreHistory.objects.filter(
+                restaurant=self.other_restaurant,
+                trigger_source="admin_dashboard",
+            ).exists()
+        )
+
+    def test_admin_recalculation_with_blank_filters_recomputes_all_restaurants(self):
+        self.client.login(username="score_admin", password="pass12345")
+        response = self.client.post(reverse("admin_recalculate_scores"), {})
+        self.assertEqual(response.status_code, 302)
+
+        recalculated_restaurant_ids = set(
+            CompositeScoreHistory.objects.filter(
+                trigger_source="admin_dashboard",
+            ).values_list("restaurant_id", flat=True)
+        )
+        self.assertIn(self.restaurant.id, recalculated_restaurant_ids)
+        self.assertIn(self.other_restaurant.id, recalculated_restaurant_ids)
+
+    def test_admin_sees_profile_level_recompute_button_on_restaurant_page(self):
+        self.client.login(username="score_admin", password="pass12345")
+        response = self.client.get(
+            reverse("restaurant_detail", args=[self.restaurant.id])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Recompute Composite Score (Admin)")
+        self.assertContains(response, reverse("admin_recalculate_scores"))
+
+    def test_large_score_delta_generates_investigable_anomaly(self):
+        refresh_restaurant_composite(
+            self.restaurant,
+            trigger_source="management_command",
+            trigger_note="baseline",
+        )
+
+        self.inspection.grade = "A"
+        self.inspection.score = 0
+        self.inspection.critical_violations = 0
+        self.inspection.noncritical_violations = 0
+        self.inspection.save()
+
+        score_data = refresh_restaurant_composite(
+            self.restaurant,
+            trigger_source="management_command",
+            trigger_note="post-change",
+        )
+        self.assertGreaterEqual(score_data["anomaly_count"], 1)
+        anomaly = CompositeScoreAnomaly.objects.filter(
+            restaurant=self.restaurant,
+            anomaly_type="large_delta",
+            is_resolved=False,
+        ).first()
+        self.assertIsNotNone(anomaly)
+
+        self.client.login(username="score_admin", password="pass12345")
+        dashboard_response = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard_response.status_code, 200)
+        self.assertIn("recent_score_history", dashboard_response.context)
+        self.assertIn("open_score_anomalies", dashboard_response.context)
+        self.assertContains(dashboard_response, "Open Score Anomalies")
+        self.assertContains(dashboard_response, self.restaurant.name)
+
+    def test_admin_can_resolve_score_anomaly(self):
+        refresh_restaurant_composite(
+            self.restaurant,
+            trigger_source="management_command",
+            trigger_note="baseline",
+        )
+        self.inspection.grade = "A"
+        self.inspection.critical_violations = 0
+        self.inspection.noncritical_violations = 0
+        self.inspection.save()
+        refresh_restaurant_composite(
+            self.restaurant,
+            trigger_source="management_command",
+            trigger_note="trigger anomaly",
+        )
+        anomaly = CompositeScoreAnomaly.objects.filter(
+            restaurant=self.restaurant,
+            anomaly_type="large_delta",
+        ).first()
+        self.assertIsNotNone(anomaly)
+
+        self.client.login(username="score_admin", password="pass12345")
+        response = self.client.post(
+            reverse("admin_resolve_score_anomaly", args=[anomaly.id])
+        )
+        self.assertEqual(response.status_code, 302)
+        anomaly.refresh_from_db()
+        self.assertTrue(anomaly.is_resolved)
+        self.assertEqual(anomaly.resolved_by, self.admin)
 
 
 class MessagingApiTests(TestCase):
