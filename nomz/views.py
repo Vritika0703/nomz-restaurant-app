@@ -301,10 +301,12 @@ def home(request):
             if request.user.userprofile.role == "restaurant":
                 return redirect("profile")
 
-    recommendations = []
+    recommended_restaurants = []
     recommendation_message = ""
 
-    if request.user.is_authenticated:
+    if request.user.is_authenticated and not (
+        request.user.is_staff or request.user.is_superuser
+    ):
         try:
             preferences = request.user.preferences
         except UserPreference.DoesNotExist:
@@ -328,12 +330,12 @@ def home(request):
             system_recs = recommend_restaurants_for_user(request.user, limit=10) # Fetch more to allow for filtering
             for r in system_recs:
                 if r.id not in my_shared_ids:
-                    recommendations.append({
+                    recommended_restaurants.append({
                         "restaurant": r,
                         "source": "System",
                         "reason": "Based on your preferences"
                     })
-                    if len(recommendations) >= 4:
+                    if len(recommended_restaurants) >= 4:
                         break
         else:
             recommendation_message = "Set your dining preferences so we can recommend restaurants for you."
@@ -375,16 +377,16 @@ def home(request):
                 seen_ids.add(shared.restaurant.id)
         
         # Add system recs
-        for item in recommendations:
+        for item in recommended_restaurants:
             if item["restaurant"].id not in seen_ids:
                 final_list.append(item)
                 seen_ids.add(item["restaurant"].id)
         
-        recommendations = final_list[:8] # Limit to 8 total
+        recommended_restaurants = final_list[:8] # Limit to 8 total
 
     context = {
         "title": "Home",
-        "recommended_restaurants": recommendations,
+        "recommended_restaurants": recommended_restaurants,
         "recommendation_message": recommendation_message,
     }
     return render(request, "nomz/home.html", context)
