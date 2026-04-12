@@ -515,99 +515,53 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
-                    {% if not user.is_superuser and not user.is_staff %}
-                        {% if request.resolver_match.url_name == 'message_inbox' %}
-                            {# On messages page - show Map, Home, Profile, Logout #}
-                            {% if user.is_authenticated %}
-                            {% if user.userprofile.role != 'restaurant' %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'map' %}">Map</a>
-                            </li>
-                            {% endif %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'home' %}">Home</a>
-                            </li>
+                    <!-- Home & Map (Always visible for simplified nav shown in Photo 3) -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'map' %}">Map</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'home' %}">Home</a>
+                    </li>
+
+                    {% if user.is_authenticated %}
+                        {% if not user.is_staff and not user.is_superuser %}
                             <li class="nav-item">
                                 <a class="nav-link" href="{% url 'profile' %}">Profile</a>
                             </li>
-                            {% endif %}
-                        {% else %}
-                            {# On all other user pages - show existing navbar + Messages link #}
-                            {% if request.resolver_match.url_name != 'map' and user.userprofile.role != 'restaurant' %}
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'map' %}">Map</a>
-                            </li>
-                            {% endif %}
-                            {% if user.is_authenticated %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'message_inbox' %}">
-                                    Messages
+                                <a class="nav-link position-relative" href="{% url 'message_inbox' %}">
+                                    {% if user.userprofile.role == 'restaurant' %}Messages{% else %}Restaurant Messages{% endif %}
                                     {% if unread_messages_count > 0 %}
-                                        <span class="badge rounded-pill bg-danger" style="font-size: 0.6rem; vertical-align: top; margin-left: -5px;">
+                                        <span class="badge rounded-pill bg-danger" style="font-size: 0.65rem; padding: 0.25em 0.5em; vertical-align: top; margin-left: 2px;">
                                             {{ unread_messages_count }}
                                         </span>
                                     {% endif %}
                                 </a>
                             </li>
-                            {% endif %}
-                            {% if request.resolver_match.url_name == 'profile' %}
-                                {# On profile page #}
-                                {% if user.is_authenticated %}
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
-                                </li>
-                                {% endif %}
-                            {% elif request.resolver_match.url_name == 'home' %}
-                                {% if user.is_authenticated %}
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
-                                </li>
-                                {% endif %}
-                            {% elif request.resolver_match.url_name == 'map' %}
-                                {% if user.is_authenticated %}
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'home' %}">Home</a>
-                                </li>
-                                {% endif %}
-                            {% elif request.resolver_match.url_name == 'restaurant_search' %}
-                                {% if user.is_authenticated %}
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'profile' %}">Profile</a>
-                                </li>
-                                <li class="nav-item">
-                                    <a class="nav-link" href="{% url 'home' %}">Home</a>
-                                </li>
-                                {% endif %}
+                            {% if user.userprofile.role == 'diner' %}
+                            <li class="nav-item">
+                                <a class="nav-link position-relative" href="{% url 'friends_chat_index' %}">
+                                    Chat with Friends
+                                    {% if unread_friends_count > 0 %}
+                                        <span class="badge rounded-pill bg-danger" style="font-size: 0.65rem; padding: 0.25em 0.5em; vertical-align: top; margin-left: 2px;">
+                                            {{ unread_friends_count }}
+                                        </span>
+                                    {% endif %}
+                                </a>
+                            </li>
                             {% endif %}
                         {% endif %}
-                    
-                    {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <form method="POST" action="{% url 'logout' %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="nav-link" style="background: none; border: none; padding: 0.5rem 1rem; cursor: pointer;">Logout</button>
-                        </form>
-                    </li>
-                    {% endif %}
+                        
+                        <li class="nav-item">
+                            <form method="POST" action="{% url 'logout' %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="nav-link" style="background: none; border: none; padding: 0.5rem 1rem; cursor: pointer;">Logout</button>
+                            </form>
+                        </li>
                     {% else %}
-                    {# Admin users - show Map, Search, and Logout #}
-                    {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'map' %}">Map</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'restaurant_search' %}">Search</a>
-                    </li>
-                    <li class="nav-item">
-                        <form method="POST" action="{% url 'logout' %}" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="nav-link" style="background: none; border: none; padding: 0.5rem 1rem; cursor: pointer;">Logout</button>
-                        </form>
-                    </li>
-                    {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'landing' %}">Login</a>
+                        </li>
                     {% endif %}
                 </ul>
             </div>
@@ -618,6 +572,15 @@
 
     {% block main_layout %}
     <main class="container my-5">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
         {% block content %}{% endblock %}
     </main>
     {% endblock %}
