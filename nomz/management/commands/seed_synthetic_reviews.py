@@ -8,7 +8,6 @@ from django.core.management.base import BaseCommand
 from nomz.models import Restaurant, Review
 from nomz.scoring import refresh_restaurant_composite
 
-
 REVIEW_TEXT_SNIPPETS = [
     "Solid neighborhood spot with consistent food.",
     "Service was smooth and friendly.",
@@ -188,7 +187,11 @@ class Command(BaseCommand):
         for restaurant in Restaurant.objects.filter(id__in=touched_restaurant_ids).only(
             "id"
         ):
-            refresh_restaurant_composite(restaurant)
+            refresh_restaurant_composite(
+                restaurant,
+                trigger_source="management_command",
+                trigger_note="seed_synthetic_reviews",
+            )
             refreshed += 1
 
         self.stdout.write(

@@ -1,6 +1,7 @@
 from django.http import HttpResponseForbidden, JsonResponse
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
+from datetime import timedelta
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -9,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q, Avg
 from django.views.decorators.http import require_http_methods, require_POST
 from nomz.ingestion.utils.score import compute_restaurant_composite_score
-from nomz.scoring import refresh_restaurant_composite
+from nomz.scoring import SCORE_ALGORITHM_VERSION, refresh_restaurant_composite
 from .forms import (
     UserRegisterForm,
     AdminLoginForm,
@@ -20,20 +21,25 @@ from .forms import (
     RestaurantPhotoForm,
     UserPreferenceForm,
     ReviewForm,
+    ReviewResponseForm,
     ModerationReportForm,
     RestaurantCommunicationSettingsForm,
 )
 from django.contrib.auth.models import User
 from .models import (
     Conversation,
+    CompositeScoreAnomaly,
+    CompositeScoreHistory,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
     Message,
+    MessageNotification,
     UserPreference,
     UserProfile,
     LoginLog,
     Review,
+    ReviewResponse,
     ModerationReport,
     SystemAuditLog,
 )
@@ -292,8 +298,35 @@ def home(request):
             if request.user.userprofile.role == "restaurant":
                 return redirect("profile")
 
+    recommended_restaurants = []
+    recommendation_message = ""
+
+    if request.user.is_authenticated and not (
+        request.user.is_staff or request.user.is_superuser
+    ):
+        try:
+            preferences = request.user.preferences
+        except UserPreference.DoesNotExist:
+            preferences = None
+
+        if preferences:
+            recommended_restaurants = recommend_restaurants_for_user(
+                request.user, limit=4
+            )
+            if not recommended_restaurants:
+                recommendation_message = (
+                    "No restaurants currently match your saved preferences. "
+                    "Try updating your preferences."
+                )
+        else:
+            recommendation_message = (
+                "Set your dining preferences so we can recommend restaurants for you."
+            )
+
     context = {
         "title": "Home",
+        "recommended_restaurants": recommended_restaurants,
+        "recommendation_message": recommendation_message,
     }
     return render(request, "nomz/home.html", context)
 
@@ -558,6 +591,17 @@ def dashboard(request):
     if role == "restaurant":
         # Get the restaurant profile for the restaurant owner
         restaurant = Restaurant.objects.filter(owner=request.user).first()
+        unread_notification_queryset = MessageNotification.objects.filter(
+            recipient=request.user,
+            is_read=False,
+        )
+        unread_message_notifications = unread_notification_queryset.select_related(
+            "conversation",
+            "conversation__restaurant",
+            "conversation__diner",
+            "triggered_by",
+            "message",
+        ).order_by("-created_at")[:8]
         active_claim = (
             RestaurantOwnershipClaim.objects.filter(
                 claimant=request.user,
@@ -570,12 +614,20 @@ def dashboard(request):
             claimant=request.user,
         ).select_related("restaurant")[:5]
         context["restaurant"] = restaurant
+        context["unread_message_notifications"] = unread_message_notifications
+        context["unread_message_notifications_count"] = (
+            unread_notification_queryset.count()
+        )
         context["active_claim"] = active_claim
         context["recent_claims"] = recent_claims
         if restaurant:
             context.update(_build_restaurant_score_insights(restaurant))
             # Fetch reviews
-            reviews = restaurant.reviews.all().order_by("-created_at")
+            reviews = (
+                restaurant.reviews.select_related("user", "restaurant_response")
+                .all()
+                .order_by("-created_at")
+            )
             context["reviews"] = reviews
 
             # Calculate average rating
@@ -613,6 +665,42 @@ def dashboard(request):
         ).count()
         # Moderation metrics
         pending_report_count = ModerationReport.objects.filter(status="PENDING").count()
+
+        recent_score_history = list(
+            CompositeScoreHistory.objects.select_related(
+                "restaurant",
+                "triggered_by",
+            ).order_by("-calculated_at")[:12]
+        )
+        open_score_anomalies = list(
+            CompositeScoreAnomaly.objects.select_related(
+                "restaurant",
+                "score_history",
+            )
+            .filter(is_resolved=False)
+            .order_by("-created_at")[:12]
+        )
+        open_score_anomaly_total = CompositeScoreAnomaly.objects.filter(
+            is_resolved=False
+        ).count()
+        last_day = timezone.now() - timedelta(days=1)
+        score_recalcs_last_day = CompositeScoreHistory.objects.filter(
+            calculated_at__gte=last_day
+        ).count()
+        restaurants_recalculated_last_day = (
+            CompositeScoreHistory.objects.filter(calculated_at__gte=last_day)
+            .values("restaurant_id")
+            .distinct()
+            .count()
+        )
+        high_severity_anomalies = CompositeScoreAnomaly.objects.filter(
+            is_resolved=False,
+            severity__in=["HIGH", "CRITICAL"],
+        ).count()
+        score_recalc_restaurants = Restaurant.objects.order_by("name", "id").values(
+            "id", "name"
+        )
+
         context.update(
             {
                 "all_users": all_users,
@@ -625,12 +713,133 @@ def dashboard(request):
                 "pending_approval_count": pending_approval_count,
                 "rejected_business_count": rejected_business_count,
                 "pending_report_count": pending_report_count,
+                "recent_score_history": recent_score_history,
+                "open_score_anomalies": open_score_anomalies,
+                "open_score_anomaly_count": open_score_anomaly_total,
+                "score_recalcs_last_day": score_recalcs_last_day,
+                "restaurants_recalculated_last_day": restaurants_recalculated_last_day,
+                "high_severity_anomalies": high_severity_anomalies,
+                "score_algorithm_version": SCORE_ALGORITHM_VERSION,
+                "score_recalc_restaurants": score_recalc_restaurants,
             }
         )
         return render(request, "nomz/admin_dashboard.html", context)
     else:
         # This matches the user_dashboard.html where your taste profile code is
         return render(request, "nomz/user_dashboard.html", context)
+
+
+@staff_member_required
+@require_POST
+def admin_recalculate_scores(request):
+    restaurant_id = (request.POST.get("restaurant_id") or "").strip()
+    restaurant_name = (request.POST.get("restaurant_name") or "").strip()
+
+    queryset = Restaurant.objects.all().order_by("id")
+    if restaurant_id:
+        try:
+            queryset = queryset.filter(id=int(restaurant_id))
+        except ValueError:
+            messages.error(request, "Restaurant ID must be a number.")
+            return redirect("dashboard")
+    elif restaurant_name:
+        exact_matches = queryset.filter(name__iexact=restaurant_name)
+        exact_count = exact_matches.count()
+        if exact_count == 1:
+            queryset = exact_matches
+        elif exact_count > 1:
+            messages.error(
+                request,
+                "Multiple restaurants share that name. Please pick one from the dropdown.",
+            )
+            return redirect("dashboard")
+        else:
+            partial_matches = queryset.filter(name__icontains=restaurant_name)
+            partial_count = partial_matches.count()
+            if partial_count == 1:
+                queryset = partial_matches
+            elif partial_count > 1:
+                messages.error(
+                    request,
+                    "Multiple restaurants match that name. Please pick one from the dropdown.",
+                )
+                return redirect("dashboard")
+            else:
+                messages.error(request, "No restaurant found with that name.")
+                return redirect("dashboard")
+    # If no id/name is provided, recompute for ALL restaurants by design.
+
+    total = queryset.count()
+    if total == 0:
+        messages.info(request, "No restaurants matched the recalculation criteria.")
+        return redirect("dashboard")
+
+    updated = 0
+    anomaly_count = 0
+    for restaurant in queryset.iterator():
+        score_data = refresh_restaurant_composite(
+            restaurant,
+            trigger_source="admin_dashboard",
+            triggered_by=request.user,
+            trigger_note="Admin dashboard trigger",
+        )
+        updated += 1
+        anomaly_count += int(score_data.get("anomaly_count") or 0)
+
+    SystemAuditLog.objects.create(
+        actor_user=request.user,
+        actor_username=request.user.username,
+        level="INFO",
+        action="admin_composite_score_recalculation",
+        request_path=request.path,
+        http_method=request.method,
+        ip_address=request.META.get("REMOTE_ADDR"),
+        metadata={
+            "restaurant_id_filter": restaurant_id or None,
+            "restaurant_name_filter": restaurant_name or None,
+            "restaurants_updated": updated,
+            "anomaly_flags_detected": anomaly_count,
+        },
+    )
+
+    messages.success(
+        request,
+        (
+            f"Recalculated scores for {updated}/{total} restaurant(s). "
+            f"Detected {anomaly_count} anomaly flag(s)."
+        ),
+    )
+    return redirect("dashboard")
+
+
+@staff_member_required
+@require_POST
+def admin_resolve_score_anomaly(request, anomaly_id):
+    anomaly = get_object_or_404(CompositeScoreAnomaly, id=anomaly_id)
+    if not anomaly.is_resolved:
+        anomaly.is_resolved = True
+        anomaly.resolved_at = timezone.now()
+        anomaly.resolved_by = request.user
+        anomaly.save(update_fields=["is_resolved", "resolved_at", "resolved_by"])
+
+        SystemAuditLog.objects.create(
+            actor_user=request.user,
+            actor_username=request.user.username,
+            level="INFO",
+            action="admin_score_anomaly_resolved",
+            request_path=request.path,
+            http_method=request.method,
+            ip_address=request.META.get("REMOTE_ADDR"),
+            metadata={
+                "anomaly_id": anomaly.id,
+                "restaurant_id": anomaly.restaurant_id,
+                "anomaly_type": anomaly.anomaly_type,
+            },
+        )
+        messages.success(request, f"Anomaly #{anomaly.id} marked as resolved.")
+    else:
+        messages.info(request, f"Anomaly #{anomaly.id} is already resolved.")
+    return redirect("dashboard")
 
 
 def is_restaurant_owner(user):
@@ -802,13 +1011,23 @@ def edit_restaurant_profile(request):
         form = RestaurantProfileForm(request.POST, instance=restaurant)
         if form.is_valid():
             profile = request.user.userprofile
-            profile.is_approved = False
-            profile.is_rejected = False
-            profile.save()
-            form.save()
-            messages.success(
-                request, "Restaurant profile updated and re-submitted for approval!"
+
+            major_fields = {"name", "address", "phone", "website", "email"}
+            requires_approval = any(
+                field in major_fields for field in form.changed_data
             )
+
+            if requires_approval:
+                profile.is_approved = False
+                profile.is_rejected = False
+                profile.save()
+                messages.success(
+                    request, "Restaurant profile updated and re-submitted for approval!"
+                )
+            else:
+                messages.success(request, "Restaurant profile updated successfully!")
+
+            form.save()
             return redirect("profile")
     else:
         form = RestaurantProfileForm(instance=restaurant)
@@ -1350,6 +1569,68 @@ def add_review(request, restaurant_id):
 
 
 @login_required(login_url="landing")
+@require_POST
+def respond_to_review(request, review_id):
+    """
+    Allow a restaurant owner to create or edit one public response per review.
+    """
+    review = get_object_or_404(
+        Review.objects.select_related("restaurant", "restaurant__owner"),
+        id=review_id,
+    )
+    restaurant = review.restaurant
+
+    if restaurant.owner_id != request.user.id:
+        return HttpResponseForbidden(
+            "Only the owner of this restaurant can respond to this review."
+        )
+
+    if review.is_deleted:
+        messages.error(
+            request,
+            "You cannot respond to a review that was removed by moderation.",
+        )
+        return redirect("profile")
+
+    form = ReviewResponseForm(request.POST)
+    if form.is_valid():
+        response_text = form.cleaned_data["response_text"]
+        review_response, created = ReviewResponse.objects.get_or_create(
+            review=review,
+            defaults={
+                "restaurant": restaurant,
+                "responder": request.user,
+                "response_text": response_text,
+            },
+        )
+        if not created:
+            review_response.response_text = response_text
+            review_response.restaurant = restaurant
+            review_response.responder = request.user
+            review_response.save(
+                update_fields=[
+                    "response_text",
+                    "restaurant",
+                    "responder",
+                    "updated_at",
+                ]
+            )
+            messages.success(request, "Your public response has been updated.")
+        else:
+            messages.success(request, "Your public response has been posted.")
+    else:
+        messages.error(
+            request,
+            "Could not save response. Please make sure the response text is valid.",
+        )
+
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect("profile")
+
+
+@login_required(login_url="landing")
 def report_content(request, content_type, content_id):
     """
     Allow users to report a review or another user.
@@ -1498,7 +1779,11 @@ def restaurant_detail(request, restaurant_id):
     Public detail page for a restaurant to view info and reviews.
     """
     restaurant = get_object_or_404(Restaurant, id=restaurant_id)
-    reviews = restaurant.reviews.filter(is_deleted=False).order_by("-created_at")
+    reviews = (
+        restaurant.reviews.select_related("user", "restaurant_response")
+        .filter(is_deleted=False)
+        .order_by("-created_at")
+    )
     return render(
         request,
         "nomz/restaurant_detail.html",
@@ -1592,10 +1877,18 @@ def conversation_detail(request, conversation_id):
         return HttpResponseForbidden("Permission denied")
 
     messaging_disabled = not conversation.restaurant.messaging_enabled
-    # Mark unread messages from other party as read
-    Message.objects.filter(conversation=conversation, is_read=False).exclude(
-        sender=request.user
-    ).update(is_read=True)
+    unread_message_ids = list(
+        Message.objects.filter(conversation=conversation, is_read=False)
+        .exclude(sender=request.user)
+        .values_list("id", flat=True)
+    )
+    if unread_message_ids:
+        Message.objects.filter(id__in=unread_message_ids).update(is_read=True)
+        MessageNotification.objects.filter(
+            recipient=request.user,
+            message_id__in=unread_message_ids,
+            is_read=False,
+        ).update(is_read=True, read_at=timezone.now())
 
     if request.method == "POST":
         # Issue #62: block sending when messaging is disabled (only for diners)

@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 
 from .forms import RestaurantOwnershipClaimForm
 from .models import Conversation, Message, Restaurant, RestaurantOwnershipClaim
@@ -231,6 +232,19 @@ def conversation_messages(request, conversation_id):
 
     if not conversation.can_access(request.user):
         return HttpResponseForbidden("Permission denied")
+
+    unread_message_ids = list(
+        Message.objects.filter(conversation=conversation, is_read=False)
+        .exclude(sender=request.user)
+        .values_list("id", flat=True)
+    )
+    if unread_message_ids:
+        Message.objects.filter(id__in=unread_message_ids).update(is_read=True)
+        MessageNotification.objects.filter(
+            recipient=request.user,
+            message_id__in=unread_message_ids,
+            is_read=False,
+        ).update(is_read=True, read_at=timezone.now())
 
     messages = list(
         conversation.messages.select_related("sender")
