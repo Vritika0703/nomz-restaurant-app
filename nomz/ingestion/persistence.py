@@ -498,7 +498,11 @@ class DbIngestionWriter:
         if self.dry_run:
             return
 
-        refresh_restaurant_composite(restaurant)
+        refresh_restaurant_composite(
+            restaurant,
+            trigger_source="ingestion",
+            trigger_note="NYC source ingestion pipeline",
+        )
 
     def _coerce_date(self, value: object) -> Optional[datetime.date]:
         if not value:

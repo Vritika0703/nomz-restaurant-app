@@ -93,6 +93,15 @@
                     <p class="small">This is a verified restaurant on Nomz.</p>
                     <hr>
                     <div class="d-grid gap-2">
+                        {% if user.is_authenticated and user.is_staff %}
+                            <form method="post" action="{% url 'admin_recalculate_scores' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="restaurant_id" value="{{ restaurant.id }}">
+                                <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                    Recompute Composite Score (Admin)
+                                </button>
+                            </form>
+                        {% endif %}
                         {% if user.is_authenticated and user.userprofile.role == "diner" and restaurant.owner %}
                             {% if restaurant.messaging_enabled %}
                                 <a href="{% url 'message_restaurant' restaurant.id %}" class="btn btn-primary btn-sm">

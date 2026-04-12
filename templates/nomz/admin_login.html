@@ -155,6 +155,11 @@
             <p>Authorization Required</p>
         </div>
         <div class="admin-card-body">
+            <p style="font-size:0.8rem;line-height:1.45;color:rgba(255,255,255,0.75);margin:0 0 1.25rem;padding:0.75rem 1rem;background:rgba(253,187,45,0.12);border:1px solid rgba(253,187,45,0.35);border-radius:10px;">
+                <strong style="color:var(--admin-accent);">Staff with a Nomz user account:</strong>
+                open the main Nomz web app and use <strong>Log In</strong> — accounts with <code style="color:#fdbb2d;">is_staff</code> reach the admin dashboard in the SPA.
+                This page is only for the emergency built-in admin login and requires the configured <strong>admin security code</strong>.
+            </p>
             <form method="POST">
                 {% csrf_token %}
                 
