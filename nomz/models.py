@@ -1685,38 +1685,43 @@ class ModerationReport(models.Model):
         )
         return f"Report by {self.reporter.username} on {target} ({self.status})"
 
+
 class FriendConversation(models.Model):
     """
     A conversation between two or more users.
     Can be a 1-on-1 chat or a group chat.
     """
+
     # Participants in the conversation
     participants = models.ManyToManyField(User, related_name="friend_chats", blank=True)
-    
+
     # Metadata for group chats
     name = models.CharField(max_length=255, null=True, blank=True)
     is_group = models.BooleanField(default=False)
     creator = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name="created_group_chats"
+        null=True,
+        blank=True,
+        related_name="created_group_chats",
     )
-    
+
     # Legacy fields (retained to avoid breaking existing data immediately)
     user1 = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="friend_conversations_initiated_legacy",
-        null=True, blank=True
+        null=True,
+        blank=True,
     )
     user2 = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="friend_conversations_received_legacy",
-        null=True, blank=True
+        null=True,
+        blank=True,
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -1734,12 +1739,15 @@ class FriendConversation(models.Model):
         if parts.exists():
             return parts
         # If participants M2M is empty, return user1 and user2
-        return User.objects.filter(id__in=[self.user1_id, self.user2_id]).filter(id__isnull=False)
+        return User.objects.filter(id__in=[self.user1_id, self.user2_id]).filter(
+            id__isnull=False
+        )
 
     def can_access(self, user):
         if not user or not user.is_authenticated:
             return False
         return self.get_participants().filter(id=user.id).exists()
+
 
 class FriendMessage(models.Model):
     """
@@ -1769,10 +1777,12 @@ class FriendMessage(models.Model):
     def __str__(self):
         return f"FriendMessage by {self.sender.username} at {self.created_at}"
 
+
 class FriendSharedRestaurant(models.Model):
     """
     Restaurants that friends in a conversation have added to their 'Together List'.
     """
+
     conversation = models.ForeignKey(
         FriendConversation,
         on_delete=models.CASCADE,

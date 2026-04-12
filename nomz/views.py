@@ -314,75 +314,111 @@ def home(request):
 
         # Fetch restaurants shared by the user to exclude them from their own discovery section
         # This ensures we don't recommend back to the user what they've already suggested to others
-        my_shared_ids = set(FriendMessage.objects.filter(
-            sender=request.user, 
-            restaurant_recommendation__isnull=False
-        ).values_list('restaurant_recommendation_id', flat=True))
-        
-        my_shared_ids.update(FriendSharedRestaurant.objects.filter(
-            added_by=request.user
-        ).values_list('restaurant_id', flat=True))
+        my_shared_ids = set(
+            FriendMessage.objects.filter(
+                sender=request.user, restaurant_recommendation__isnull=False
+            ).values_list("restaurant_recommendation_id", flat=True)
+        )
+
+        my_shared_ids.update(
+            FriendSharedRestaurant.objects.filter(added_by=request.user).values_list(
+                "restaurant_id", flat=True
+            )
+        )
 
         # 1. System Recommendations (ONLY if preferences are set with actual criteria)
-        has_set_preferences = preferences and (preferences.favorite_cuisines or preferences.neighborhood_preference)
-        
+        has_set_preferences = preferences and (
+            preferences.favorite_cuisines or preferences.neighborhood_preference
+        )
+
         if has_set_preferences:
-            system_recs = recommend_restaurants_for_user(request.user, limit=10) # Fetch more to allow for filtering
+            system_recs = recommend_restaurants_for_user(
+                request.user, limit=10
+            )  # Fetch more to allow for filtering
             for r in system_recs:
                 if r.id not in my_shared_ids:
-                    recommended_restaurants.append({
-                        "restaurant": r,
-                        "source": "System",
-                        "reason": "Based on your preferences"
-                    })
+                    recommended_restaurants.append(
+                        {
+                            "restaurant": r,
+                            "source": "System",
+                            "reason": "Based on your preferences",
+                        }
+                    )
                     if len(recommended_restaurants) >= 4:
                         break
         else:
-            recommendation_message = "Set your dining preferences so we can recommend restaurants for you."
+            recommendation_message = (
+                "Set your dining preferences so we can recommend restaurants for you."
+            )
 
         # 2. Friend Recommendations (Received in chats)
-        friend_messages = FriendMessage.objects.filter(
-            Q(conversation__participants=request.user) | Q(conversation__user1=request.user) | Q(conversation__user2=request.user)
-        ).filter(restaurant_recommendation__isnull=False).exclude(sender=request.user).select_related("sender", "restaurant_recommendation").order_by("-created_at")[:20]
-        
+        friend_messages = (
+            FriendMessage.objects.filter(
+                Q(conversation__participants=request.user)
+                | Q(conversation__user1=request.user)
+                | Q(conversation__user2=request.user)
+            )
+            .filter(restaurant_recommendation__isnull=False)
+            .exclude(sender=request.user)
+            .select_related("sender", "restaurant_recommendation")
+            .order_by("-created_at")[:20]
+        )
+
         # 3. Together List (Shared restaurants by others)
-        shared_restaurants = FriendSharedRestaurant.objects.filter(
-            Q(conversation__participants=request.user) | Q(conversation__user1=request.user) | Q(conversation__user2=request.user)
-        ).exclude(added_by=request.user).select_related("added_by", "restaurant").order_by("-created_at")[:20]
+        shared_restaurants = (
+            FriendSharedRestaurant.objects.filter(
+                Q(conversation__participants=request.user)
+                | Q(conversation__user1=request.user)
+                | Q(conversation__user2=request.user)
+            )
+            .exclude(added_by=request.user)
+            .select_related("added_by", "restaurant")
+            .order_by("-created_at")[:20]
+        )
 
         # Use a dict to avoid duplicate restaurants, prioritizing Friend recommendations
         seen_ids = set()
         final_list = []
-        
+
         # Add friend recs
         for msg in friend_messages:
-            if msg.restaurant_recommendation.id not in seen_ids and msg.restaurant_recommendation.id not in my_shared_ids:
-                final_list.append({
-                    "restaurant": msg.restaurant_recommendation,
-                    "source": "Friend",
-                    "sender": msg.sender.username,
-                    "reason": f"Recommended by {msg.sender.username}"
-                })
+            if (
+                msg.restaurant_recommendation.id not in seen_ids
+                and msg.restaurant_recommendation.id not in my_shared_ids
+            ):
+                final_list.append(
+                    {
+                        "restaurant": msg.restaurant_recommendation,
+                        "source": "Friend",
+                        "sender": msg.sender.username,
+                        "reason": f"Recommended by {msg.sender.username}",
+                    }
+                )
                 seen_ids.add(msg.restaurant_recommendation.id)
-        
+
         # Add shared list recs
         for shared in shared_restaurants:
-            if shared.restaurant.id not in seen_ids and shared.restaurant.id not in my_shared_ids:
-                final_list.append({
-                    "restaurant": shared.restaurant,
-                    "source": "Friend",
-                    "sender": shared.added_by.username,
-                    "reason": f"Added to Together List by {shared.added_by.username}"
-                })
+            if (
+                shared.restaurant.id not in seen_ids
+                and shared.restaurant.id not in my_shared_ids
+            ):
+                final_list.append(
+                    {
+                        "restaurant": shared.restaurant,
+                        "source": "Friend",
+                        "sender": shared.added_by.username,
+                        "reason": f"Added to Together List by {shared.added_by.username}",
+                    }
+                )
                 seen_ids.add(shared.restaurant.id)
-        
+
         # Add system recs
         for item in recommended_restaurants:
             if item["restaurant"].id not in seen_ids:
                 final_list.append(item)
                 seen_ids.add(item["restaurant"].id)
-        
-        recommended_restaurants = final_list[:8] # Limit to 8 total
+
+        recommended_restaurants = final_list[:8]  # Limit to 8 total
 
     context = {
         "title": "Home",
@@ -2022,7 +2058,6 @@ def manage_communication_settings(request):
     return render(request, "nomz/manage_communication_settings.html", context)
 
 
-
 @login_required(login_url="landing")
 def friends_chat_index(request):
     """
@@ -2033,35 +2068,47 @@ def friends_chat_index(request):
         if target_username == request.user.username:
             messages.error(request, "You cannot chat with yourself.")
             return redirect("friends_chat_index")
-        
-        target_user = User.objects.filter(username=target_username, userprofile__role='diner').first()
+
+        target_user = User.objects.filter(
+            username=target_username, userprofile__role="diner"
+        ).first()
         if not target_user:
             messages.error(request, f"User '{target_username}' not found.")
             return redirect("friends_chat_index")
-        
+
         # Check if 1-on-1 conversation exists
-        conv = FriendConversation.objects.filter(is_group=False).filter(
-            models.Q(user1=request.user, user2=target_user) | 
-            models.Q(user1=target_user, user2=request.user)
-        ).first()
+        conv = (
+            FriendConversation.objects.filter(is_group=False)
+            .filter(
+                models.Q(user1=request.user, user2=target_user)
+                | models.Q(user1=target_user, user2=request.user)
+            )
+            .first()
+        )
 
         if not conv:
-            conv = FriendConversation.objects.create(user1=request.user, user2=target_user, is_group=False)
+            conv = FriendConversation.objects.create(
+                user1=request.user, user2=target_user, is_group=False
+            )
             conv.participants.add(request.user, target_user)
-        
+
         return redirect("friends_chat_detail", username=target_user.username)
 
-    conversations = FriendConversation.objects.filter(
-        participants=request.user
-    ).annotate(
-        unread_count=Count(
-            'messages',
-            filter=Q(messages__is_read=False) & ~Q(messages__sender=request.user)
+    conversations = (
+        FriendConversation.objects.filter(participants=request.user)
+        .annotate(
+            unread_count=Count(
+                "messages",
+                filter=Q(messages__is_read=False) & ~Q(messages__sender=request.user),
+            )
         )
-    ).order_by("-updated_at")
+        .order_by("-updated_at")
+    )
 
     # Only show diners in the "Start a New Chat" and "Create a Group" sections
-    other_users = User.objects.filter(userprofile__role='diner').exclude(id=request.user.id)
+    other_users = User.objects.filter(userprofile__role="diner").exclude(
+        id=request.user.id
+    )
 
     context = {
         "title": "Chat with Friends",
@@ -2070,29 +2117,32 @@ def friends_chat_index(request):
     }
     return render(request, "nomz/friends_chat.html", context)
 
+
 @login_required(login_url="landing")
 def friends_chat_detail(request, username=None, conversation_id=None):
     """
-    Renders the chat window for either a 1-on-1 chat (via username) 
+    Renders the chat window for either a 1-on-1 chat (via username)
     or a group chat (via conversation_id).
     """
     if conversation_id:
         conv = get_object_or_404(FriendConversation, id=conversation_id)
         if not conv.can_access(request.user):
             return redirect("friends_chat_index")
-        target_user = None # In a group, we show the group name
+        target_user = None  # In a group, we show the group name
     else:
         target_user = get_object_or_404(User, username=username)
         if target_user == request.user:
             return redirect("friends_chat_index")
-        
+
         # Enforce ID order for 1-on-1 to keep it unique
         user1, user2 = (
             (request.user, target_user)
             if request.user.id < target_user.id
             else (target_user, request.user)
         )
-        conv, created = FriendConversation.objects.get_or_create(user1=user1, user2=user2, is_group=False)
+        conv, created = FriendConversation.objects.get_or_create(
+            user1=user1, user2=user2, is_group=False
+        )
         if created:
             conv.participants.add(user1, user2)
 
@@ -2100,25 +2150,31 @@ def friends_chat_detail(request, username=None, conversation_id=None):
         body = request.POST.get("body", "").strip()
         if body:
             FriendMessage.objects.create(
-                conversation=conv,
-                sender=request.user,
-                body=body
+                conversation=conv, sender=request.user, body=body
             )
             conv.updated_at = timezone.now()
-            conv.save(update_fields=['updated_at'])
-        
+            conv.save(update_fields=["updated_at"])
+
         if conversation_id:
-            return redirect("friends_chat_detail_by_id", conversation_id=conversation_id)
+            return redirect(
+                "friends_chat_detail_by_id", conversation_id=conversation_id
+            )
         return redirect("friends_chat_detail", username=username)
 
     # Mark all unread as read (except those from current user)
-    conv.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
+    conv.messages.filter(is_read=False).exclude(sender=request.user).update(
+        is_read=True
+    )
 
-    chat_messages = conv.messages.all().select_related("sender", "restaurant_recommendation")
+    chat_messages = conv.messages.all().select_related(
+        "sender", "restaurant_recommendation"
+    )
     shared_restaurants = conv.shared_restaurants.all().select_related("restaurant")
     all_restaurants = Restaurant.objects.all().order_by("name")
-    all_users = User.objects.filter(userprofile__role='diner').exclude(id=request.user.id)
-    
+    all_users = User.objects.filter(userprofile__role="diner").exclude(
+        id=request.user.id
+    )
+
     participants = conv.get_participants()
 
     context = {
@@ -2141,29 +2197,27 @@ def create_group_chat(request):
     """
     if request.method == "POST":
         group_name = request.POST.get("group_name", "").strip()
-        participant_ids = request.POST.getlist("participants") # Multiple IDs
-        
+        participant_ids = request.POST.getlist("participants")  # Multiple IDs
+
         if not group_name:
             messages.error(request, "Group name is required.")
             return redirect("friends_chat_index")
-            
+
         conv = FriendConversation.objects.create(
-            name=group_name,
-            is_group=True,
-            creator=request.user # Set creator
+            name=group_name, is_group=True, creator=request.user  # Set creator
         )
-        conv.participants.add(request.user) # Add self
+        conv.participants.add(request.user)  # Add self
         for p_id in participant_ids:
             try:
                 user = User.objects.get(id=p_id)
                 # Ensure only diners are added
-                if hasattr(user, 'userprofile') and user.userprofile.role == 'diner':
+                if hasattr(user, "userprofile") and user.userprofile.role == "diner":
                     conv.participants.add(user)
             except User.DoesNotExist:
                 continue
-        
+
         return redirect("friends_chat_detail_by_id", conversation_id=conv.id)
-    
+
     return redirect("friends_chat_index")
 
 
@@ -2176,33 +2230,37 @@ def manage_group_member(request, conversation_id):
     if conv.creator != request.user:
         messages.error(request, "Only the group creator can manage members.")
         return redirect("friends_chat_detail_by_id", conversation_id=conversation_id)
-    
+
     if request.method == "POST":
         action = request.POST.get("action")
         username = request.POST.get("username", "").strip()
         user_id = request.POST.get("user_id")
-        
+
         user = None
         if user_id:
             user = User.objects.filter(id=user_id).first()
         elif username:
             user = User.objects.filter(username=username).first()
-            
+
         if user:
             if action == "add":
                 # Ensure only diners are added
-                if hasattr(user, 'userprofile') and user.userprofile.role == 'diner':
+                if hasattr(user, "userprofile") and user.userprofile.role == "diner":
                     conv.participants.add(user)
                     messages.success(request, f"Added {user.username} to the group.")
                 else:
                     messages.error(request, "Only diners can be added to chat groups.")
             elif action == "remove":
                 if user == conv.creator:
-                    messages.error(request, "You cannot remove yourself from a group you created.")
+                    messages.error(
+                        request, "You cannot remove yourself from a group you created."
+                    )
                 else:
                     conv.participants.remove(user)
-                    messages.success(request, f"Removed {user.username} from the group.")
-        
+                    messages.success(
+                        request, f"Removed {user.username} from the group."
+                    )
+
     return redirect("friends_chat_detail_by_id", conversation_id=conversation_id)
 
 
@@ -2214,11 +2272,14 @@ def leave_group(request, conversation_id):
     conv = get_object_or_404(FriendConversation, id=conversation_id, is_group=True)
     if not conv.can_access(request.user):
         return redirect("friends_chat_index")
-    
+
     if conv.creator == request.user:
-        messages.error(request, "Creators cannot leave their own groups. Use 'Delete Group' (if available) or assign a new admin.")
+        messages.error(
+            request,
+            "Creators cannot leave their own groups. Use 'Delete Group' (if available) or assign a new admin.",
+        )
         return redirect("friends_chat_detail_by_id", conversation_id=conversation_id)
-        
+
     conv.participants.remove(request.user)
     messages.success(request, f"You have left the group '{conv.name}'.")
     return redirect("friends_chat_index")
@@ -2238,28 +2299,30 @@ def recommend_friend_restaurant(request, username=None, conversation_id=None):
             if request.user.id < target_user.id
             else (target_user, request.user)
         )
-        conversation = get_object_or_404(FriendConversation, user1=user1, user2=user2, is_group=False)
+        conversation = get_object_or_404(
+            FriendConversation, user1=user1, user2=user2, is_group=False
+        )
 
     if request.method == "POST":
         restaurant_id = request.POST.get("restaurant_id")
         restaurant_name = request.POST.get("restaurant_name")
         body = request.POST.get("body", "")
-        
+
         restaurant = None
         if restaurant_id:
             restaurant = get_object_or_404(Restaurant, id=restaurant_id)
         elif restaurant_name:
             restaurant = Restaurant.objects.filter(name=restaurant_name).first()
-            
+
         if restaurant:
             FriendMessage.objects.create(
                 conversation=conversation,
                 sender=request.user,
                 body=body,
-                restaurant_recommendation=restaurant
+                restaurant_recommendation=restaurant,
             )
-            conversation.save() # Update updated_at
-            
+            conversation.save()  # Update updated_at
+
     if conversation_id:
         return redirect("friends_chat_detail_by_id", conversation_id=conversation_id)
     return redirect("friends_chat_detail", username=username)
@@ -2279,13 +2342,15 @@ def toggle_shared_restaurant(request, username=None, conversation_id=None):
             if request.user.id < target_user.id
             else (target_user, request.user)
         )
-        conversation = get_object_or_404(FriendConversation, user1=user1, user2=user2, is_group=False)
+        conversation = get_object_or_404(
+            FriendConversation, user1=user1, user2=user2, is_group=False
+        )
 
     if request.method == "POST":
         restaurant_id = request.POST.get("restaurant_id")
         restaurant_name = request.POST.get("restaurant_name")
         action = request.POST.get("action", "add")
-        
+
         restaurant = None
         if restaurant_id:
             restaurant = get_object_or_404(Restaurant, id=restaurant_id)
@@ -2297,14 +2362,13 @@ def toggle_shared_restaurant(request, username=None, conversation_id=None):
                 FriendSharedRestaurant.objects.get_or_create(
                     conversation=conversation,
                     restaurant=restaurant,
-                    defaults={'added_by': request.user}
+                    defaults={"added_by": request.user},
                 )
             elif action == "remove":
                 FriendSharedRestaurant.objects.filter(
-                    conversation=conversation,
-                    restaurant=restaurant
+                    conversation=conversation, restaurant=restaurant
                 ).delete()
-                
+
     if conversation_id:
         return redirect("friends_chat_detail_by_id", conversation_id=conversation_id)
     return redirect("friends_chat_detail", username=username)

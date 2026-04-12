@@ -27,8 +27,7 @@ def unread_counts(request):
     # Friend chats
     unread_friends = (
         FriendMessage.objects.filter(
-            conversation__participants=request.user,
-            is_read=False
+            conversation__participants=request.user, is_read=False
         )
         .exclude(sender=request.user)
         .distinct()
