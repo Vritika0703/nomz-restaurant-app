@@ -13,17 +13,17 @@ from pathlib import Path
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse
 from django.views.decorators.http import require_GET
-from django.views.generic import TemplateView
-
-
-def spa(request):
-    return TemplateView.as_view(template_name="index.html")(request)
 
 
 def _dist_root() -> Path:
     return Path(
         getattr(settings, "FRONTEND_DIST_DIR", settings.BASE_DIR / "frontend" / "dist")
     ).resolve()
+
+
+def spa(request):
+    """Serve the React SPA shell directly."""
+    return spa_index(request)
 
 
 def _index_candidates() -> list[Path]:
