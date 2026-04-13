@@ -10,8 +10,8 @@ urlpatterns = [
     # Redirect Django auth → React
     path("login/", RedirectView.as_view(url="/signin/", permanent=False)),
     path("account/login/", RedirectView.as_view(url="/signin/", permanent=False)),
-    # API routes (must come BEFORE catch-all)
-    path("api/", include("nomz.urls")),
+    # API + SPA routes (nomz.urls has both; API routes prefixed with "api/", catch-all at end)
+    path("", include("nomz.urls")),
     # two-factor routes (if still needed)
     path("", include(tf_urls)),
     # ✅ CRITICAL: React SPA catch-all (MUST BE LAST)
