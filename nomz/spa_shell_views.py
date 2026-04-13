@@ -7,6 +7,7 @@ GET path returns the SPA shell so client-side routing can take over once the bun
 
 from __future__ import annotations
 
+import mimetypes
 from pathlib import Path
 
 from django.conf import settings
@@ -59,14 +60,26 @@ def _load_index_bytes() -> bytes:
 @require_GET
 def spa_index(request, spa_path: str | None = None, **kwargs):
     """**kwargs absorbs URL converter names (e.g. restaurant_id) from named SPA routes."""
-    return HttpResponse(_load_index_bytes(), content_type="text/html; charset=utf-8")
+    response = HttpResponse(_load_index_bytes(), content_type="text/html; charset=utf-8")
+    response["Cache-Control"] = "no-store, max-age=0"
+    return response
 
 
 @require_GET
 def spa_asset(request, asset_path: str):
     """Serve Vite output under <dist>/assets/ (hashed JS/CSS)."""
-    base = _dist_root()
-    target = (base / "assets" / asset_path).resolve()
-    if not str(target).startswith(str(base)) or not target.is_file():
+    assets_base = (_dist_root() / "assets").resolve()
+    target = (assets_base / asset_path).resolve()
+    try:
+        target.relative_to(assets_base)
+    except ValueError as exc:
+        raise Http404() from exc
+    if not target.is_file():
         raise Http404()
-    return FileResponse(target.open("rb"))
+    content_type, _ = mimetypes.guess_type(str(target))
+    response = FileResponse(
+        target.open("rb"),
+        content_type=content_type or "application/octet-stream",
+    )
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response

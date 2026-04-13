@@ -1,8 +1,4 @@
-import mimetypes
-from pathlib import Path
-
-from django.conf import settings
-from django.http import FileResponse, Http404, HttpResponseForbidden, JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
 from datetime import timedelta
@@ -264,56 +260,6 @@ def _build_restaurant_score_insights(restaurant):
         "trend_summary": trend_summary,
         "neighborhood_comparison": neighborhood_comparison,
     }
-
-
-def _spa_dist_dir() -> Path:
-    return Path(settings.BASE_DIR) / "frontend" / "dist"
-
-
-def spa_asset(request, asset_path):
-    """
-    Serve Vite build assets (e.g. /assets/*.js) from frontend/dist/assets.
-    Paths are constrained to that directory to avoid traversal.
-    """
-    base = (_spa_dist_dir() / "assets").resolve()
-    candidate = (base / asset_path).resolve()
-    try:
-        candidate.relative_to(base)
-    except ValueError as exc:
-        raise Http404("Invalid asset path") from exc
-    if not candidate.is_file():
-        raise Http404("Asset not found")
-    content_type, _ = mimetypes.guess_type(str(candidate))
-    response = FileResponse(
-        candidate.open("rb"),
-        content_type=content_type or "application/octet-stream",
-    )
-    response["Cache-Control"] = "public, max-age=31536000, immutable"
-    return response
-
-
-def landing_page(request):
-    """
-    Public entry: SPA from frontend/dist when built, else legacy splash template.
-    Authenticated users go straight to the dashboard.
-    Site root for unauthenticated users: renders nomz/splash.html.
-
-    Note: templates/nomz/landing.html is legacy (older sign-in shell) and is not used by any view.
-    The React SPA is typically loaded from the Vite dev server or a static bundle, not this URL.
-    """
-    if request.user.is_authenticated:
-        return redirect("dashboard")
-
-    index_path = _spa_dist_dir() / "index.html"
-    if index_path.is_file():
-        response = FileResponse(
-            index_path.open("rb"),
-            content_type="text/html; charset=utf-8",
-        )
-        response["Cache-Control"] = "no-store, max-age=0"
-        return response
-
-    return render(request, "nomz/splash.html")
 
 
 def signin_page(request):
