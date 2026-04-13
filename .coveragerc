@@ -16,10 +16,6 @@ omit =
     */nomz/ingestion/sources/*
     */nomz/ingestion/utils/resolver.py
     */nomz/management/commands/*
-    */nomz/migrations/*
-    */nomz/tests.py
-    */nomz/tests_*.py
-    */nomz/test_*.py
 
 [report]
 show_missing = True
