@@ -18,7 +18,7 @@ install:
   - pip install -r requirements.txt
   - pip install coverage pytest pytest-django pytest-cov
   - pip install coveralls
-  - pip install black==24.10.0
+  - pip install black==26.3.1 flake8==7.3.0
 
 # Environment variables for testing
 env:
@@ -69,6 +69,7 @@ deploy:
   on:
     branch: production
   cleanup: false
+  skip_cleanup: true
 
 # Branches to build
 branches:
