@@ -13,6 +13,11 @@ from pathlib import Path
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse
 from django.views.decorators.http import require_GET
+from django.views.generic import TemplateView
+
+
+def spa(request):
+    return TemplateView.as_view(template_name="index.html")(request)
 
 
 def _dist_root() -> Path:

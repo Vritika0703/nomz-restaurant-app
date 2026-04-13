@@ -101,7 +101,7 @@ ROOT_URLCONF = "restaurants.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
+        "DIRS": [BASE_DIR / "frontend" / "dist"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -180,12 +180,14 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [
+    BASE_DIR / "frontend" / "dist" / "assets",
+]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Vite production build (optional). When present, Django serves index.html + /assets/* from here.
 FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
 # Dev-only fallback (no script tags). In production, omit so missing dist is obvious vs silent stub.
-NOMZ_SPA_FALLBACK_INDEX = (BASE_DIR / "nomz" / "spa" / "index.html") if DEBUG else None
 
 # Media files
 MEDIA_URL = "/media/"
