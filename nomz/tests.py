@@ -11,7 +11,6 @@ from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from io import BytesIO
 from PIL import Image
-from unittest.mock import patch
 
 from django.test.utils import override_settings
 
