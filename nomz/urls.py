@@ -5,6 +5,12 @@ from . import api_views, spa_api, spa_shell_views, views
 
 # --- Health & JSON API (unchanged paths) ---------------------------------
 urlpatterns = [
+    path(
+        "assets/<path:asset_path>",
+        views.spa_asset,
+        name="spa_asset",
+    ),
+    path("", views.landing_page, name="landing"),
     path("health/", views.health_check, name="health_check"),
     path(
         "api/restaurants/map-data/",

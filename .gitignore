@@ -13,6 +13,8 @@ develop-eggs/
 # Only repo-root dist + frontend build (avoid matching arbitrary */dist/ inside deps)
 /dist/
 frontend/dist/
+# Python sdist/wheel output at repo root only (do not ignore frontend/dist)
+/dist/
 downloads/
 eggs/
 .eggs/
