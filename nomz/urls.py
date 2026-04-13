@@ -362,6 +362,7 @@ for _route, _name in _SPA_NAMED:
         )
 
 # Catch-all: deep links and any path not listed above (still not under /api/)
+# ✅ Proper catch-all for React SPA (must be LAST)
 urlpatterns.append(
-    re_path(r"^(?P<spa_path>.+)/$", spa_shell_views.spa_index),
+    re_path(r"^.*$", spa_shell_views.spa_index),
 )
