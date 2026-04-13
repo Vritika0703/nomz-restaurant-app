@@ -68,6 +68,7 @@ deploy:
   on:
     branch: production
   cleanup: false
+  skip_cleanup: true
 
 # Branches to build
 branches:
