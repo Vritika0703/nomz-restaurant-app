@@ -2,17 +2,16 @@ from django.http import HttpResponseForbidden, JsonResponse
 from django.views.generic import TemplateView
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render, redirect
-from datetime import timedelta
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import Q, Avg, Count
+from django.db.models import Q, Count
 from django.db import models
 from django.views.decorators.http import require_http_methods, require_POST
 from nomz.ingestion.utils.score import compute_restaurant_composite_score
-from nomz.scoring import SCORE_ALGORITHM_VERSION, refresh_restaurant_composite
+from nomz.scoring import refresh_restaurant_composite
 from .forms import (
     UserRegisterForm,
     AdminLoginForm,
@@ -31,14 +30,12 @@ from django.contrib.auth.models import User
 from .models import (
     Conversation,
     CompositeScoreAnomaly,
-    CompositeScoreHistory,
     Restaurant,
     RestaurantOwnershipClaim,
     RestaurantPhoto,
     Message,
     MessageNotification,
     UserPreference,
-    UserProfile,
     LoginLog,
     Review,
     ReviewResponse,
