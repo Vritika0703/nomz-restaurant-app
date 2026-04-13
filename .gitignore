@@ -10,7 +10,9 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+# Only repo-root dist + frontend build (avoid matching arbitrary */dist/ inside deps)
+/dist/
+frontend/dist/
 downloads/
 eggs/
 .eggs/
