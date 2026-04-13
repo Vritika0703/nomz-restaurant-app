@@ -1,7 +1,10 @@
-from django.test import TestCase, Client
+import json
+
+from django.test import Client, TestCase
 from django.contrib.auth.models import User
 from django.urls import reverse
-from .models import Restaurant, UserProfile, Review, ModerationReport, SystemAuditLog
+
+from .models import ModerationReport, Restaurant, Review, SystemAuditLog, UserProfile
 
 
 class ModerationTests(TestCase):
@@ -34,23 +37,26 @@ class ModerationTests(TestCase):
 
     def test_add_review(self):
         self.client.login(username="diner", password="password")
-        url = reverse("add_review", args=[self.restaurant.id])
+        url = reverse("api_restaurant_add_review", args=[self.restaurant.id])
         response = self.client.post(
             url,
-            {
-                "rating": 5,
-                "food_quality_rating": 5,
-                "service_quality_rating": 4,
-                "ambience_rating": 4,
-                "location_rating": 5,
-                "value_rating": 4,
-                "dietary_accommodation_rating": 4,
-                "cleanliness_rating": 5,
-                "comment": "Great place!",
-            },
+            json.dumps(
+                {
+                    "rating": 5,
+                    "food_quality_rating": 5,
+                    "service_quality_rating": 4,
+                    "ambience_rating": 4,
+                    "location_rating": 5,
+                    "value_rating": 4,
+                    "dietary_accommodation_rating": 4,
+                    "cleanliness_rating": 5,
+                    "comment": "Great place!",
+                }
+            ),
+            content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 302)  # Redirects after success
+        self.assertEqual(response.status_code, 201)
         self.assertEqual(Review.objects.count(), 1)
         review = Review.objects.first()
         self.assertEqual(review.comment, "Great place!")
@@ -71,12 +77,21 @@ class ModerationTests(TestCase):
         )
 
         self.client.login(username="reporter", password="password")
-        url = reverse("report_content", args=["review", review.id])
+        url = reverse("api_report_content")
         response = self.client.post(
-            url, {"reason": "HARASSMENT", "details": "Abusive language"}
+            url,
+            json.dumps(
+                {
+                    "content_type": "review",
+                    "content_id": review.id,
+                    "reason": "HARASSMENT",
+                    "details": "Abusive language",
+                }
+            ),
+            content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 201)
         self.assertEqual(ModerationReport.objects.count(), 1)
         report = ModerationReport.objects.first()
         self.assertEqual(report.review, review)
@@ -96,12 +111,16 @@ class ModerationTests(TestCase):
         )
 
         self.client.login(username="admin", password="password")
-        url = reverse("admin_resolve_report", args=[report.id])
+        url = reverse("api_admin_resolve_report_api", args=[report.id])
         response = self.client.post(
-            url, {"action": "delete", "moderator_note": "Confirmed spam"}
+            url,
+            json.dumps(
+                {"action": "delete", "moderator_note": "Confirmed spam"},
+            ),
+            content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
 
         # Check report updated
         report.refresh_from_db()
@@ -128,8 +147,12 @@ class ModerationTests(TestCase):
         )
 
         self.client.login(username="admin", password="password")
-        url = reverse("admin_resolve_report", args=[report.id])
-        self.client.post(url, {"action": "dismiss", "moderator_note": "Valid review"})
+        url = reverse("api_admin_resolve_report_api", args=[report.id])
+        self.client.post(
+            url,
+            json.dumps({"action": "dismiss", "moderator_note": "Valid review"}),
+            content_type="application/json",
+        )
 
         report.refresh_from_db()
         self.assertEqual(report.status, "DISMISSED")
@@ -145,12 +168,16 @@ class ModerationTests(TestCase):
         )
 
         self.client.login(username="admin", password="password")
-        url = reverse("admin_resolve_report", args=[report.id])
+        url = reverse("api_admin_resolve_report_api", args=[report.id])
         response = self.client.post(
-            url, {"action": "flag_fraud", "moderator_note": "Confirmed fraud"}
+            url,
+            json.dumps(
+                {"action": "flag_fraud", "moderator_note": "Confirmed fraud"},
+            ),
+            content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 200)
 
         # Check report updated
         report.refresh_from_db()

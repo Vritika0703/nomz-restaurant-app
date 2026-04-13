@@ -108,7 +108,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "nomz.context_processors.unread_messages_count",
+                "nomz.context_processors.unread_counts",
             ],
         },
     },
@@ -182,6 +182,11 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+# Vite production build (optional). When present, Django serves index.html + /assets/* from here.
+FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
+# Optional smaller fallback shell (committed) when dist/ is not built yet.
+NOMZ_SPA_FALLBACK_INDEX = BASE_DIR / "nomz" / "spa" / "index.html"
+
 # Media files
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -214,14 +219,14 @@ if USE_S3:
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:3000,http://127.0.0.1:3000",
+    default="http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
     cast=Csv(),
 )
 
-# User login redirect
-LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "home"
-LOGOUT_REDIRECT_URL = "login"
+# Browser challenge → React sign-in (not django-two-factor HTML at account/login/)
+LOGIN_URL = "/signin/"
+LOGIN_REDIRECT_URL = "landing"
+LOGOUT_REDIRECT_URL = "landing"
 
 # Email (Django built-in). Credentials from env only; never hardcode.
 # When EMAIL_HOST_USER is set (e.g. Gmail App Password), use SMTP; else file backend in DEBUG, console otherwise.
