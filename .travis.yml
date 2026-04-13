@@ -53,6 +53,7 @@ before_deploy:
   - nvm install 20
   - nvm use 20
   - cd frontend && npm install && npm run build && cd ..
+  - test -f frontend/dist/index.html || { echo "ERROR: Vite build did not produce frontend/dist/index.html"; exit 1; }
 
 # Deploy to AWS Elastic Beanstalk on production branch
 deploy:
@@ -66,7 +67,7 @@ deploy:
   bucket_path: deployments
   on:
     branch: production
-  skip_cleanup: true
+  cleanup: false
 
 # Branches to build
 branches:
