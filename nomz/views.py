@@ -1,41 +1,21 @@
 from django.http import HttpResponseForbidden, JsonResponse
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, redirect
-from django.contrib.auth import login, logout
+from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
-from django.core.exceptions import ValidationError
-from django.db.models import Q, Count
-from django.db import models
 from django.views.decorators.http import require_http_methods, require_POST
 from nomz.ingestion.utils.score import compute_restaurant_composite_score
 from nomz.scoring import refresh_restaurant_composite
-from .forms import (
-    UserRegisterForm,
-    AdminLoginForm,
-    RestaurantProfileForm,
-    RestaurantOwnershipClaimForm,
-    RestaurantAvailabilityForm,
-    RestaurantActivationForm,
-    RestaurantPhotoForm,
-    UserPreferenceForm,
-    ReviewForm,
-    ReviewResponseForm,
-    ModerationReportForm,
-    RestaurantCommunicationSettingsForm,
-)
 from django.contrib.auth.models import User
+from .forms import (
+    ReviewResponseForm,
+)
 from .models import (
     Conversation,
     CompositeScoreAnomaly,
     Restaurant,
-    RestaurantOwnershipClaim,
-    RestaurantPhoto,
-    Message,
-    MessageNotification,
-    UserPreference,
-    LoginLog,
     Review,
     ReviewResponse,
     ModerationReport,
@@ -43,11 +23,6 @@ from .models import (
     FriendMessage,
     FriendConversation,
     FriendSharedRestaurant,
-)
-from .restaurant_sorting import (
-    normalize_sort_key,
-    sort_restaurant_queryset,
-    recommend_restaurants_for_user,
 )
 
 NYC_MIN_LAT = 40.0
@@ -404,12 +379,6 @@ def is_restaurant_owner(user):
     return hasattr(user, "userprofile") and user.userprofile.role == "restaurant"
 
 
-
-
-
-
-
-
 @login_required(login_url="landing")
 @require_http_methods(["POST"])
 def user_logout(request):
@@ -427,40 +396,7 @@ def user_logout(request):
 # ============================================================================
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Add this to views.py
-
-
-
-
-
-
 
 
 @login_required(login_url="landing")
@@ -502,27 +438,9 @@ def admin_toggle_user_status(request, user_id):
     return redirect("dashboard")
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # ============================================================================
 # MODERATION & REVIEW VIEWS
 # ============================================================================
-
-
-
 
 
 @login_required(login_url="landing")
@@ -585,12 +503,6 @@ def respond_to_review(request, review_id):
     if next_url.startswith("/"):
         return redirect(next_url)
     return redirect("profile")
-
-
-
-
-
-
 
 
 @staff_member_required
@@ -676,12 +588,6 @@ def admin_resolve_report(request, report_id):
     return redirect("admin_moderation_dashboard")
 
 
-
-
-
-
-
-
 @login_required(login_url="landing")
 def message_restaurant(request, restaurant_id):
     if is_restaurant_owner(request.user):
@@ -714,18 +620,6 @@ def message_restaurant(request, restaurant_id):
         diner=request.user,
     )
     return redirect("conversation_detail", conversation_id=conversation.id)
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 @login_required
