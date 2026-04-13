@@ -75,9 +75,7 @@ def spa_index(request, spa_path: str | None = None, **kwargs):
             status=503,
             content_type="text/plain; charset=utf-8",
         )
-    return HttpResponse(
-        _load_index_bytes(), content_type="text/html; charset=utf-8"
-    )
+    return HttpResponse(_load_index_bytes(), content_type="text/html; charset=utf-8")
 
 
 @require_GET
