@@ -60,11 +60,24 @@ def _load_index_bytes() -> bytes:
 @require_GET
 def spa_index(request, spa_path: str | None = None, **kwargs):
     """**kwargs absorbs URL converter names (e.g. restaurant_id) from named SPA routes."""
-    response = HttpResponse(
+    for p in _index_candidates():
+        if p.is_file():
+            response = HttpResponse(
+                p.read_bytes(), content_type="text/html; charset=utf-8"
+            )
+            response["Cache-Control"] = "no-store, max-age=0"
+            return response
+    if not settings.DEBUG:
+        return HttpResponse(
+            "Nomz UI build missing: frontend/dist/index.html was not found on the server "
+            "after deploy. Check Elastic Beanstalk logs for eb_build_frontend.sh and "
+            "ensure Vite emitted frontend/dist/assets/.",
+            status=503,
+            content_type="text/plain; charset=utf-8",
+        )
+    return HttpResponse(
         _load_index_bytes(), content_type="text/html; charset=utf-8"
     )
-    response["Cache-Control"] = "no-store, max-age=0"
-    return response
 
 
 @require_GET

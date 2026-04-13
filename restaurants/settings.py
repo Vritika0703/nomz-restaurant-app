@@ -184,8 +184,10 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Vite production build (optional). When present, Django serves index.html + /assets/* from here.
 FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
-# Optional smaller fallback shell (committed) when dist/ is not built yet.
-NOMZ_SPA_FALLBACK_INDEX = BASE_DIR / "nomz" / "spa" / "index.html"
+# Dev-only fallback (no script tags). In production, omit so missing dist is obvious vs silent stub.
+NOMZ_SPA_FALLBACK_INDEX = (
+    (BASE_DIR / "nomz" / "spa" / "index.html") if DEBUG else None
+)
 
 # Media files
 MEDIA_URL = "/media/"
