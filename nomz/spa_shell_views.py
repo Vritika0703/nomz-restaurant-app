@@ -60,7 +60,9 @@ def _load_index_bytes() -> bytes:
 @require_GET
 def spa_index(request, spa_path: str | None = None, **kwargs):
     """**kwargs absorbs URL converter names (e.g. restaurant_id) from named SPA routes."""
-    response = HttpResponse(_load_index_bytes(), content_type="text/html; charset=utf-8")
+    response = HttpResponse(
+        _load_index_bytes(), content_type="text/html; charset=utf-8"
+    )
     response["Cache-Control"] = "no-store, max-age=0"
     return response
 
