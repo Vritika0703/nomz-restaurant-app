@@ -93,6 +93,22 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "restaurants.urls"
 
+# Minimal TEMPLATES config for Django admin only (React SPA has no template requirements)
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
 WSGI_APPLICATION = "restaurants.wsgi.application"
 
 
