@@ -1,7 +1,6 @@
 from django.http import HttpResponseForbidden, JsonResponse
-from django.views.generic import TemplateView
 from django.utils import timezone
-from django.shortcuts import get_object_or_404, render, redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -260,21 +259,6 @@ def _build_restaurant_score_insights(restaurant):
     }
 
 
-def signin_page(request):
-    """
-    Sign In page - displays login form
-    """
-    return TemplateView.as_view(template_name="index.html")(request)
-
-
-def home(request):
-    """
-    Home page view - displays different content based on authentication status.
-    Restaurant users are redirected to their profile instead.
-    """
-    return TemplateView.as_view(template_name="index.html")(request)
-
-
 def perform_dependency_health_checks() -> None:
     """
     Dependency checks for /health/.
@@ -300,124 +284,6 @@ def health_check(request):
     except Exception as exc:
         # Let monitoring middleware convert non-200 responses into alerts/audit logs.
         return JsonResponse({"status": "degraded", "error": str(exc)[:200]}, status=503)
-
-
-def map_view(request):
-    """
-    Render interactive restaurant map page with filters and server-provided options.
-    """
-    return TemplateView.as_view(template_name="index.html")(request)
-
-
-def register(request):
-    if request.user.is_authenticated:
-        return redirect("profile")
-
-    if request.method == "POST":
-        form = UserRegisterForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            username = form.cleaned_data.get("username")
-            role = form.cleaned_data.get("role")
-            messages.success(request, f"Account created successfully for {username}!")
-            login(request, user)
-            if role == "restaurant":
-                messages.info(
-                    request,
-                    "Claim your restaurant listing to unlock owner controls.",
-                )
-                return redirect("claim_restaurant")
-            return redirect("profile")
-    else:
-        form = UserRegisterForm()
-
-    context = {"form": form, "title": "Register"}
-    return render(request, "nomz/register.html", context)
-
-
-@require_http_methods(["GET", "POST"])
-def admin_login(request):
-    """
-    Legacy secure login for the built-in emergency admin account (AdminLoginForm + security code).
-
-    Staff with normal Nomz accounts should use the React app Sign In (/api/auth/login/); that flow
-    uses standard authentication and 2FA when enabled. This view is not duplicated in the SPA.
-    """
-    if request.user.is_authenticated:
-        if request.user.is_staff or request.user.is_superuser:
-            return redirect("dashboard")
-        else:
-            logout(request)  # Logout if non-admin somehow got here
-
-    if request.method == "POST":
-        form = AdminLoginForm(request, data=request.POST)
-        username = request.POST.get("username")
-
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            messages.success(request, f"Admin session established for {username}.")
-            return redirect("dashboard")
-        else:
-            # Login failures are logged by signals
-            pass
-    else:
-        form = AdminLoginForm()
-
-    context = {"form": form, "title": "Secure Admin Login"}
-    return render(request, "nomz/admin_login.html", context)
-
-
-@staff_member_required
-def admin_login_logs(request):
-    logs = LoginLog.objects.all().order_by("-timestamp")
-    context = {"title": "Login Activity Monitoring", "logs": logs}
-    return render(request, "nomz/admin_logs.html", context)
-
-
-@staff_member_required
-def admin_manage_users(request):
-    users = User.objects.all().exclude(pk=request.user.pk).order_by("-date_joined")
-
-    # Identify users with suspicious login activity
-    from django.db.models import Exists, OuterRef
-
-    suspicious_logs = LoginLog.objects.filter(
-        username=OuterRef("username"), is_user_suspicious=True
-    )
-    users = users.annotate(has_suspicious_activity=Exists(suspicious_logs))
-
-    context = {"title": "User Management", "users": users}
-    return render(request, "nomz/admin_manage_users.html", context)
-
-
-@staff_member_required
-@require_POST
-def toggle_user_status(request, user_id):
-    user_to_toggle = get_object_or_404(User, id=user_id)
-    if user_to_toggle.is_superuser:
-        messages.error(request, "Cannot toggle status of superusers.")
-    else:
-        user_to_toggle.is_active = not user_to_toggle.is_active
-        user_to_toggle.save()
-        status_msg = "restored" if user_to_toggle.is_active else "revoked"
-        messages.success(
-            request, f"Access for {user_to_toggle.username} has been {status_msg}."
-        )
-
-    return redirect("admin_manage_users")
-
-
-@require_http_methods(["GET", "POST"])
-@login_required(login_url="landing")
-def dashboard(request):
-    """
-    Dashboard dynamically routes based on the database profile and includes user preferences.
-
-    Renders nomz/restaurant_dashboard.html, nomz/admin_dashboard.html, or nomz/user_dashboard.html
-    by role. templates/nomz/dashboard.html is legacy and is not referenced by this view.
-    """
-    return TemplateView.as_view(template_name="index.html")(request)
 
 
 @staff_member_required
@@ -538,95 +404,10 @@ def is_restaurant_owner(user):
     return hasattr(user, "userprofile") and user.userprofile.role == "restaurant"
 
 
-@login_required(login_url="landing")
-def restaurant_profile(request):
-    """
-    View restaurant owner's profile page
-    Shows restaurant details, photos, and status
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(request, "You do not have permission to access this page.")
-        return redirect("dashboard")
-
-    restaurant = Restaurant.objects.filter(owner=request.user).first()
-    context = {
-        "title": "Restaurant Profile",
-        "restaurant": restaurant,
-        "user": request.user,
-        "is_approved": request.user.userprofile.is_approved,
-        "is_rejected": request.user.userprofile.is_rejected,
-    }
-    if restaurant:
-        context.update(_build_restaurant_score_insights(restaurant))
-    return render(request, "nomz/restaurant_dashboard.html", context)
 
 
-@login_required(login_url="landing")
-@require_http_methods(["GET", "POST"])
-def claim_restaurant(request):
-    """
-    Allow a restaurant-role user to claim ownership of an existing restaurant row.
-    Claims are reviewed before assignment.
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(
-            request, "Only restaurant owner accounts can submit ownership claims."
-        )
-        return redirect("profile")
 
-    if Restaurant.objects.filter(owner=request.user).exists():
-        messages.info(
-            request, "You already have a restaurant assigned to your account."
-        )
-        return redirect("profile")
 
-    active_claim = (
-        RestaurantOwnershipClaim.objects.filter(
-            claimant=request.user,
-            status=RestaurantOwnershipClaim.STATUS_PENDING,
-        )
-        .select_related("restaurant")
-        .first()
-    )
-
-    search_query = (
-        request.POST.get("search", "")
-        if request.method == "POST"
-        else request.GET.get("search", "")
-    )
-    form = RestaurantOwnershipClaimForm(
-        request.POST or None,
-        user=request.user,
-        search_query=search_query,
-    )
-
-    if request.method == "POST" and active_claim:
-        messages.warning(
-            request,
-            f'You already have a pending claim for "{active_claim.restaurant.name}". Please wait for review.',
-        )
-        return redirect("claim_restaurant")
-
-    if request.method == "POST" and form.is_valid():
-        claim = form.save()
-        messages.success(
-            request,
-            f'Claim submitted for "{claim.restaurant.name}". We will review your verification details shortly.',
-        )
-        return redirect("profile")
-
-    recent_claims = RestaurantOwnershipClaim.objects.filter(
-        claimant=request.user,
-    ).select_related("restaurant")[:5]
-
-    context = {
-        "title": "Claim Restaurant",
-        "form": form,
-        "search_query": search_query,
-        "active_claim": active_claim,
-        "recent_claims": recent_claims,
-    }
-    return render(request, "nomz/claim_restaurant.html", context)
 
 
 @login_required(login_url="landing")
@@ -646,383 +427,40 @@ def user_logout(request):
 # ============================================================================
 
 
-@login_required(login_url="landing")
-@require_http_methods(["GET", "POST"])
-def create_restaurant_profile(request):
-    """
-    Create a new restaurant profile
-    Only for restaurant owners without a profile yet
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(
-            request, "You do not have permission to create a restaurant profile."
-        )
-        return redirect("profile")
-
-    # Check if user already has a restaurant
-    if Restaurant.objects.filter(owner=request.user).exists():
-        messages.info(request, "You already have a restaurant profile.")
-        return redirect("profile")
-
-    if request.method == "POST":
-        form = RestaurantProfileForm(request.POST)
-        if form.is_valid():
-            restaurant = form.save(commit=False)
-            restaurant.owner = request.user
-            restaurant.save()
-            messages.success(request, "Restaurant profile created successfully!")
-            return redirect("profile")
-    else:
-        form = RestaurantProfileForm()
-
-    context = {
-        "title": "Create Restaurant Profile",
-        "form": form,
-        "is_create": True,
-    }
-    return render(request, "nomz/restaurant_form.html", context)
 
 
-@login_required(login_url="landing")
-@require_http_methods(["GET", "POST"])
-def edit_restaurant_profile(request):
-    """
-    Edit existing restaurant profile
-    Handles updates to description, hours, cuisine, and price range
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(
-            request, "You do not have permission to edit a restaurant profile."
-        )
-        return redirect("profile")
-
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
-
-    if request.method == "POST":
-        form = RestaurantProfileForm(request.POST, instance=restaurant)
-        if form.is_valid():
-            profile = request.user.userprofile
-
-            major_fields = {"name", "address", "phone", "website", "email"}
-            requires_approval = any(
-                field in major_fields for field in form.changed_data
-            )
-
-            if requires_approval:
-                profile.is_approved = False
-                profile.is_rejected = False
-                profile.save()
-                messages.success(
-                    request, "Restaurant profile updated and re-submitted for approval!"
-                )
-            else:
-                messages.success(request, "Restaurant profile updated successfully!")
-
-            form.save()
-            return redirect("profile")
-    else:
-        form = RestaurantProfileForm(instance=restaurant)
-
-    context = {
-        "title": "Edit Restaurant Profile",
-        "form": form,
-        "restaurant": restaurant,
-        "is_create": False,
-    }
-    return render(request, "nomz/restaurant_form.html", context)
 
 
-@login_required(login_url="landing")
-@require_http_methods(["GET", "POST"])
-def manage_availability(request):
-    """
-    Manage restaurant availability (temporary closure)
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(request, "You do not have permission to manage availability.")
-        return redirect("profile")
-
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
-
-    if request.method == "POST":
-        form = RestaurantAvailabilityForm(request.POST, instance=restaurant)
-        if form.is_valid():
-            form.save()
-            if restaurant.is_temporarily_unavailable:
-                messages.success(
-                    request, "Restaurant marked as temporarily unavailable."
-                )
-            else:
-                messages.success(request, "Restaurant availability updated.")
-            return redirect("profile")
-    else:
-        form = RestaurantAvailabilityForm(instance=restaurant)
-
-    context = {
-        "title": "Manage Availability",
-        "form": form,
-        "restaurant": restaurant,
-    }
-    return render(request, "nomz/manage_availability.html", context)
 
 
-@login_required(login_url="landing")
-@require_http_methods(["GET", "POST"])
-def manage_activation(request):
-    """
-    Activate or deactivate restaurant profile
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(request, "You do not have permission to manage activation.")
-        return redirect("profile")
-
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
-
-    if request.method == "POST":
-        form = RestaurantActivationForm(request.POST, instance=restaurant)
-        if form.is_valid():
-            form.save()
-            if restaurant.is_active:
-                messages.success(
-                    request, "Restaurant profile is now visible to customers."
-                )
-            else:
-                messages.warning(
-                    request,
-                    "Restaurant profile has been deactivated. It is no longer visible to customers.",
-                )
-            return redirect("profile")
-    else:
-        form = RestaurantActivationForm(instance=restaurant)
-
-    context = {
-        "title": "Manage Profile Status",
-        "form": form,
-        "restaurant": restaurant,
-    }
-    return render(request, "nomz/manage_activation.html", context)
 
 
-@login_required(login_url="landing")
-@require_http_methods(["GET", "POST"])
-def upload_photo(request):
-    """
-    Upload a new restaurant photo
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(request, "You do not have permission to upload photos.")
-        return redirect("profile")
-
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
-
-    if request.method == "POST":
-        form = RestaurantPhotoForm(request.POST, request.FILES)
-        if form.is_valid():
-            photo = form.save(commit=False)
-            photo.restaurant = restaurant
-            photo.save()
-            messages.success(request, "Photo uploaded successfully!")
-            return redirect("restaurant_photos")
-    else:
-        form = RestaurantPhotoForm()
-
-    context = {
-        "title": "Upload Photo",
-        "form": form,
-        "restaurant": restaurant,
-    }
-    return render(request, "nomz/upload_photo.html", context)
 
 
-@login_required(login_url="landing")
-def restaurant_photos(request):
-    """
-    View and manage all restaurant photos
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(request, "You do not have permission to access this page.")
-        return redirect("profile")
-
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
-    photos = restaurant.photos.all()
-
-    context = {
-        "title": "Manage Photos",
-        "restaurant": restaurant,
-        "photos": photos,
-    }
-    return render(request, "nomz/restaurant_photos.html", context)
 
 
-@login_required(login_url="landing")
-@require_POST
-def delete_photo(request, photo_id):
-    """
-    Delete a restaurant photo
-    """
-    if not is_restaurant_owner(request.user):
-        return HttpResponseForbidden("Permission denied")
-
-    photo = get_object_or_404(RestaurantPhoto, id=photo_id)
-
-    if photo.restaurant.owner != request.user:
-        return HttpResponseForbidden("Permission denied")
-
-    photo.delete()
-    messages.success(request, "Photo deleted successfully!")
-    return redirect("restaurant_photos")
 
 
-@login_required(login_url="landing")
-@require_POST
-def set_primary_photo(request, photo_id):
-    """
-    Set a photo as the primary (main) photo for the restaurant
-    """
-    if not is_restaurant_owner(request.user):
-        return HttpResponseForbidden("Permission denied")
-
-    photo = get_object_or_404(RestaurantPhoto, id=photo_id)
-
-    if photo.restaurant.owner != request.user:
-        return HttpResponseForbidden("Permission denied")
-
-    # Set this as primary (the save method will handle unsetting others)
-    photo.is_primary = True
-    photo.save()
-    messages.success(request, "Primary photo updated!")
-    return redirect("restaurant_photos")
 
 
-@login_required(login_url="login")
-def restaurant_search(request):
-    query = request.GET.get("q", "").strip()
-    neighborhood = request.GET.get("neighborhood", "").strip()
-    sort_by = normalize_sort_key(request.GET.get("sort_by", "composite_desc"))
 
-    base_restaurants = Restaurant.objects.filter(
-        Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True), is_active=True
-    )
-    if query:
-        base_restaurants = base_restaurants.filter(
-            Q(name__icontains=query)
-            | Q(description__icontains=query)
-            | Q(cuisine__icontains=query)
-            | Q(cuisine_type__icontains=query)
-            | Q(cuisine_tags__icontains=query)
-        )
-    if neighborhood:
-        base_restaurants = base_restaurants.filter(
-            Q(neighborhood__iexact=neighborhood) | Q(borough__iexact=neighborhood)
-        )
 
-    base_restaurants = sort_restaurant_queryset(base_restaurants, sort_by)
 
-    results = []
-    for restaurant in base_restaurants:
-        fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
-        if not fallback_cuisine and restaurant.cuisine_tags:
-            fallback_cuisine = ", ".join(
-                str(tag) for tag in restaurant.cuisine_tags[:3]
-            )
-        results.append(
-            {
-                "id": restaurant.id,
-                "name": restaurant.name,
-                "description": restaurant.description or "",
-                "cuisine": fallback_cuisine,
-                "neighborhood": restaurant.neighborhood or restaurant.borough or "",
-                "composite_score": restaurant.composite_score,
-                "price_label": restaurant.get_price_range_display(),
-                "rating_score": restaurant.grade_score_latest,
-                "is_flagged": restaurant.is_flagged,
-            }
-        )
 
-    all_neighborhoods = sorted(
-        {
-            r.neighborhood or r.borough
-            for r in Restaurant.objects.filter(
-                Q(owner__userprofile__is_approved=True) | Q(owner__isnull=True),
-                is_active=True,
-            )
-            if (r.neighborhood or r.borough)
-        }
-    )
 
-    return render(
-        request,
-        "nomz/search_results.html",
-        {
-            "results": results,
-            "query": query,
-            "neighborhood": neighborhood,
-            "sort_by": sort_by,
-            "all_neighborhoods": all_neighborhoods,
-        },
-    )
+
+
+
+
 
 
 # Add this to views.py
 
 
-@login_required(login_url="landing")
-def manage_preferences(request):
-    """
-    Create or Update user taste preferences
-    """
-    # Get or create the preference object for the current user
-    preferences, created = UserPreference.objects.get_or_create(user=request.user)
-
-    if request.method == "POST":
-        form = UserPreferenceForm(request.POST, instance=preferences)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Your dining preferences have been updated!")
-            return redirect("dashboard")
-    else:
-        form = UserPreferenceForm(instance=preferences)
-
-    return render(
-        request,
-        "nomz/manage_preferences.html",
-        {"form": form, "title": "My Preferences"},
-    )
 
 
-@login_required(login_url="landing")
-def recommendations(request):
-    """Show personalized restaurant recommendations."""
-    try:
-        preferences = request.user.preferences
-    except UserPreference.DoesNotExist:
-        preferences = None
 
-    if not preferences:
-        messages.warning(
-            request,
-            "Please set your preferences first so we can suggest restaurants for you.",
-        )
-        return redirect("manage_preferences")
 
-    recommended_restaurants = recommend_restaurants_for_user(request.user, limit=20)
-    recommendation_message = ""
-    if not recommended_restaurants:
-        recommendation_message = (
-            "No restaurants currently match your saved preferences. "
-            "Try updating your preferences."
-        )
-
-    return render(
-        request,
-        "nomz/recommendations.html",
-        {
-            "title": "Recommendations",
-            "recommended_restaurants": recommended_restaurants,
-            "recommendation_message": recommendation_message,
-            "preferences": preferences,
-        },
-    )
 
 
 @login_required(login_url="landing")
@@ -1064,168 +502,19 @@ def admin_toggle_user_status(request, user_id):
     return redirect("dashboard")
 
 
-@staff_member_required
-def admin_pending_approvals(request):
-    """
-    Dedicated view to manage pending restaurant registrations and ownership claims.
-    """
-    pending_approvals = (
-        User.objects.filter(userprofile__role="restaurant")
-        .filter(
-            Q(userprofile__is_approved=False, userprofile__is_rejected=False)
-            | Q(restaurant_claims__status=RestaurantOwnershipClaim.STATUS_PENDING)
-        )
-        .distinct()
-        .select_related("userprofile")
-        .order_by("-date_joined")
-    )
-    pending_claims = (
-        RestaurantOwnershipClaim.objects.filter(
-            status=RestaurantOwnershipClaim.STATUS_PENDING
-        )
-        .select_related("restaurant", "claimant")
-        .order_by("-created_at")
-    )
-    claims_by_user_id = {claim.claimant_id: claim for claim in pending_claims}
-    for pending_user in pending_approvals:
-        pending_user.pending_claim = claims_by_user_id.get(pending_user.id)
-
-    context = {
-        "title": "Pending Approvals",
-        "pending_approvals": pending_approvals,
-        "pending_claim_count": pending_claims.count(),
-    }
-    return render(request, "nomz/admin_pending_approvals.html", context)
 
 
-@staff_member_required
-@require_POST
-def admin_approve_restaurant(request, user_id):
-    """
-    Approve a pending restaurant owner account and, when present, approve
-    the user's pending ownership claim.
-    """
-    user_to_approve = get_object_or_404(User, id=user_id)
-    pending_claim = (
-        RestaurantOwnershipClaim.objects.filter(
-            claimant=user_to_approve,
-            status=RestaurantOwnershipClaim.STATUS_PENDING,
-        )
-        .select_related("restaurant")
-        .first()
-    )
-
-    if pending_claim:
-        try:
-            pending_claim.approve(
-                reviewer=request.user,
-                notes="Approved via admin pending approvals dashboard.",
-            )
-        except ValidationError as exc:
-            messages.error(
-                request,
-                f"Could not approve ownership claim for {user_to_approve.username}: {exc}",
-            )
-            return redirect("admin_pending_approvals")
-
-    if hasattr(user_to_approve, "userprofile"):
-        profile = user_to_approve.userprofile
-        profile.is_approved = True
-        profile.is_rejected = False
-        profile.save()
-
-    if pending_claim:
-        messages.success(
-            request,
-            f"Approved {user_to_approve.username} and assigned ownership of "
-            f'"{pending_claim.restaurant.name}".',
-        )
-    else:
-        messages.success(
-            request, f"Restaurant account for {user_to_approve.username} approved!"
-        )
-    return redirect("admin_pending_approvals")
 
 
-@staff_member_required
-def admin_approved_accounts(request):
-    """
-    Dedicated view to manage already approved restaurant accounts.
-    """
-    approved_accounts = (
-        User.objects.filter(
-            userprofile__role="restaurant", userprofile__is_approved=True
-        )
-        .select_related("userprofile")
-        .order_by("-date_joined")
-    )
-
-    context = {
-        "title": "Approved Accounts",
-        "approved_accounts": approved_accounts,
-    }
-    return render(request, "nomz/admin_approved_list.html", context)
 
 
-@staff_member_required
-def admin_rejected_accounts(request):
-    """
-    Dedicated view to manage rejected restaurant accounts.
-    """
-    rejected_accounts = (
-        User.objects.filter(
-            userprofile__role="restaurant", userprofile__is_rejected=True
-        )
-        .select_related("userprofile")
-        .order_by("-date_joined")
-    )
-
-    context = {
-        "title": "Rejected Accounts",
-        "rejected_accounts": rejected_accounts,
-    }
-    return render(request, "nomz/admin_rejected_list.html", context)
 
 
-@staff_member_required
-@require_POST
-def admin_reject_restaurant(request, user_id):
-    """
-    Reject a restaurant owner account and reject pending ownership claim(s) if any.
-    """
-    user_to_reject = get_object_or_404(User, id=user_id)
-    # We NO LONGER set is_active=False to allow login as requested.
 
-    pending_claims = RestaurantOwnershipClaim.objects.filter(
-        claimant=user_to_reject,
-        status=RestaurantOwnershipClaim.STATUS_PENDING,
-    )
-    rejected_claim_count = 0
-    for claim in pending_claims:
-        claim.reject(
-            reviewer=request.user,
-            notes="Rejected via admin pending approvals dashboard.",
-        )
-        rejected_claim_count += 1
 
-    if hasattr(user_to_reject, "userprofile"):
-        profile = user_to_reject.userprofile
-        profile.is_approved = False
-        profile.is_rejected = True
-        profile.save()
 
-    if rejected_claim_count:
-        messages.warning(
-            request,
-            f"Restaurant account for {user_to_reject.username} rejected. "
-            f"{rejected_claim_count} pending ownership claim(s) were also rejected.",
-        )
-    else:
-        messages.warning(
-            request,
-            f"Restaurant account for {user_to_reject.username} has been REJECTED.",
-        )
-    return redirect("admin_pending_approvals")
+
+
 
 
 # ============================================================================
@@ -1233,30 +522,7 @@ def admin_reject_restaurant(request, user_id):
 # ============================================================================
 
 
-@login_required(login_url="landing")
-def add_review(request, restaurant_id):
-    """
-    Allow users to submit a review for a restaurant.
-    """
-    restaurant = get_object_or_404(Restaurant, id=restaurant_id)
-    if request.method == "POST":
-        form = ReviewForm(request.POST)
-        if form.is_valid():
-            review = form.save(commit=False)
-            review.restaurant = restaurant
-            review.user = request.user
-            review.save()
-            messages.success(request, "Your review has been posted!")
-            return redirect("restaurant_search")
-    else:
-        form = ReviewForm()
 
-    context = {
-        "title": f"Review {restaurant.name}",
-        "form": form,
-        "restaurant": restaurant,
-    }
-    return render(request, "nomz/add_review.html", context)
 
 
 @login_required(login_url="landing")
@@ -1321,64 +587,10 @@ def respond_to_review(request, review_id):
     return redirect("profile")
 
 
-@login_required(login_url="landing")
-def report_content(request, content_type, content_id):
-    """
-    Allow users to report a review or another user.
-    """
-    review = None
-    reported_user = None
-
-    if content_type == "review":
-        review = get_object_or_404(Review, id=content_id)
-    elif content_type == "user":
-        reported_user = get_object_or_404(User, id=content_id)
-    else:
-        messages.error(request, "Invalid report target.")
-        return redirect("dashboard")
-
-    if request.method == "POST":
-        form = ModerationReportForm(request.POST)
-        if form.is_valid():
-            report = form.save(commit=False)
-            report.reporter = request.user
-            report.review = review
-            report.reported_user = reported_user
-            report.save()
-            messages.success(
-                request, "Thank you. Your report has been submitted for review."
-            )
-            return redirect("dashboard")
-    else:
-        form = ModerationReportForm()
-
-    context = {
-        "title": "Report Content",
-        "form": form,
-        "content_type": content_type,
-        "target": review or reported_user,
-    }
-    return render(request, "nomz/report_content.html", context)
 
 
-@staff_member_required
-def admin_moderation_dashboard(request):
-    """
-    Dashboard for admins to manage pending reports.
-    """
-    pending_reports = ModerationReport.objects.filter(status="PENDING").order_by(
-        "-created_at"
-    )
-    resolved_reports = ModerationReport.objects.exclude(status="PENDING").order_by(
-        "-created_at"
-    )[:20]
 
-    context = {
-        "title": "Moderation Dashboard",
-        "pending_reports": pending_reports,
-        "resolved_reports": resolved_reports,
-    }
-    return render(request, "nomz/admin_moderation.html", context)
+
 
 
 @staff_member_required
@@ -1464,63 +676,10 @@ def admin_resolve_report(request, report_id):
     return redirect("admin_moderation_dashboard")
 
 
-@login_required(login_url="landing")
-def restaurant_detail(request, restaurant_id):
-    """
-    Public detail page for a restaurant to view info and reviews.
-    """
-    restaurant = get_object_or_404(Restaurant, id=restaurant_id)
-    reviews = (
-        restaurant.reviews.select_related("user", "restaurant_response")
-        .filter(is_deleted=False)
-        .order_by("-created_at")
-    )
-    return render(
-        request,
-        "nomz/restaurant_detail.html",
-        {"restaurant": restaurant, "reviews": reviews},
-    )
 
 
-@login_required(login_url="landing")
-def message_inbox(request):
-    from django.db.models import Count, Q
 
-    if is_restaurant_owner(request.user):
-        conversations = (
-            Conversation.objects.filter(restaurant__owner=request.user)
-            .select_related("restaurant", "diner")
-            .annotate(
-                unread_count=Count(
-                    "messages",
-                    filter=Q(messages__is_read=False)
-                    & ~Q(messages__sender=request.user),
-                )
-            )
-            .order_by("-updated_at")
-        )
-    else:
-        conversations = (
-            Conversation.objects.filter(diner=request.user)
-            .select_related("restaurant", "diner")
-            .annotate(
-                unread_count=Count(
-                    "messages",
-                    filter=Q(messages__is_read=False)
-                    & ~Q(messages__sender=request.user),
-                )
-            )
-            .order_by("-updated_at")
-        )
 
-    return render(
-        request,
-        "nomz/message_inbox.html",
-        {
-            "title": "Messages",
-            "conversations": conversations,
-        },
-    )
 
 
 @login_required(login_url="landing")
@@ -1557,236 +716,16 @@ def message_restaurant(request, restaurant_id):
     return redirect("conversation_detail", conversation_id=conversation.id)
 
 
-@login_required(login_url="landing")
-@require_http_methods(["GET", "POST"])
-def conversation_detail(request, conversation_id):
-    conversation = get_object_or_404(
-        Conversation.objects.select_related("restaurant", "restaurant__owner", "diner"),
-        id=conversation_id,
-    )
-    if not conversation.can_access(request.user):
-        return HttpResponseForbidden("Permission denied")
-
-    messaging_disabled = not conversation.restaurant.messaging_enabled
-    unread_message_ids = list(
-        Message.objects.filter(conversation=conversation, is_read=False)
-        .exclude(sender=request.user)
-        .values_list("id", flat=True)
-    )
-    if unread_message_ids:
-        Message.objects.filter(id__in=unread_message_ids).update(is_read=True)
-        MessageNotification.objects.filter(
-            recipient=request.user,
-            message_id__in=unread_message_ids,
-            is_read=False,
-        ).update(is_read=True, read_at=timezone.now())
-
-    if request.method == "POST":
-        # Issue #62: block sending when messaging is disabled (only for diners)
-        if messaging_disabled and not is_restaurant_owner(request.user):
-            messages.error(
-                request,
-                "This restaurant has messaging disabled and is not accepting messages.",
-            )
-            return redirect("conversation_detail", conversation_id=conversation.id)
-        text = (request.POST.get("message") or "").strip()
-        if not text:
-            messages.error(request, "Message cannot be empty.")
-            return redirect("conversation_detail", conversation_id=conversation.id)
-
-        Message.objects.create(
-            conversation=conversation,
-            sender=request.user,
-            body=text,
-        )
-        conversation.save(update_fields=["updated_at"])
-        return redirect("conversation_detail", conversation_id=conversation.id)
-
-    thread_messages = conversation.messages.select_related("sender").order_by(
-        "created_at"
-    )
-    return render(
-        request,
-        "nomz/conversation_detail.html",
-        {
-            "title": "Conversation",
-            "conversation": conversation,
-            "thread_messages": thread_messages,
-            "messaging_disabled": messaging_disabled,
-        },
-    )
 
 
-@login_required(login_url="landing")
-@require_http_methods(["GET", "POST"])
-def manage_communication_settings(request):
-    """
-    Allow restaurant owners to manage their communication settings:
-    toggle messaging on/off and set available response hours. (Issue #62)
-    """
-    if not is_restaurant_owner(request.user):
-        messages.error(
-            request, "You do not have permission to manage communication settings."
-        )
-        return redirect("profile")
-
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
-
-    if request.method == "POST":
-        form = RestaurantCommunicationSettingsForm(request.POST, instance=restaurant)
-        if form.is_valid():
-            form.save()
-            if restaurant.messaging_enabled:
-                messages.success(
-                    request, "Messaging is now enabled for your restaurant."
-                )
-            else:
-                messages.warning(
-                    request,
-                    "Messaging has been disabled. Diners will not be able to send you new messages.",
-                )
-            return redirect("profile")
-    else:
-        form = RestaurantCommunicationSettingsForm(instance=restaurant)
-
-    context = {
-        "title": "Communication Settings",
-        "form": form,
-        "restaurant": restaurant,
-    }
-    return render(request, "nomz/manage_communication_settings.html", context)
 
 
-@login_required(login_url="landing")
-def friends_chat_index(request):
-    """
-    Main page for Friends Chat. Lists existing conversations and allows starting a new one.
-    """
-    if request.method == "POST":
-        target_username = request.POST.get("username", "").strip()
-        if target_username == request.user.username:
-            messages.error(request, "You cannot chat with yourself.")
-            return redirect("friends_chat_index")
-
-        target_user = User.objects.filter(
-            username=target_username, userprofile__role="diner"
-        ).first()
-        if not target_user:
-            messages.error(request, f"User '{target_username}' not found.")
-            return redirect("friends_chat_index")
-
-        # Check if 1-on-1 conversation exists
-        conv = (
-            FriendConversation.objects.filter(is_group=False)
-            .filter(
-                models.Q(user1=request.user, user2=target_user)
-                | models.Q(user1=target_user, user2=request.user)
-            )
-            .first()
-        )
-
-        if not conv:
-            conv = FriendConversation.objects.create(
-                user1=request.user, user2=target_user, is_group=False
-            )
-            conv.participants.add(request.user, target_user)
-
-        return redirect("friends_chat_detail", username=target_user.username)
-
-    conversations = (
-        FriendConversation.objects.filter(participants=request.user)
-        .annotate(
-            unread_count=Count(
-                "messages",
-                filter=Q(messages__is_read=False) & ~Q(messages__sender=request.user),
-            )
-        )
-        .order_by("-updated_at")
-    )
-
-    # Only show diners in the "Start a New Chat" and "Create a Group" sections
-    other_users = User.objects.filter(userprofile__role="diner").exclude(
-        id=request.user.id
-    )
-
-    context = {
-        "title": "Chat with Friends",
-        "conversations": conversations,
-        "other_users": other_users,
-    }
-    return render(request, "nomz/friends_chat.html", context)
 
 
-@login_required(login_url="landing")
-def friends_chat_detail(request, username=None, conversation_id=None):
-    """
-    Renders the chat window for either a 1-on-1 chat (via username)
-    or a group chat (via conversation_id).
-    """
-    if conversation_id:
-        conv = get_object_or_404(FriendConversation, id=conversation_id)
-        if not conv.can_access(request.user):
-            return redirect("friends_chat_index")
-        target_user = None  # In a group, we show the group name
-    else:
-        target_user = get_object_or_404(User, username=username)
-        if target_user == request.user:
-            return redirect("friends_chat_index")
 
-        # Enforce ID order for 1-on-1 to keep it unique
-        user1, user2 = (
-            (request.user, target_user)
-            if request.user.id < target_user.id
-            else (target_user, request.user)
-        )
-        conv, created = FriendConversation.objects.get_or_create(
-            user1=user1, user2=user2, is_group=False
-        )
-        if created:
-            conv.participants.add(user1, user2)
 
-    if request.method == "POST":
-        body = request.POST.get("body", "").strip()
-        if body:
-            FriendMessage.objects.create(
-                conversation=conv, sender=request.user, body=body
-            )
-            conv.updated_at = timezone.now()
-            conv.save(update_fields=["updated_at"])
 
-        if conversation_id:
-            return redirect(
-                "friends_chat_detail_by_id", conversation_id=conversation_id
-            )
-        return redirect("friends_chat_detail", username=username)
 
-    # Mark all unread as read (except those from current user)
-    conv.messages.filter(is_read=False).exclude(sender=request.user).update(
-        is_read=True
-    )
-
-    chat_messages = conv.messages.all().select_related(
-        "sender", "restaurant_recommendation"
-    )
-    shared_restaurants = conv.shared_restaurants.all().select_related("restaurant")
-    all_restaurants = Restaurant.objects.all().order_by("name")
-    all_users = User.objects.filter(userprofile__role="diner").exclude(
-        id=request.user.id
-    )
-
-    participants = conv.get_participants()
-
-    context = {
-        "title": conv.name if conv.is_group else f"Chat with {target_user.username}",
-        "target_user": target_user,
-        "conversation": conv,
-        "chat_messages": chat_messages,
-        "shared_restaurants": shared_restaurants,
-        "all_restaurants": all_restaurants,
-        "all_users": all_users,
-        "participants": participants,
-    }
-    return render(request, "nomz/friends_chat_conversation.html", context)
 
 
 @login_required
