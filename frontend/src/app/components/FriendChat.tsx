@@ -498,11 +498,7 @@ export function FriendChat({
               conversations.map((c) => {
                 const label = c.is_group
                   ? (c.name || "Group Chat")
-<<<<<<< HEAD
-                  : c.participants.join(", ");
-=======
                   : c.participants.filter((p) => p.id !== myUserId).map((p) => p.username).join(", ") || c.participants.map((p) => p.username).join(", ");
->>>>>>> main
                 return (
                   <button
                     key={c.id}

@@ -244,7 +244,7 @@ urlpatterns = [
     ),
     path(
         "api/diner-search-v2/",
-        spa_api.diner_search_api_v2,
+        views.diner_search_api_v2,
         name="api_diner_search_v2",
     ),
 ]
@@ -324,7 +324,6 @@ _SPA_NAMED = [
     ("nomz-admin/reject/<int:user_id>/", "admin_reject_restaurant"),
     ("restaurant/<int:restaurant_id>/review/", "add_review"),
     ("restaurant/<int:restaurant_id>/", "restaurant_detail"),
-<<<<<<< HEAD
     # Friends chat (React + /api/friends-chat/); order matters vs <str:username>
     ("friends-chat/", "friends_chat_index"),
     ("friends-chat/group/create/", "create_group_chat"),
@@ -345,8 +344,6 @@ _SPA_NAMED = [
     ("friends-chat/<str:username>/recommend/", "recommend_friend_restaurant"),
     ("friends-chat/<str:username>/toggle-shared/", "toggle_shared_restaurant"),
     ("friends-chat/<str:username>/", "friends_chat_detail"),
-=======
->>>>>>> main
     ("messages/", "message_inbox"),
     ("messages/restaurant/<int:restaurant_id>/", "message_restaurant"),
     ("messages/conversations/<int:conversation_id>/", "conversation_detail"),
@@ -370,14 +367,9 @@ for _route, _name in _SPA_NAMED:
         )
 
 # Catch-all: deep links and any path not listed above (still not under /api/)
-<<<<<<< HEAD
 # ✅ Proper catch-all for React SPA (must be LAST)
 urlpatterns.append(
     re_path(r"^.*$", spa_shell_views.spa_index),
-)
-=======
-urlpatterns.append(
-    re_path(r"^(?P<spa_path>.+)/$", spa_shell_views.spa_index),
 )
 
 # --- Modernized Friend Chat Route Overrides ---
@@ -408,4 +400,3 @@ urlpatterns.insert(0, path('friends-chat-v2/<str:username>/', views.friends_chat
 urlpatterns.insert(0, path('friends-chat-v2/seed/', views.seed_restaurants_v2, name='seed_restaurants_v2'))
 urlpatterns.insert(0, path('api/restaurants/search-v2/', views.restaurant_search_api_v2, name='restaurant_search_api_v2'))
 urlpatterns.insert(0, path('api/diner-search-v2/', views.diner_search_api_v2, name='diner_search_api_v2'))
->>>>>>> main

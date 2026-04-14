@@ -218,11 +218,7 @@ function DinerDashboard() {
         onLogout={logout}
         onViewProfile={() => navigate('/profile/')}
         onViewMessages={() => navigate('/messages/')}
-<<<<<<< HEAD
         onViewFriendChat={() => navigate('/friends-chat/')}
-=======
-        onViewFriendChat={() => { window.location.href = '/friends-chat/'; }}
->>>>>>> main
         onNavigateMap={() => navigate('/map/')}
         onSearch={(q, neighborhood) => {
           const params = new URLSearchParams();
@@ -349,11 +345,7 @@ function MapPage({ variant }: { variant: 'diner' | 'owner' | 'admin' }) {
       <Map
         onNavigateHome={home}
         onNavigateMessages={() => navigate('/messages/')}
-<<<<<<< HEAD
         onNavigateFriendChat={variant === 'diner' ? () => navigate('/friends-chat/') : undefined}
-=======
-        onNavigateFriendChat={variant === 'diner' ? () => { window.location.href = '/friends-chat/'; } : undefined}
->>>>>>> main
         onNavigateProfile={() =>
           variant === 'diner' ? navigate('/profile/') : navigate('/restaurant-profile/')
         }
@@ -408,11 +400,7 @@ function MessagesPage({
             ? navigate('/restaurant-profile/')
             : navigate('/profile/')
         }
-<<<<<<< HEAD
         onNavigateFriendChat={userData?.accountType === 'diner' ? () => navigate('/friends-chat/') : undefined}
-=======
-        onNavigateFriendChat={userData?.accountType === 'diner' ? () => { window.location.href = '/friends-chat/'; } : undefined}
->>>>>>> main
         onLogout={logout}
         accountType={userData?.accountType === 'restaurant' ? 'Restaurant' : 'Diner'}
         pendingStartRestaurantId={pending?.id ?? null}
@@ -514,11 +502,7 @@ function UserProfilePage() {
       <UserProfile
         onBack={() => navigate('/dashboard/')}
         onViewMessages={() => navigate('/messages/')}
-<<<<<<< HEAD
         onViewFriendChat={() => navigate('/friends-chat/')}
-=======
-        onViewFriendChat={() => { window.location.href = '/friends-chat/'; }}
->>>>>>> main
         onNavigateMap={() => navigate('/map/')}
         onNavigateHome={() => navigate('/dashboard/')}
         onLogout={logout}
