@@ -8,6 +8,7 @@ type RecRow = {
   cuisine: string;
   price_label: string;
   neighborhood: string;
+  recommended_by?: string;
 };
 
 export function UserHome({
@@ -400,6 +401,12 @@ export function UserHome({
                     >
                       <div className="h-32 w-full" style={{ backgroundColor: 'rgba(224, 110, 127, 0.1)' }} />
                       <div className="p-5">
+                        {row.recommended_by && (
+                          <div className="mb-2 inline-block px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold" 
+                               style={{ backgroundColor: 'rgba(224, 110, 127, 0.15)', color: '#E06E7F' }}>
+                            Recommended by {row.recommended_by}
+                          </div>
+                        )}
                         <h4 className="text-base mb-2" style={{ color: '#333' }}>
                           {row.name}
                         </h4>

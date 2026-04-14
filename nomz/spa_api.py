@@ -1272,7 +1272,7 @@ def _search_results_payload(request):
     }
 
 
-def _recommendation_card(restaurant: Restaurant) -> dict:
+def _recommendation_card(restaurant: Restaurant, recommended_by: str = None) -> dict:
     fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
     if not fallback_cuisine and restaurant.cuisine_tags:
         fallback_cuisine = ", ".join(str(tag) for tag in restaurant.cuisine_tags[:3])
@@ -1286,6 +1286,7 @@ def _recommendation_card(restaurant: Restaurant) -> dict:
         "price_label": restaurant.get_price_range_display(),
         "rating_score": restaurant.grade_score_latest,
         "is_flagged": restaurant.is_flagged,
+        "recommended_by": recommended_by,
     }
 
 
@@ -1299,47 +1300,71 @@ def restaurant_search_api(request):
 @login_required(login_url="landing")
 @require_GET
 def diner_recommendations_api(request):
-    """Personalized recommendations (parity with `recommendations` view)."""
+    """Personalized recommendations combined with social insights from friends."""
     if not _is_diner(request.user):
         return _json_error("Diners only.", status=403)
 
+    from .restaurant_sorting import recommend_restaurants_for_user
+    from .models import FriendMessage, FriendConversation
+
+    # 1. Fetch Social Recommendations (Robust Query: M2M + Legacy)
+    social_recs = []
+    # Find all conversations the user is part of
+    conv_ids = FriendConversation.objects.filter(
+        Q(participants=request.user) | Q(user1=request.user) | Q(user2=request.user)
+    ).values_list('id', flat=True)
+
+    # Find messages with recommendations in those conversations
+    messages = FriendMessage.objects.filter(
+        conversation_id__in=conv_ids,
+        restaurant_recommendation__isnull=False,
+        restaurant_recommendation__is_active=True
+    ).exclude(sender=request.user).select_related('restaurant_recommendation', 'sender').order_by('-created_at')
+
+    seen_ids = set()
+    for m in messages:
+        rid = m.restaurant_recommendation.id
+        if rid not in seen_ids:
+            social_recs.append(_recommendation_card(m.restaurant_recommendation, recommended_by=m.sender.username))
+            seen_ids.add(rid)
+        if len(social_recs) >= 5:
+            break
+
+    # 2. Fetch System Recommendations
+    system_recs = []
     try:
-        request.user.preferences
-    except UserPreference.DoesNotExist:
-        return JsonResponse(
-            {
-                "requires_preferences": True,
-                "message": "Please set your preferences first so we can suggest restaurants for you.",
-                "restaurants": [],
-            }
+        # Check if user has meaningful preferences set up (Price alone doesn't count as setup)
+        prefs = getattr(request.user, "preferences", None)
+        nh = (prefs.neighborhood_preference or "").strip() if prefs else ""
+        has_prefs = prefs and (
+            (prefs.favorite_cuisines and len(prefs.favorite_cuisines) > 0) or 
+            (prefs.dietary_restrictions and len(prefs.dietary_restrictions) > 0) or 
+            nh
         )
+        
+        if has_prefs:
+            recommended = recommend_restaurants_for_user(request.user, limit=20)
+            for r in recommended:
+                if r.id not in seen_ids:
+                    system_recs.append(_recommendation_card(r))
+                    seen_ids.add(r.id)
+    except Exception:
+        pass
 
-    prefs = request.user.preferences
-    nh = (prefs.neighborhood_preference or "").strip()
-    if (
-        not prefs.favorite_cuisines
-        and not prefs.dietary_restrictions
-        and not prefs.price_preference
-        and not nh
-    ):
-        return JsonResponse(
-            {
-                "requires_preferences": True,
-                "message": "Please set your preferences first so we can suggest restaurants for you.",
-                "restaurants": [],
-            }
-        )
-
-    recommended = recommend_restaurants_for_user(request.user, limit=20)
+    # Combine: Social first, then System
+    final_list = social_recs + system_recs
+    
+    # If BOTH sources are empty, we return an empty state
+    requires_preferences = len(final_list) == 0
     message = ""
-    if not recommended:
-        message = "No restaurants currently match your saved preferences. Try updating your preferences."
+    if requires_preferences:
+        message = "Set your preferences in your profile or chat with friends to see recommendations here!"
 
     return JsonResponse(
         {
-            "requires_preferences": False,
+            "requires_preferences": requires_preferences,
             "message": message,
-            "restaurants": [_recommendation_card(r) for r in recommended],
+            "restaurants": final_list[:12],
         }
     )
 
