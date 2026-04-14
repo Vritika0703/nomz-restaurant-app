@@ -24,8 +24,6 @@ def _dist_root() -> Path:
 def spa(request):
     """Serve the React SPA shell directly."""
     return spa_index(request)
-
-
 def _index_candidates() -> list[Path]:
     out: list[Path] = []
     dist = _dist_root() / "index.html"
