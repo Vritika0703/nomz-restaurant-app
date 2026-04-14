@@ -11,24 +11,19 @@ export interface UserData {
 interface AppContextValue {
   userData: UserData | null;
   setUserData: (u: UserData | null) => void;
-  isInitializing: boolean;
-  setIsInitializing: (v: boolean) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [isInitializing, setIsInitializing] = useState<boolean>(true);
 
   const value = useMemo(
     () => ({
       userData,
       setUserData,
-      isInitializing,
-      setIsInitializing,
     }),
-    [userData, isInitializing],
+    [userData],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

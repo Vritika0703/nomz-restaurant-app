@@ -78,7 +78,7 @@ function UrlSync() {
 }
 
 function SessionBootstrap() {
-  const { setUserData, setIsInitializing } = useAppContext();
+  const { setUserData } = useAppContext();
 
   useEffect(() => {
     let cancelled = false;
@@ -86,33 +86,26 @@ function SessionBootstrap() {
       try {
         const r = await apiFetch('/api/auth/session/');
         const data = await r.json();
-        if (cancelled) return;
-        if (data.authenticated) {
-            let accountType: UserData['accountType'] = 'diner';
-            if (data.is_staff) accountType = 'admin';
-            else if (data.role === 'restaurant') accountType = 'restaurant';
-            setUserData({ username: data.username, accountType });
-        }
+        if (cancelled || !data.authenticated) return;
+        let accountType: UserData['accountType'] = 'diner';
+        if (data.is_staff) accountType = 'admin';
+        else if (data.role === 'restaurant') accountType = 'restaurant';
+        setUserData({ username: data.username, accountType });
       } catch {
         /* offline or CORS */
-      } finally {
-        setIsInitializing(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [setUserData, setIsInitializing]);
+  }, [setUserData]);
 
   return null;
 }
 
 function RequireAuth({ children }: { children: ReactElement }) {
-  const { userData, isInitializing } = useAppContext();
+  const { userData } = useAppContext();
   const location = useLocation();
-
-  if (isInitializing) return null;
-
   if (!userData) {
     return (
       <Navigate
@@ -132,10 +125,7 @@ function RequireRole({
   allow: AccountType[];
   children: ReactElement;
 }) {
-  const { userData, isInitializing } = useAppContext();
-  
-  if (isInitializing) return null;
-
+  const { userData } = useAppContext();
   if (!userData || !allow.includes(userData.accountType)) {
     return <Navigate to="/home/" replace />;
   }
@@ -146,11 +136,17 @@ function OpeningScreen() {
   const navigate = useNavigate();
   const [showClickToStart, setShowClickToStart] = useState(false);
 
+  const handleClick = () => {
+    if (showClickToStart) {
+      navigate('/home/');
+    }
+  };
+
   return (
     <div
       className="size-full flex items-center justify-center cursor-pointer"
       style={{ backgroundImage: 'radial-gradient(circle, #E06E7F, #FFF9F5)' }}
-      onClick={() => showClickToStart && navigate('/home/')}
+      onClick={handleClick}
     >
       <div className="flex flex-col items-center gap-2">
         <div className="flex items-center gap-2">
@@ -165,6 +161,12 @@ function OpeningScreen() {
               transition={{
                 duration: 0.8,
                 delay: index * 0.15,
+                ease: 'easeOut',
+              }}
+              className="text-4xl text-white"
+              style={{
+                fontFamily: 'Montserrat, sans-serif',
+                filter: 'drop-shadow(0 0 8px rgba(224, 110, 127, 0.6))',
               }}
             >
               {letter}

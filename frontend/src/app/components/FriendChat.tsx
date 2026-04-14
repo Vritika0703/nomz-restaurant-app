@@ -8,7 +8,7 @@ type ConvRow = {
   id: number;
   name: string;
   is_group: boolean;
-  participants: { id: number; username: string }[];
+  participants: string[];
   unread_count: number;
   last_message: {
     body: string;
@@ -118,10 +118,14 @@ export function FriendChat({
         return;
       }
       const data = await r.json();
+      const conv = data.conversation as ConvRow | undefined;
+      setThreadTitle(
+        conv?.is_group
+          ? conv.name || "Group Chat"
+          : conv?.participants?.filter((p: string) => p !== (conv as ConvRow & { participants: string[] }).participants.find(() => true)).join(", ") || "Chat"
+      );
       if (conv) {
-        setThreadTitle(conv.is_group
-          ? (conv.name || "Group Chat")
-          : conv.participants.filter((p) => p.id !== myUserId).map((p) => p.username).join(", ") || conv.participants.map((p) => p.username).join(", "));
+        setThreadTitle(conv.is_group ? (conv.name || "Group Chat") : conv.participants.join(", "));
       }
       setMessages(data.messages ?? []);
       setSharedRestaurants(data.shared_restaurants ?? []);
@@ -498,7 +502,7 @@ export function FriendChat({
               conversations.map((c) => {
                 const label = c.is_group
                   ? (c.name || "Group Chat")
-                  : c.participants.filter((p) => p.id !== myUserId).map((p) => p.username).join(", ") || c.participants.map((p) => p.username).join(", ");
+                  : c.participants.join(", ");
                 return (
                   <button
                     key={c.id}
