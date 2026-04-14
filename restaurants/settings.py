@@ -74,8 +74,13 @@ INSTALLED_APPS = [
     "two_factor",
     "corsheaders",
     "storages",
+    "crispy_forms",
+    "crispy_bootstrap5",
     "nomz.apps.NomzConfig",
 ]
+
+CRISPY_ALLOWED_TEMPLATE_PACKS = "bootstrap5"
+CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -93,17 +98,17 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "restaurants.urls"
 
-# Minimal TEMPLATES config for Django admin only (React SPA has no template requirements)
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "nomz.context_processors.unread_counts",
             ],
         },
     },
@@ -170,19 +175,19 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
 STATICFILES_DIRS = [
     BASE_DIR / "frontend" / "dist" / "assets",
 ]
+
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Vite production build (optional). When present, Django serves index.html + /assets/* from here.
 FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
 # Dev-only fallback (no script tags). In production, omit so missing dist is obvious vs silent stub.
+NOMZ_SPA_FALLBACK_INDEX = (BASE_DIR / "nomz" / "spa" / "index.html") if DEBUG else None
 
 # Media files
 MEDIA_URL = "/media/"

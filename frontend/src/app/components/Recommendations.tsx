@@ -12,6 +12,7 @@ type RecRow = {
   price_label: string;
   rating_score: number | null;
   is_flagged: boolean;
+  recommended_by?: string;
 };
 
 export function Recommendations({
@@ -106,7 +107,7 @@ export function Recommendations({
           Recommendations for you
         </h2>
         <p className="text-sm mb-8" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
-          Based on your saved dining preferences (same logic as the full recommendations page on the server).
+          Based on your chat recommendations and dining preferences.
         </p>
 
         {error && (
@@ -165,6 +166,12 @@ export function Recommendations({
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.15)'; }}
               >
+                {row.recommended_by && (
+                  <div className="mb-2 inline-block px-2 py-0.5 rounded text-[10px] uppercase tracking-wider font-bold" 
+                       style={{ backgroundColor: 'rgba(224, 110, 127, 0.15)', color: '#E06E7F' }}>
+                    Recommended by {row.recommended_by}
+                  </div>
+                )}
                 <h3 className="text-lg mb-1" style={{ color: '#333' }}>
                   {row.name}
                 </h3>

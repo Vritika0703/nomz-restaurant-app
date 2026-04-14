@@ -11,6 +11,7 @@ from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from io import BytesIO
 from PIL import Image
+from unittest.mock import patch
 
 from django.test.utils import override_settings
 
@@ -493,6 +494,28 @@ class SystemMonitoringTests(TransactionTestCase):
         SYSTEM_ALERT_ERROR_RATE_THRESHOLD=1.1,  # Disable high error rate alerts for single failures
         SYSTEM_ALERT_AVG_LATENCY_MS_THRESHOLD=100000,
     )
+    def test_health_check_failure_creates_alert_and_audit_log(self):
+        with patch(
+            "nomz.views.perform_dependency_health_checks",
+            side_effect=Exception("db down"),
+        ):
+            response = self.client.get(reverse("health_check"))
+            self.assertEqual(response.status_code, 503)
+
+        alert_qs = SystemAlert.objects.filter(
+            alert_type="HEALTH_CHECK_FAILURE", is_active=True
+        )
+        audit_qs = SystemAuditLog.objects.filter(action="health_check_failure")
+        self.assertTrue(
+            alert_qs.exists(),
+            msg=(
+                f"Expected active HEALTH_CHECK_FAILURE alert. "
+                f"alerts={alert_qs.count()} total_alerts={SystemAlert.objects.count()} "
+                f"audit_logs={audit_qs.count()}"
+            ),
+        )
+        self.assertTrue(audit_qs.exists())
+
     @override_settings(
         DEBUG=False,
         DEBUG_PROPAGATE_EXCEPTIONS=False,
