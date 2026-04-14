@@ -7,8 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.db.models import Q, Avg, Count
-from django.db import models
+from django.db.models import Q, Avg
 from django.views.decorators.http import require_http_methods, require_POST, require_GET
 from nomz.ingestion.utils.score import compute_restaurant_composite_score
 from nomz.scoring import SCORE_ALGORITHM_VERSION, refresh_restaurant_composite
@@ -27,7 +26,7 @@ from .forms import (
     RestaurantCommunicationSettingsForm,
 )
 from django.contrib.auth.models import User
-from .models import (
+from nomz.models import (  # noqa: E402
     Conversation,
     CompositeScoreAnomaly,
     CompositeScoreHistory,
@@ -1389,21 +1388,26 @@ def manage_preferences(request):
 def recommendations(request):
     """Show personalized restaurant recommendations combined with friend insights."""
     from django.db.models import Q
-    from .models import FriendConversation, FriendMessage, UserPreference
+    from .models import FriendConversation, FriendMessage
     from .restaurant_sorting import recommend_restaurants_for_user
 
     # 1. Fetch Social Recommendations (Robust Query)
     conv_ids = FriendConversation.objects.filter(
         Q(participants=request.user) | Q(user1=request.user) | Q(user2=request.user)
-    ).values_list('id', flat=True)
+    ).values_list("id", flat=True)
 
-    messages = FriendMessage.objects.filter(
-        conversation_id__in=conv_ids,
-        restaurant_recommendation__isnull=False,
-        restaurant_recommendation__is_active=True
-    ).exclude(sender=request.user).select_related('restaurant_recommendation', 'sender').order_by('-created_at')
+    messages = (
+        FriendMessage.objects.filter(
+            conversation_id__in=conv_ids,
+            restaurant_recommendation__isnull=False,
+            restaurant_recommendation__is_active=True,
+        )
+        .exclude(sender=request.user)
+        .select_related("restaurant_recommendation", "sender")
+        .order_by("-created_at")
+    )
 
-    social_data = [] # List of (restaurant, sender_name)
+    social_data = []  # List of (restaurant, sender_name)
     seen_ids = set()
     for m in messages:
         rid = m.restaurant_recommendation.id
@@ -1420,16 +1424,16 @@ def recommendations(request):
         prefs = getattr(request.user, "preferences", None)
         nh = (prefs.neighborhood_preference or "").strip() if prefs else ""
         has_prefs = prefs and (
-            (prefs.favorite_cuisines and len(prefs.favorite_cuisines) > 0) or 
-            (prefs.dietary_restrictions and len(prefs.dietary_restrictions) > 0) or 
-            nh
+            (prefs.favorite_cuisines and len(prefs.favorite_cuisines) > 0)
+            or (prefs.dietary_restrictions and len(prefs.dietary_restrictions) > 0)
+            or nh
         )
-        
+
         if has_prefs:
             recommended = recommend_restaurants_for_user(request.user, limit=20)
             for r in recommended:
                 if r.id not in seen_ids:
-                    system_data.append((r, None)) # None means system recommended
+                    system_data.append((r, None))  # None means system recommended
                     seen_ids.add(r.id)
     except Exception:
         pass
@@ -2284,21 +2288,34 @@ def toggle_shared_restaurant(request, username=None, conversation_id=None):
 # These views render the updated UI templates while preserving existing logic.
 # They are added to maintain the "non-destructive" constraint.
 
+
 @login_required(login_url="landing")
 def friends_chat_index_v2(request):
     """Modernized index page for friend conversations."""
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
         if username:
-            target_user = User.objects.filter(username__iexact=username, userprofile__role="diner").exclude(id=request.user.id).first()
+            target_user = (
+                User.objects.filter(
+                    username__iexact=username, userprofile__role="diner"
+                )
+                .exclude(id=request.user.id)
+                .first()
+            )
             if target_user:
                 return redirect("friends_chat_detail_v2", username=target_user.username)
             else:
                 messages.error(request, f"Diner with username '{username}' not found.")
                 return redirect("friends_chat_index_v2")
 
-    conversations = FriendConversation.objects.filter(participants=request.user).distinct().order_by("-updated_at")
-    other_users = User.objects.filter(userprofile__role="diner").exclude(id=request.user.id)
+    conversations = (
+        FriendConversation.objects.filter(participants=request.user)
+        .distinct()
+        .order_by("-updated_at")
+    )
+    other_users = User.objects.filter(userprofile__role="diner").exclude(
+        id=request.user.id
+    )
 
     context = {
         "title": "Chat with Friends",
@@ -2322,33 +2339,50 @@ def friends_chat_detail_v2(request, username=None, conversation_id=None):
         if target_user == request.user:
             return redirect("friends_chat_index_v2")
 
-        user1, user2 = (request.user, target_user) if request.user.id < target_user.id else (target_user, request.user)
-        conv, created = FriendConversation.objects.get_or_create(user1=user1, user2=user2, is_group=False)
+        user1, user2 = (
+            (request.user, target_user)
+            if request.user.id < target_user.id
+            else (target_user, request.user)
+        )
+        conv, created = FriendConversation.objects.get_or_create(
+            user1=user1, user2=user2, is_group=False
+        )
         if created:
             conv.participants.add(user1, user2)
 
     if request.method == "POST":
         body = request.POST.get("body", "").strip()
         if body:
-            FriendMessage.objects.create(conversation=conv, sender=request.user, body=body)
+            FriendMessage.objects.create(
+                conversation=conv, sender=request.user, body=body
+            )
             conv.updated_at = timezone.now()
             conv.save(update_fields=["updated_at"])
 
         if conversation_id:
-            return redirect("friends_chat_detail_v2_by_id", conversation_id=conversation_id)
+            return redirect(
+                "friends_chat_detail_v2_by_id", conversation_id=conversation_id
+            )
         return redirect("friends_chat_detail_v2", username=username)
 
-    conv.messages.filter(is_read=False).exclude(sender=request.user).update(is_read=True)
-    chat_messages = conv.messages.all().select_related("sender", "restaurant_recommendation")
+    conv.messages.filter(is_read=False).exclude(sender=request.user).update(
+        is_read=True
+    )
+    chat_messages = conv.messages.all().select_related(
+        "sender", "restaurant_recommendation"
+    )
     shared_restaurants = conv.shared_restaurants.all().select_related("restaurant")
-    all_restaurants = Restaurant.objects.all().order_by("name")
-    all_users = User.objects.filter(userprofile__role="diner").exclude(id=request.user.id)
+    all_users = User.objects.filter(userprofile__role="diner").exclude(
+        id=request.user.id
+    )
     participants = conv.get_participants()
 
-    conversations = FriendConversation.objects.filter(participants=request.user).distinct()
+    conversations = FriendConversation.objects.filter(
+        participants=request.user
+    ).distinct()
     shared_restaurants_list = [sr.restaurant for sr in shared_restaurants]
 
-    all_restaurants_list = [] # Switched to AJAX search for performance
+    all_restaurants_list = []  # Switched to AJAX search for performance
     context = {
         "title": conv.name if conv.is_group else f"Chat with {target_user.username}",
         "target_user": target_user,
@@ -2374,7 +2408,9 @@ def create_group_chat_v2(request):
         if not group_name:
             messages.error(request, "Group name is required.")
             return redirect("friends_chat_index_v2")
-        conv = FriendConversation.objects.create(name=group_name, is_group=True, creator=request.user)
+        conv = FriendConversation.objects.create(
+            name=group_name, is_group=True, creator=request.user
+        )
         conv.participants.add(request.user)
         for p_id in participant_ids:
             try:
@@ -2413,9 +2449,13 @@ def manage_group_member_v2(request, conversation_id):
             elif action == "remove":
                 if user != conv.creator:
                     conv.participants.remove(user)
-                    messages.success(request, f"Removed {user.username} from the group.")
+                    messages.success(
+                        request, f"Removed {user.username} from the group."
+                    )
                 else:
-                    messages.error(request, "You cannot remove yourself from a group you created.")
+                    messages.error(
+                        request, "You cannot remove yourself from a group you created."
+                    )
     return redirect("friends_chat_detail_v2_by_id", conversation_id=conversation_id)
 
 
@@ -2440,8 +2480,14 @@ def recommend_friend_restaurant_v2(request, username=None, conversation_id=None)
         conversation = get_object_or_404(FriendConversation, id=conversation_id)
     else:
         target_user = get_object_or_404(User, username=username)
-        user1, user2 = (request.user, target_user) if request.user.id < target_user.id else (target_user, request.user)
-        conversation = get_object_or_404(FriendConversation, user1=user1, user2=user2, is_group=False)
+        user1, user2 = (
+            (request.user, target_user)
+            if request.user.id < target_user.id
+            else (target_user, request.user)
+        )
+        conversation = get_object_or_404(
+            FriendConversation, user1=user1, user2=user2, is_group=False
+        )
 
     if request.method == "POST":
         restaurant_id = request.POST.get("restaurant_id")
@@ -2453,7 +2499,12 @@ def recommend_friend_restaurant_v2(request, username=None, conversation_id=None)
         elif restaurant_name:
             restaurant = Restaurant.objects.filter(name=restaurant_name).first()
         if restaurant:
-            FriendMessage.objects.create(conversation=conversation, sender=request.user, body=body, restaurant_recommendation=restaurant)
+            FriendMessage.objects.create(
+                conversation=conversation,
+                sender=request.user,
+                body=body,
+                restaurant_recommendation=restaurant,
+            )
             conversation.save()
 
     if conversation_id:
@@ -2468,13 +2519,18 @@ def toggle_shared_restaurant_v2(request, username=None, conversation_id=None):
         conversation = get_object_or_404(FriendConversation, id=conversation_id)
     else:
         target_user = get_object_or_404(User, username=username)
-        user1, user2 = (request.user, target_user) if request.user.id < target_user.id else (target_user, request.user)
-        conversation = get_object_or_404(FriendConversation, user1=user1, user2=user2, is_group=False)
+        user1, user2 = (
+            (request.user, target_user)
+            if request.user.id < target_user.id
+            else (target_user, request.user)
+        )
+        conversation = get_object_or_404(
+            FriendConversation, user1=user1, user2=user2, is_group=False
+        )
 
     if request.method == "POST":
         restaurant_id = request.POST.get("restaurant_id")
         restaurant_name = request.POST.get("restaurant_name")
-        action = request.POST.get("action", "add")
         restaurant = None
         if restaurant_id:
             restaurant = get_object_or_404(Restaurant, id=restaurant_id)
@@ -2482,11 +2538,17 @@ def toggle_shared_restaurant_v2(request, username=None, conversation_id=None):
             restaurant = Restaurant.objects.filter(name=restaurant_name).first()
         if restaurant:
             # Toggle logic: if exists, remove; else add.
-            shared_qs = FriendSharedRestaurant.objects.filter(conversation=conversation, restaurant=restaurant)
+            shared_qs = FriendSharedRestaurant.objects.filter(
+                conversation=conversation, restaurant=restaurant
+            )
             if shared_qs.exists():
                 shared_qs.delete()
             else:
-                FriendSharedRestaurant.objects.create(conversation=conversation, restaurant=restaurant, added_by=request.user)
+                FriendSharedRestaurant.objects.create(
+                    conversation=conversation,
+                    restaurant=restaurant,
+                    added_by=request.user,
+                )
 
     if conversation_id:
         return redirect("friends_chat_detail_v2_by_id", conversation_id=conversation_id)
@@ -2502,47 +2564,50 @@ def restaurant_search_api_v2(request):
     Returns Top 10 recently updated if query is empty.
     """
     query = request.GET.get("search", "").strip()
-    
+
     # 1. Handle Empty Query (Show Recent/Top)
     if not query:
         recent = Restaurant.objects.all().order_by("-updated_at")[:10]
         results = [{"id": r.id, "name": r.display_name or r.name} for r in recent]
         return JsonResponse({"results": results})
-    
+
     # 2. Match Owners (Auto-Create Stub if missing)
     matching_owners = User.objects.filter(
-        userprofile__role='restaurant',
-        username__icontains=query
+        userprofile__role="restaurant", username__icontains=query
     ).exclude(restaurant_profile__isnull=False)[:5]
-    
+
     for owner in matching_owners:
         # Auto-create the restaurant profile for this owner so they are findable
         Restaurant.objects.get_or_create(
             owner=owner,
             defaults={
-                'name': owner.username,
-                'display_name': owner.username,
-                'is_active': True,
-                'cuisine': 'Other',
-                'borough': 'Unknown'
-            }
+                "name": owner.username,
+                "display_name": owner.username,
+                "is_active": True,
+                "cuisine": "Other",
+                "borough": "Unknown",
+            },
         )
-    
+
     # 3. Search all Restaurants (now including the newly created stubs)
-    restaurant_qs = Restaurant.objects.filter(
-        Q(name__icontains=query) | 
-        Q(display_name__icontains=query) |
-        Q(name_normalized__icontains=query) |
-        Q(owner__username__icontains=query) |
-        Q(address__icontains=query) |
-        Q(street__icontains=query) |
-        Q(building__icontains=query) |
-        Q(zip_code__icontains=query) |
-        Q(borough__icontains=query) |
-        Q(neighborhood__icontains=query) |
-        Q(cuisine__icontains=query)
-    ).distinct().order_by("name")[:50]
-    
+    restaurant_qs = (
+        Restaurant.objects.filter(
+            Q(name__icontains=query)
+            | Q(display_name__icontains=query)
+            | Q(name_normalized__icontains=query)
+            | Q(owner__username__icontains=query)
+            | Q(address__icontains=query)
+            | Q(street__icontains=query)
+            | Q(building__icontains=query)
+            | Q(zip_code__icontains=query)
+            | Q(borough__icontains=query)
+            | Q(neighborhood__icontains=query)
+            | Q(cuisine__icontains=query)
+        )
+        .distinct()
+        .order_by("name")[:50]
+    )
+
     results = [{"id": r.id, "name": r.display_name or r.name} for r in restaurant_qs]
     return JsonResponse({"results": results})
 
@@ -2554,31 +2619,45 @@ def diner_search_api_v2(request):
     query = request.GET.get("search", "").strip()
     if not query:
         return JsonResponse({"results": []})
-    
+
     # Filter for diners only, exclude self
-    diners = User.objects.filter(
-        Q(username__icontains=query) | Q(first_name__icontains=query) | Q(last_name__icontains=query),
-        userprofile__role='diner'
-    ).exclude(id=request.user.id).values('id', 'username')[:20]
-    
-    results = [{"id": d['id'], "username": d['username']} for d in diners]
+    diners = (
+        User.objects.filter(
+            Q(username__icontains=query)
+            | Q(first_name__icontains=query)
+            | Q(last_name__icontains=query),
+            userprofile__role="diner",
+        )
+        .exclude(id=request.user.id)
+        .values("id", "username")[:20]
+    )
+
+    results = [{"id": d["id"], "username": d["username"]} for d in diners]
     return JsonResponse({"results": results})
 
 
 @login_required
 def seed_restaurants_v2(request):
     """Temporary view to seed 5 test restaurants as requested."""
-    test_names = ["Rest_A_Testing", "Rest_B_Testing", "Rest_C_Testing", "Rest_D_Testing", "Rest_E_Testing"]
+    test_names = [
+        "Rest_A_Testing",
+        "Rest_B_Testing",
+        "Rest_C_Testing",
+        "Rest_D_Testing",
+        "Rest_E_Testing",
+    ]
     created_count = 0
     for name in test_names:
         obj, created = Restaurant.objects.get_or_create(
             name=name,
             defaults={
-                'is_active': True,
-                'cuisine': 'Test Cuisine',
-                'borough': 'Manhattan'
-            }
+                "is_active": True,
+                "cuisine": "Test Cuisine",
+                "borough": "Manhattan",
+            },
         )
         if created:
             created_count += 1
-    return JsonResponse({"success": True, "created": created_count, "names": test_names})
+    return JsonResponse(
+        {"success": True, "created": created_count, "names": test_names}
+    )

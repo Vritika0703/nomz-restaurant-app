@@ -515,6 +515,7 @@ class SystemMonitoringTests(TransactionTestCase):
             ),
         )
         self.assertTrue(audit_qs.exists())
+
     @override_settings(
         DEBUG=False,
         DEBUG_PROPAGATE_EXCEPTIONS=False,

@@ -59,7 +59,6 @@ from .models import (
 from .scoring import refresh_restaurant_composite
 from .restaurant_sorting import (
     normalize_sort_key,
-    recommend_restaurants_for_user,
     sort_restaurant_queryset,
 )
 
@@ -1312,20 +1311,29 @@ def diner_recommendations_api(request):
     # Find all conversations the user is part of
     conv_ids = FriendConversation.objects.filter(
         Q(participants=request.user) | Q(user1=request.user) | Q(user2=request.user)
-    ).values_list('id', flat=True)
+    ).values_list("id", flat=True)
 
     # Find messages with recommendations in those conversations
-    messages = FriendMessage.objects.filter(
-        conversation_id__in=conv_ids,
-        restaurant_recommendation__isnull=False,
-        restaurant_recommendation__is_active=True
-    ).exclude(sender=request.user).select_related('restaurant_recommendation', 'sender').order_by('-created_at')
+    messages = (
+        FriendMessage.objects.filter(
+            conversation_id__in=conv_ids,
+            restaurant_recommendation__isnull=False,
+            restaurant_recommendation__is_active=True,
+        )
+        .exclude(sender=request.user)
+        .select_related("restaurant_recommendation", "sender")
+        .order_by("-created_at")
+    )
 
     seen_ids = set()
     for m in messages:
         rid = m.restaurant_recommendation.id
         if rid not in seen_ids:
-            social_recs.append(_recommendation_card(m.restaurant_recommendation, recommended_by=m.sender.username))
+            social_recs.append(
+                _recommendation_card(
+                    m.restaurant_recommendation, recommended_by=m.sender.username
+                )
+            )
             seen_ids.add(rid)
         if len(social_recs) >= 5:
             break
@@ -1337,11 +1345,11 @@ def diner_recommendations_api(request):
         prefs = getattr(request.user, "preferences", None)
         nh = (prefs.neighborhood_preference or "").strip() if prefs else ""
         has_prefs = prefs and (
-            (prefs.favorite_cuisines and len(prefs.favorite_cuisines) > 0) or 
-            (prefs.dietary_restrictions and len(prefs.dietary_restrictions) > 0) or 
-            nh
+            (prefs.favorite_cuisines and len(prefs.favorite_cuisines) > 0)
+            or (prefs.dietary_restrictions and len(prefs.dietary_restrictions) > 0)
+            or nh
         )
-        
+
         if has_prefs:
             recommended = recommend_restaurants_for_user(request.user, limit=20)
             for r in recommended:
@@ -1353,7 +1361,7 @@ def diner_recommendations_api(request):
 
     # Combine: Social first, then System
     final_list = social_recs + system_recs
-    
+
     # If BOTH sources are empty, we return an empty state
     requires_preferences = len(final_list) == 0
     message = ""

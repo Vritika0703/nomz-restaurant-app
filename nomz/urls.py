@@ -375,28 +375,174 @@ urlpatterns.append(
 # --- Modernized Friend Chat Route Overrides ---
 # These overrides point existing URL names and paths to the modernized v2 views.
 # They are inserted at the beginning of the list to ensure they take precedence.
-urlpatterns.insert(0, path('friends-chat/', views.friends_chat_index_v2, name='friends_chat_index'))
-urlpatterns.insert(0, path('friends-chat/group/create/', views.create_group_chat_v2, name='create_group_chat'))
-urlpatterns.insert(0, path('friends-chat/group/<int:conversation_id>/manage/', views.manage_group_member_v2, name='manage_group_member'))
-urlpatterns.insert(0, path('friends-chat/group/<int:conversation_id>/leave/', views.leave_group_v2, name='leave_group'))
-urlpatterns.insert(0, path('friends-chat/group/<int:conversation_id>/recommend/', views.recommend_friend_restaurant_v2, name='recommend_friend_restaurant_by_id'))
-urlpatterns.insert(0, path('friends-chat/group/<int:conversation_id>/toggle-shared/', views.toggle_shared_restaurant_v2, name='toggle_shared_restaurant_by_id'))
-urlpatterns.insert(0, path('friends-chat/group/<int:conversation_id>/', views.friends_chat_detail_v2, name='friends_chat_detail_by_id'))
-urlpatterns.insert(0, path('friends-chat/<str:username>/recommend/', views.recommend_friend_restaurant_v2, name='recommend_friend_restaurant'))
-urlpatterns.insert(0, path('friends-chat/<str:username>/toggle-shared/', views.toggle_shared_restaurant_v2, name='toggle_shared_restaurant'))
-urlpatterns.insert(0, path('friends-chat/<str:username>/', views.friends_chat_detail_v2, name='friends_chat_detail'))
+urlpatterns.insert(
+    0, path("friends-chat/", views.friends_chat_index_v2, name="friends_chat_index")
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/group/create/",
+        views.create_group_chat_v2,
+        name="create_group_chat",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/group/<int:conversation_id>/manage/",
+        views.manage_group_member_v2,
+        name="manage_group_member",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/group/<int:conversation_id>/leave/",
+        views.leave_group_v2,
+        name="leave_group",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/group/<int:conversation_id>/recommend/",
+        views.recommend_friend_restaurant_v2,
+        name="recommend_friend_restaurant_by_id",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/group/<int:conversation_id>/toggle-shared/",
+        views.toggle_shared_restaurant_v2,
+        name="toggle_shared_restaurant_by_id",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/group/<int:conversation_id>/",
+        views.friends_chat_detail_v2,
+        name="friends_chat_detail_by_id",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/<str:username>/recommend/",
+        views.recommend_friend_restaurant_v2,
+        name="recommend_friend_restaurant",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/<str:username>/toggle-shared/",
+        views.toggle_shared_restaurant_v2,
+        name="toggle_shared_restaurant",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat/<str:username>/",
+        views.friends_chat_detail_v2,
+        name="friends_chat_detail",
+    ),
+)
 
 # Also register the v2 names for use in modernized templates
-urlpatterns.insert(0, path('friends-chat-v2/', views.friends_chat_index_v2, name='friends_chat_index_v2'))
-urlpatterns.insert(0, path('friends-chat-v2/group/create/', views.create_group_chat_v2, name='create_group_chat_v2'))
-urlpatterns.insert(0, path('friends-chat-v2/group/<int:conversation_id>/manage/', views.manage_group_member_v2, name='manage_group_member_v2'))
-urlpatterns.insert(0, path('friends-chat-v2/group/<int:conversation_id>/leave/', views.leave_group_v2, name='leave_group_v2'))
-urlpatterns.insert(0, path('friends-chat-v2/group/<int:conversation_id>/recommend/', views.recommend_friend_restaurant_v2, name='recommend_friend_restaurant_v2_by_id'))
-urlpatterns.insert(0, path('friends-chat-v2/group/<int:conversation_id>/toggle-shared/', views.toggle_shared_restaurant_v2, name='toggle_shared_restaurant_v2_by_id'))
-urlpatterns.insert(0, path('friends-chat-v2/group/<int:conversation_id>/', views.friends_chat_detail_v2, name='friends_chat_detail_v2_by_id'))
-urlpatterns.insert(0, path('friends-chat-v2/<str:username>/recommend/', views.recommend_friend_restaurant_v2, name='recommend_friend_restaurant_v2'))
-urlpatterns.insert(0, path('friends-chat-v2/<str:username>/toggle-shared/', views.toggle_shared_restaurant_v2, name='toggle_shared_restaurant_v2'))
-urlpatterns.insert(0, path('friends-chat-v2/<str:username>/', views.friends_chat_detail_v2, name='friends_chat_detail_v2'))
-urlpatterns.insert(0, path('friends-chat-v2/seed/', views.seed_restaurants_v2, name='seed_restaurants_v2'))
-urlpatterns.insert(0, path('api/restaurants/search-v2/', views.restaurant_search_api_v2, name='restaurant_search_api_v2'))
-urlpatterns.insert(0, path('api/diner-search-v2/', views.diner_search_api_v2, name='diner_search_api_v2'))
+urlpatterns.insert(
+    0,
+    path("friends-chat-v2/", views.friends_chat_index_v2, name="friends_chat_index_v2"),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/group/create/",
+        views.create_group_chat_v2,
+        name="create_group_chat_v2",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/group/<int:conversation_id>/manage/",
+        views.manage_group_member_v2,
+        name="manage_group_member_v2",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/group/<int:conversation_id>/leave/",
+        views.leave_group_v2,
+        name="leave_group_v2",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/group/<int:conversation_id>/recommend/",
+        views.recommend_friend_restaurant_v2,
+        name="recommend_friend_restaurant_v2_by_id",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/group/<int:conversation_id>/toggle-shared/",
+        views.toggle_shared_restaurant_v2,
+        name="toggle_shared_restaurant_v2_by_id",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/group/<int:conversation_id>/",
+        views.friends_chat_detail_v2,
+        name="friends_chat_detail_v2_by_id",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/<str:username>/recommend/",
+        views.recommend_friend_restaurant_v2,
+        name="recommend_friend_restaurant_v2",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/<str:username>/toggle-shared/",
+        views.toggle_shared_restaurant_v2,
+        name="toggle_shared_restaurant_v2",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/<str:username>/",
+        views.friends_chat_detail_v2,
+        name="friends_chat_detail_v2",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "friends-chat-v2/seed/", views.seed_restaurants_v2, name="seed_restaurants_v2"
+    ),
+)
+urlpatterns.insert(
+    0,
+    path(
+        "api/restaurants/search-v2/",
+        views.restaurant_search_api_v2,
+        name="restaurant_search_api_v2",
+    ),
+)
+urlpatterns.insert(
+    0,
+    path("api/diner-search-v2/", views.diner_search_api_v2, name="diner_search_api_v2"),
+)
