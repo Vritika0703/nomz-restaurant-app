@@ -8,17 +8,14 @@ services:
 
 # PostgreSQL configuration
 before_script:
-  - psql -c "CREATE DATABASE test_nomz_db;" -U postgres
+  - psql -c "CREATE DATABASE nomz-db;" -U postgres
   - psql -c "CREATE USER travis WITH PASSWORD 'travis';" -U postgres || true
-  - psql -c "GRANT ALL PRIVILEGES ON DATABASE test_nomz_db TO travis;" -U postgres
+  - psql -c "GRANT ALL PRIVILEGES ON DATABASE nomz-db TO travis;" -U postgres
 
 # Install dependencies
 install:
   - pip install --upgrade pip
-  - pip install -r requirements.txt
-  - pip install coverage pytest pytest-django pytest-cov
-  - pip install coveralls
-  - pip install black==26.3.1 flake8==7.3.0
+  - pip install -r requirements-dev.txt
 
 # Environment variables for testing
 env:
@@ -27,7 +24,7 @@ env:
     - SECRET_KEY=test-secret-key-for-travis-ci
     - ALLOWED_HOSTS=localhost,127.0.0.1,testserver
     - DB_ENGINE=django.db.backends.postgresql
-    - DB_NAME=test_nomz_db
+    - DB_NAME=nomz-db
     - DB_USER=postgres
     - DB_PASSWORD=postgres
     - DB_HOST=127.0.0.1
