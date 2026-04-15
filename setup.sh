@@ -29,7 +29,7 @@ source venv/bin/activate
 
 # Install requirements
 echo "📦 Installing Python dependencies..."
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 # Run migrations
 echo "🗄️  Running database migrations..."
