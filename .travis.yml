@@ -11,7 +11,7 @@ services:
 
 # PostgreSQL configuration
 before_script:
-  - psql -U postgres -v ON_ERROR_STOP=1 -c "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'travis') THEN CREATE ROLE travis LOGIN PASSWORD 'travis'; END IF; END $$;"
+  - psql -U postgres -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'travis') THEN CREATE ROLE travis LOGIN PASSWORD 'travis'; END IF; END \$\$;"
   - psql -U postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "nomz-db" OWNER travis;' || true
   - psql -U postgres -v ON_ERROR_STOP=1 -c 'GRANT ALL PRIVILEGES ON DATABASE "nomz-db" TO travis;'
 
