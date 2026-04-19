@@ -1,25 +1,9 @@
 import { Footer } from "./Footer";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api";
+import { CUISINE_CHOICES } from "../constants";
 
 /** Must match `Restaurant.CUISINE_CHOICES` / `UserPreferenceForm` values (slugs sent to the API). */
-const CUISINE_CHOICES: { value: string; label: string }[] = [
-  { value: "american", label: "American" },
-  { value: "asian", label: "Asian" },
-  { value: "italian", label: "Italian" },
-  { value: "mexican", label: "Mexican" },
-  { value: "indian", label: "Indian" },
-  { value: "french", label: "French" },
-  { value: "japanese", label: "Japanese" },
-  { value: "chinese", label: "Chinese" },
-  { value: "thai", label: "Thai" },
-  { value: "mediterranean", label: "Mediterranean" },
-  { value: "fusion", label: "Fusion" },
-  { value: "vegetarian", label: "Vegetarian" },
-  { value: "vegan", label: "Vegan" },
-  { value: "other", label: "Other" },
-];
-
 const DIETARY_OPTIONS = ["Vegan", "Vegetarian", "Non-vegetarian", "Gluten-Free", "Halal", "Kosher"] as const;
 
 function splitFullName(full: string): { first_name: string; last_name: string } {

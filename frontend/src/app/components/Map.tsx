@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Footer } from "./Footer";
 import { apiFetch, mapSortByToApi } from "../api";
+import { CUISINE_CHOICES } from "../constants";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -444,11 +445,9 @@ export function Map({
                   onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
                 >
                   <option value="all">All cuisines</option>
-                  <option value="italian">Italian</option>
-                  <option value="chinese">Chinese</option>
-                  <option value="mexican">Mexican</option>
-                  <option value="japanese">Japanese</option>
-                  <option value="american">American</option>
+                  {CUISINE_CHOICES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
                 </select>
               </div>
 
