@@ -134,3 +134,27 @@ def test_spa_index_javascript_next_rejected():
     client = Client()
     resp = client.get(reverse("landing"), {"next": "javascript:alert(1)"})
     assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_spa_asset_production_serves_file_with_long_cache(settings, tmp_path):
+    """
+    Covers ``spa_shell_views.spa_asset`` (~101–118): real asset file, ``FileResponse``,
+    ``Cache-Control: public, max-age=31536000, immutable``. ``DEBUG=False`` matches
+    production-like settings (also used by ``spa_index`` 503 path when index is absent).
+    """
+    settings.DEBUG = False
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    asset_file = dist / "assets" / "bundle.test.js"
+    asset_file.write_text("export {};", encoding="utf-8")
+    settings.FRONTEND_DIST_DIR = str(dist)
+
+    client = Client()
+    resp = client.get(reverse("spa_asset", kwargs={"asset_path": "bundle.test.js"}))
+    assert resp.status_code == 200
+    assert "immutable" in resp["Cache-Control"].lower()
+    assert "public" in resp["Cache-Control"].lower()
+    assert "31536000" in resp["Cache-Control"]
+    body = b"".join(resp.streaming_content)
+    assert b"export" in body

@@ -712,3 +712,63 @@ def test_run_ingestion_combines_write_and_source_errors_in_summary():
     assert summary.failures >= 2
     assert "EATERIES" in summary.errors
     assert "DOHMH" in summary.errors
+
+
+# ---------------------------------------------------------------------------
+# persistence: inspection key materialization + exact-name enrichment
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_inspection_key_explicit_or_hashed_payload():
+    """Covers ``_normalize_inspection_key`` (~78–99): explicit key vs composite SHA1 parts."""
+    from nomz.ingestion.persistence import _normalize_inspection_key
+
+    assert _normalize_inspection_key({"inspection_key": "fixed-key"}, 1) == "fixed-key"
+
+    row = {
+        "inspection_date": "2024-06-15",
+        "grade": "B",
+        "score": 12,
+        "critical_violations": 0,
+        "noncritical_violations": 2,
+        "violation_description": "grease",
+    }
+    key = _normalize_inspection_key(row, restaurant_id=99)
+    assert len(key) == 40
+    row2 = dict(row, violation_description="other")
+    assert _normalize_inspection_key(row2, restaurant_id=99) != key
+
+
+def test_ingest_exact_name_match_enrichment_keeps_existing_phone_when_incoming_differs():
+    """
+    When resolver confidence is below threshold but the name matches uniquely,
+    ``_resolve_restaurant`` uses ``exact_name_match`` (~276–287). ``_apply_restaurant_enrichment``
+    only fills empty phone (~435–437), so a different incoming phone is ignored.
+    """
+    name = f"LowConfPhone_{uuid.uuid4().hex[:10]}"
+    rest = _base_restaurant(
+        name=name,
+        phone="212-555-0001",
+        street="1 Wall St",
+        zip_code="10005",
+        building="1",
+        borough="MANHATTAN",
+    )
+    record = {
+        "source": "EATERIES",
+        "source_external_id": _eid(),
+        "name": name,
+        "name_normalized": normalize_text(name),
+        "building": "999",
+        "street": "Nowhere Lane",
+        "zip_code": "00001",
+        "borough": "QUEENS",
+        "phone": "718-555-9999",
+        "cuisine_tags": [],
+        "raw_payload": {},
+    }
+    writer = DbIngestionWriter(dry_run=False)
+    writer.ingest(record)
+    rest.refresh_from_db()
+    assert rest.phone == "212-555-0001"
+    assert writer.stats.records_matched >= 1
