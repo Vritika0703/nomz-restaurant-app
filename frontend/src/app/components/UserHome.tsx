@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api";
 import { Footer } from "./Footer";
+import { CUISINE_CHOICES } from "../constants";
 
 type RecRow = {
   id: number;
@@ -319,8 +320,8 @@ export function UserHome({
                 style={{ borderColor: 'rgba(224, 110, 127, 0.25)', fontFamily: 'Montserrat, sans-serif', backgroundColor: 'white' }}
               >
                 <option value="">All Cuisines</option>
-                {["American","Asian","Italian","Mexican","Indian","French","Japanese","Chinese","Thai","Mediterranean","Fusion","Vegetarian","Vegan"].map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                {CUISINE_CHOICES.map((c) => (
+                  <option key={c.value} value={c.label}>{c.label}</option>
                 ))}
               </select>
               <select
