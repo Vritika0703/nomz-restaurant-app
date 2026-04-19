@@ -40,6 +40,7 @@ script:
 
 after_success:
   - coveralls
+  - coveralls --service=travis-ci
 
 deploy:
   provider: elasticbeanstalk
@@ -60,6 +61,7 @@ branches:
     - production
     - main
     - coverage-push-85
+    - hotfix/fix-travis-pid-expansion
 
 notifications:
   email:
