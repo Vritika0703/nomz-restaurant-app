@@ -1190,10 +1190,26 @@ def _serialize_owner_restaurant(restaurant: Restaurant) -> dict:
         "is_temporarily_unavailable": restaurant.is_temporarily_unavailable,
         "unavailable_reason": restaurant.unavailable_reason or "",
         "unavailable_until": _unavailable_until_for_input(restaurant.unavailable_until),
-        "created_at": restaurant.created_at.strftime("%B %d, %Y") if hasattr(restaurant, 'created_at') and restaurant.created_at else "Recently",
-        "owner_joined": restaurant.owner.date_joined.strftime("%B %d, %Y") if restaurant.owner else "Recently",
-        "is_approved": restaurant.owner.userprofile.is_approved if restaurant.owner and hasattr(restaurant.owner, 'userprofile') else False,
-        "is_rejected": restaurant.owner.userprofile.is_rejected if restaurant.owner and hasattr(restaurant.owner, 'userprofile') else False,
+        "created_at": (
+            restaurant.created_at.strftime("%B %d, %Y")
+            if hasattr(restaurant, "created_at") and restaurant.created_at
+            else "Recently"
+        ),
+        "owner_joined": (
+            restaurant.owner.date_joined.strftime("%B %d, %Y")
+            if restaurant.owner
+            else "Recently"
+        ),
+        "is_approved": (
+            restaurant.owner.userprofile.is_approved
+            if restaurant.owner and hasattr(restaurant.owner, "userprofile")
+            else False
+        ),
+        "is_rejected": (
+            restaurant.owner.userprofile.is_rejected
+            if restaurant.owner and hasattr(restaurant.owner, "userprofile")
+            else False
+        ),
         "composite_score": (
             float(restaurant.composite_score)
             if restaurant.composite_score is not None
@@ -1207,11 +1223,22 @@ def _serialize_owner_restaurant(restaurant: Restaurant) -> dict:
         "review_count": review_count,
         "citywide_rank": rank,
         "citywide_total": total_visible,
-        "completion_count": sum(1 for f in [
-            restaurant.name, restaurant.description, restaurant.cuisine_type,
-            restaurant.price_range, restaurant.hours_open, restaurant.hours_close,
-            restaurant.address, restaurant.phone, restaurant.website, restaurant.email
-        ] if f),
+        "completion_count": sum(
+            1
+            for f in [
+                restaurant.name,
+                restaurant.description,
+                restaurant.cuisine_type,
+                restaurant.price_range,
+                restaurant.hours_open,
+                restaurant.hours_close,
+                restaurant.address,
+                restaurant.phone,
+                restaurant.website,
+                restaurant.email,
+            ]
+            if f
+        ),
         "completion_total": 10,
     }
 
@@ -1315,18 +1342,17 @@ def diner_recommendations_api(request):
     friend_recs = Restaurant.objects.filter(
         id__in=FriendMessage.objects.filter(
             conversation__participants=request.user,
-            restaurant_recommendation__isnull=False
-        ).exclude(sender=request.user).values_list('restaurant_recommendation_id', flat=True)
+            restaurant_recommendation__isnull=False,
+        )
+        .exclude(sender=request.user)
+        .values_list("restaurant_recommendation_id", flat=True)
     ).distinct()
 
     # 2. Check for system preferences
     has_prefs = False
     try:
         prefs = request.user.preferences
-        nh = (prefs.neighborhood_preference or "").strip()
-        if (
-            prefs.favorite_cuisines
-        ):
+        if prefs.favorite_cuisines:
             has_prefs = True
     except UserPreference.DoesNotExist:
         pass
@@ -1371,7 +1397,6 @@ def diner_recommendations_api(request):
     )
 
 
-
 @csrf_exempt
 @login_required(login_url="landing")
 @require_http_methods(["GET", "POST"])
@@ -1402,15 +1427,21 @@ def restaurant_profile_api(request):
     if existing:
         form = RestaurantProfileForm(body, instance=existing)
         if form.is_valid():
-            major_fields = {"name", "description", "cuisine_type", "price_range", "address"}
+            major_fields = {
+                "name",
+                "description",
+                "cuisine_type",
+                "price_range",
+                "address",
+            }
             changed = set(form.changed_data)
-            
+
             profile = request.user.userprofile
             if changed.intersection(major_fields):
                 profile.is_approved = False
                 profile.is_rejected = False
                 profile.save()
-                
+
             form.save()
             return JsonResponse(
                 {"success": True, "restaurant": _serialize_owner_restaurant(existing)}
@@ -1945,10 +1976,11 @@ def friends_chat_group_create_api(request):
     # Filter to only valid diner IDs
     valid_ids = []
     if participant_ids:
-        valid_ids = list(User.objects.filter(
-            id__in=participant_ids, 
-            userprofile__role="diner"
-        ).exclude(id=request.user.id).values_list('id', flat=True))
+        valid_ids = list(
+            User.objects.filter(id__in=participant_ids, userprofile__role="diner")
+            .exclude(id=request.user.id)
+            .values_list("id", flat=True)
+        )
 
     if len(valid_ids) < 2:
         return _json_error("A group requires at least 2 other members.", 400)
@@ -1995,9 +2027,11 @@ def friends_chat_group_manage_api(request, conversation_id):
     if action == "add":
         if not (hasattr(target, "userprofile") and target.userprofile.role == "diner"):
             return _json_error("Only diners can be added to chat groups.", 400)
-        
+
         if conv.participants.filter(id=target.id).exists():
-            return _json_error(f"{target.username} is already a member of this group.", 400)
+            return _json_error(
+                f"{target.username} is already a member of this group.", 400
+            )
 
         conv.participants.add(target)
         return JsonResponse({"success": True, "detail": f"Added {target.username}."})
@@ -2037,7 +2071,7 @@ def friends_chat_group_leave_api(request, conversation_id):
         new_admin = conv.participants.filter(id=new_admin_id).first()
         if not new_admin or new_admin == request.user:
             return _json_error("Invalid new admin selected.", 400)
-        
+
         conv.creator = new_admin
         conv.save()
 
@@ -2161,8 +2195,11 @@ def friends_chat_search_users_api(request):
 @require_GET
 def unread_counts_api(request):
     """GET → return total unread friend messages for the navbar badge."""
-    total_unread = FriendMessage.objects.filter(
-        conversation__participants=request.user,
-        is_read=False
-    ).exclude(sender=request.user).count()
+    total_unread = (
+        FriendMessage.objects.filter(
+            conversation__participants=request.user, is_read=False
+        )
+        .exclude(sender=request.user)
+        .count()
+    )
     return JsonResponse({"total_unread": total_unread})

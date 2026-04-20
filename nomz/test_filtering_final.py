@@ -136,9 +136,7 @@ def test_apply_filters_whitespace_only_search_skips_text_filter(restaurant_set):
 def test_apply_filters_search_by_name_and_zip(restaurant_set):
     qs = Restaurant.objects.all()
     name_part = restaurant_set["a"].name.split()[0]
-    by_name = apply_restaurant_filters(
-        qs, params=QueryDict(f"search={name_part}")
-    )
+    by_name = apply_restaurant_filters(qs, params=QueryDict(f"search={name_part}"))
     assert restaurant_set["a"].id in set(by_name.values_list("id", flat=True))
 
     by_zip = apply_restaurant_filters(qs, params=QueryDict("search=11211"))
@@ -153,9 +151,7 @@ def test_apply_filters_search_nonexistent_zip_no_matches(restaurant_set):
 
 def test_apply_filters_q_alias(restaurant_set):
     qs = Restaurant.objects.all()
-    out = apply_restaurant_filters(
-        qs, params={"q": restaurant_set["c"].name[:6]}
-    )
+    out = apply_restaurant_filters(qs, params={"q": restaurant_set["c"].name[:6]})
     assert restaurant_set["c"].id in set(out.values_list("id", flat=True))
 
 
@@ -182,38 +178,28 @@ def test_apply_filters_price_range_valid_and_invalid(restaurant_set):
     assert set(cheap.values_list("id", flat=True)) == {restaurant_set["b"].id}
 
     # Invalid token → branch skipped, still returns actives
-    ignore = apply_restaurant_filters(
-        qs, params=QueryDict("price_range=INVALID")
-    )
+    ignore = apply_restaurant_filters(qs, params=QueryDict("price_range=INVALID"))
     assert ignore.count() >= len([restaurant_set[k] for k in ("a", "b", "c", "no_geo")])
 
 
 def test_apply_filters_composite_min_max_and_aliases(restaurant_set):
     qs = Restaurant.objects.all()
-    hi = apply_restaurant_filters(
-        qs, params=QueryDict("min_composite_score=70")
-    )
+    hi = apply_restaurant_filters(qs, params=QueryDict("min_composite_score=70"))
     assert restaurant_set["b"].id not in set(hi.values_list("id", flat=True))
 
-    lo = apply_restaurant_filters(
-        qs, params=QueryDict("max_score=70")
-    )
+    lo = apply_restaurant_filters(qs, params=QueryDict("max_score=70"))
     assert restaurant_set["b"].id in set(lo.values_list("id", flat=True))
 
 
 def test_apply_filters_min_composite_zero_skips_min_branch(restaurant_set):
     qs = Restaurant.objects.all()
-    out = apply_restaurant_filters(
-        qs, params=QueryDict("min_composite_score=0")
-    )
+    out = apply_restaurant_filters(qs, params=QueryDict("min_composite_score=0"))
     assert out.count() >= 3
 
 
 def test_apply_filters_max_composite_at_ceiling_skips_max_branch(restaurant_set):
     qs = Restaurant.objects.all()
-    out = apply_restaurant_filters(
-        qs, params=QueryDict("max_composite_score=100")
-    )
+    out = apply_restaurant_filters(qs, params=QueryDict("max_composite_score=100"))
     assert out.count() >= 3
 
 
@@ -238,7 +224,10 @@ def test_apply_filters_invalid_float_scores_ignored(restaurant_set):
 def test_apply_filters_min_rating(restaurant_set):
     qs = Restaurant.objects.all()
     out = apply_restaurant_filters(qs, params=QueryDict("min_rating=90"))
-    assert set(out.values_list("id", flat=True)) == {restaurant_set["a"].id, restaurant_set["c"].id}
+    assert set(out.values_list("id", flat=True)) == {
+        restaurant_set["a"].id,
+        restaurant_set["c"].id,
+    }
 
 
 def test_apply_filters_dietary_getlist(restaurant_set):
@@ -251,25 +240,19 @@ def test_apply_filters_dietary_getlist(restaurant_set):
 
 def test_apply_filters_dietary_from_plain_dict_string(restaurant_set):
     qs = Restaurant.objects.all()
-    out = apply_restaurant_filters(
-        qs, params={"dietary": "  Vegan , vegan , "}
-    )
+    out = apply_restaurant_filters(qs, params={"dietary": "  Vegan , vegan , "})
     assert restaurant_set["b"].id in set(out.values_list("id", flat=True))
 
 
 def test_apply_filters_dietary_via_description(restaurant_set):
     qs = Restaurant.objects.all()
-    out = apply_restaurant_filters(
-        qs, params={"dietary": "vegetarian-friendly"}
-    )
+    out = apply_restaurant_filters(qs, params={"dietary": "vegetarian-friendly"})
     assert restaurant_set["a"].id in set(out.values_list("id", flat=True))
 
 
 def test_apply_filters_require_coordinates(restaurant_set):
     qs = Restaurant.objects.all()
-    out = apply_restaurant_filters(
-        qs, params=QueryDict(""), require_coordinates=True
-    )
+    out = apply_restaurant_filters(qs, params=QueryDict(""), require_coordinates=True)
     ids = set(out.values_list("id", flat=True))
     assert restaurant_set["no_geo"].id not in ids
     assert restaurant_set["a"].id in ids
@@ -318,7 +301,9 @@ def test_restaurant_ordering_known_and_fallback():
 
 @patch("django.utils.timezone.now")
 def test_apply_open_now_filter_respects_hours(mock_now, restaurant_set):
-    mock_now.return_value = datetime(2026, 6, 15, 14, 30, 0, tzinfo=django_timezone.get_current_timezone())
+    mock_now.return_value = datetime(
+        2026, 6, 15, 14, 30, 0, tzinfo=django_timezone.get_current_timezone()
+    )
     open_r = restaurant_set["a"]
     closed_r = _make_restaurant(
         name=f"NightOnly {_uid()}",

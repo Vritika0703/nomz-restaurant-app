@@ -47,7 +47,6 @@ from nomz.models import (
     ModerationReport,
     Restaurant,
     RestaurantOwnershipClaim,
-    RestaurantPhoto,
     Review,
     ReviewResponse,
     UserPreference,
@@ -179,7 +178,9 @@ def test_health_check_get_json(client):
 
 
 @patch("nomz.views.refresh_restaurant_composite", return_value={"anomaly_count": 0})
-def test_admin_recalculate_scores_post_success(_mock_refresh, client, staff_user, owner_user):
+def test_admin_recalculate_scores_post_success(
+    _mock_refresh, client, staff_user, owner_user
+):
     _o, rest = owner_user
     client.force_login(staff_user)
     r = client.post(
@@ -563,9 +564,7 @@ def test_leave_group_member(diner_user):
         password="Str0ngPass!x",
     )
     UserProfile.objects.create(user=leader, role="diner", is_approved=True)
-    conv = FriendConversation.objects.create(
-        name="Team", is_group=True, creator=leader
-    )
+    conv = FriendConversation.objects.create(name="Team", is_group=True, creator=leader)
     conv.participants.add(leader, diner_user)
     req = _rf_post(diner_user, f"/friends-chat/group/{conv.id}/leave/", {})
     assert nomz_views.leave_group(req, conv.id).status_code == 302
@@ -579,11 +578,7 @@ def test_recommend_friend_restaurant_by_username(diner_user, owner_user):
         password="Str0ngPass!x",
     )
     UserProfile.objects.create(user=buddy, role="diner", is_approved=True)
-    u1, u2 = (
-        (diner_user, buddy)
-        if diner_user.id < buddy.id
-        else (buddy, diner_user)
-    )
+    u1, u2 = (diner_user, buddy) if diner_user.id < buddy.id else (buddy, diner_user)
     FriendConversation.objects.create(user1=u1, user2=u2, is_group=False)
     req = _rf_post(
         diner_user,
@@ -766,18 +761,17 @@ def test_recommend_friend_post_by_restaurant_name(diner_user, owner_user):
         password="Str0ngPass!x",
     )
     UserProfile.objects.create(user=buddy, role="diner", is_approved=True)
-    u1, u2 = (
-        (diner_user, buddy)
-        if diner_user.id < buddy.id
-        else (buddy, diner_user)
-    )
+    u1, u2 = (diner_user, buddy) if diner_user.id < buddy.id else (buddy, diner_user)
     FriendConversation.objects.create(user1=u1, user2=u2, is_group=False)
     req = _rf_post(
         diner_user,
         f"/friends-chat/{buddy.username}/recommend/",
         {"restaurant_name": rest.name, "body": "via name"},
     )
-    assert nomz_views.recommend_friend_restaurant(req, username=buddy.username).status_code == 302
+    assert (
+        nomz_views.recommend_friend_restaurant(req, username=buddy.username).status_code
+        == 302
+    )
 
 
 def test_recommend_friend_get_only_redirects(diner_user):
@@ -787,11 +781,7 @@ def test_recommend_friend_get_only_redirects(diner_user):
         password="Str0ngPass!x",
     )
     UserProfile.objects.create(user=buddy, role="diner", is_approved=True)
-    u1, u2 = (
-        (diner_user, buddy)
-        if diner_user.id < buddy.id
-        else (buddy, diner_user)
-    )
+    u1, u2 = (diner_user, buddy) if diner_user.id < buddy.id else (buddy, diner_user)
     FriendConversation.objects.create(user1=u1, user2=u2, is_group=False)
     rf = RequestFactory()
     req = rf.get(f"/friends-chat/{buddy.username}/recommend/")
@@ -818,9 +808,12 @@ def test_toggle_shared_add_by_restaurant_name(diner_user, owner_user):
         f"/friends-chat/group/{conv.id}/toggle-shared/",
         {"restaurant_name": rest.name, "action": "add"},
     )
-    assert nomz_views.toggle_shared_restaurant(
-        req, username=None, conversation_id=conv.id
-    ).status_code == 302
+    assert (
+        nomz_views.toggle_shared_restaurant(
+            req, username=None, conversation_id=conv.id
+        ).status_code
+        == 302
+    )
 
 
 def test_toggle_shared_remove(diner_user, owner_user):
@@ -878,7 +871,20 @@ def test_toggle_shared_restaurant_group_id(diner_user, owner_user):
     ).exists()
 
 
-@patch("nomz.views.compute_restaurant_composite_score", return_value={"composite_score": 80.0, "grade": "A", "grade_score": 90, "last_inspection_date": None, "review_count": 0, "review_confidence": 0.5, "review_factor_averages": {}, "review_factor_scores": {}, "score_breakdown": []})
+@patch(
+    "nomz.views.compute_restaurant_composite_score",
+    return_value={
+        "composite_score": 80.0,
+        "grade": "A",
+        "grade_score": 90,
+        "last_inspection_date": None,
+        "review_count": 0,
+        "review_confidence": 0.5,
+        "review_factor_averages": {},
+        "review_factor_scores": {},
+        "score_breakdown": [],
+    },
+)
 @patch("nomz.views.refresh_restaurant_composite", return_value={})
 def test_build_restaurant_score_insights_helper(_mock_r, _mock_c, owner_user):
     _o, rest = owner_user
@@ -1139,7 +1145,7 @@ def test_review_form_valid_invalid(diner_user, owner_user):
 
 def test_moderation_report_form_valid_invalid(diner_user, owner_user):
     _o, rest = owner_user
-    rev = Review.objects.create(
+    Review.objects.create(
         restaurant=rest,
         user=diner_user,
         rating=2,
@@ -1148,9 +1154,7 @@ def test_moderation_report_form_valid_invalid(diner_user, owner_user):
     f = ModerationReportForm(data={"reason": "SPAM", "details": "Promotional content"})
     assert f.is_valid(), f.errors
 
-    assert not ModerationReportForm(
-        data={"reason": "SPAM", "details": ""}
-    ).is_valid()
+    assert not ModerationReportForm(data={"reason": "SPAM", "details": ""}).is_valid()
 
 
 def test_review_response_form_valid_invalid():
