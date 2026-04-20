@@ -62,6 +62,7 @@ deploy:
   bucket_path: deployments
   on:
 <<<<<<< HEAD
+<<<<<<< HEAD
     branch: develop
 <<<<<<< HEAD
   cleanup: true
@@ -80,7 +81,14 @@ deploy:
 =======
 =======
 >>>>>>> c22df716 (branch travis fix)
+<<<<<<< HEAD
 >>>>>>> e3fa4857 (branch travis fix)
+=======
+=======
+    branch: production
+  cleanup: true
+>>>>>>> 0e7aec09 (prod deployment)
+>>>>>>> 73120762 (prod deployment)
 
 # Branches to build
 branches:
