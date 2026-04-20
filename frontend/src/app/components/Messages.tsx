@@ -55,6 +55,38 @@ export function Messages({
   const [startMessageBody, setStartMessageBody] = useState("");
   const [startSubmitting, setStartSubmitting] = useState(false);
 
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (accountType !== "Diner") return;
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch {}
+    })();
+
+    const rInterval = setInterval(async () => {
+      if (accountType !== "Diner") return;
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch {}
+    }, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(rInterval);
+    };
+  }, [accountType]);
+
   const loadSession = useCallback(async () => {
     try {
       const r = await apiFetch("/api/auth/session/");
@@ -248,22 +280,32 @@ export function Messages({
           </button>
 
           {accountType === "Diner" && onNavigateFriendChat && (
-            <button
-              onClick={onNavigateFriendChat}
-              className="text-xl transition-all p-2 rounded-lg"
-              title="Friend Chat"
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-              style={{
-                backgroundColor: "transparent",
-                border: "none",
-                cursor: "pointer",
-                color: "#E06E7F",
-              }}
-              type="button"
-            >
-              🤝
-            </button>
+            <div className="relative">
+              <button
+                onClick={onNavigateFriendChat}
+                className="text-xl transition-all p-2 rounded-lg"
+                title="Friend Chat"
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                style={{
+                  backgroundColor: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#E06E7F",
+                }}
+                type="button"
+              >
+                🤝
+              </button>
+              {totalUnread > 0 && (
+                <div 
+                  className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold"
+                  style={{ backgroundColor: '#E06E7F', color: 'white', border: '2px solid #FFF9F5' }}
+                >
+                  {totalUnread > 99 ? '99+' : totalUnread}
+                </div>
+              )}
+            </div>
           )}
 
           {accountType === "Diner" && (

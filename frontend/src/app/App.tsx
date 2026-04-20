@@ -638,6 +638,7 @@ function RecommendationsPage() {
         onNavigateMessages={() => navigate('/messages/')}
         onNavigateProfile={() => navigate('/profile/')}
         onOpenPreferences={() => navigate('/profile/')}
+        onNavigateFriendChat={() => navigate('/friends-chat/')}
         onLogout={logout}
         username={userData?.username || 'Diner'}
       />

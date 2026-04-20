@@ -42,6 +42,37 @@ export function UserHome({
   const [locationFilter, setLocationFilter] = useState("");
   const [recs, setRecs] = useState<RecRow[]>([]);
   const [recMessage, setRecMessage] = useState<string | null>(null);
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch (err) {
+        console.error("Failed to fetch unread counts", err);
+      }
+    })();
+
+    const rInterval = setInterval(async () => {
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch {}
+    }, 10000); // Poll every 10 seconds
+
+    return () => {
+      cancelled = true;
+      clearInterval(rInterval);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,6 +213,18 @@ export function UserHome({
             >
               🤝
             </button>
+            {totalUnread > 0 && (
+              <div 
+                className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold"
+                style={{ 
+                  backgroundColor: '#E06E7F',
+                  color: 'white',
+                  border: '2px solid #FFF9F5'
+                }}
+              >
+                {totalUnread > 99 ? '99+' : totalUnread}
+              </div>
+            )}
             {showFriendChatTooltip && (
               <div 
                 className="absolute top-full mt-1 left-1/2 transform -translate-x-1/2 px-2 py-1 rounded text-xs whitespace-nowrap"

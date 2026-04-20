@@ -851,7 +851,7 @@ def test_restaurant_profile_post_success(api_client, owner_user):
         "hours_open": "10:00",
         "hours_close": "22:00",
         "address": "1 Main",
-        "phone": "555-0100",
+        "phone": "555-010-0000",
         "website": "https://example.com",
         "email": "e@example.com",
     }
@@ -1099,10 +1099,11 @@ def test_friends_chat_detail_error_forbidden(api_client, diner_user):
 
 def test_friends_chat_group_create_success(api_client, diner_user):
     mate = _make_diner("mate")
+    mate2 = _make_diner("mate2_group59")
     api_client.force_login(diner_user)
     r = api_client.post(
         "/api/friends-chat/group/create/",
-        {"name": "Food Crew", "participant_ids": [mate.id]},
+        {"name": "Food Crew", "participant_ids": [mate.id, mate2.id]},
         format="json",
     )
     assert r.status_code == 201
@@ -1148,6 +1149,22 @@ def test_friends_chat_group_manage_error_not_creator(api_client, diner_user):
     assert r.status_code == 403
 
 
+def test_friends_chat_group_manage_error_already_added(api_client, diner_user):
+    mate = _make_diner("already_here")
+    conv = FriendConversation.objects.create(
+        name="Dupes", is_group=True, creator=diner_user
+    )
+    conv.participants.add(diner_user, mate)
+    api_client.force_login(diner_user)
+    r = api_client.post(
+        f"/api/friends-chat/group/{conv.id}/manage/",
+        {"action": "add", "user_id": mate.id},
+        format="json",
+    )
+    assert r.status_code == 400
+    assert "already a member" in r.json()["error"]
+
+
 def test_friends_chat_group_leave_success(api_client, diner_user):
     leader = _make_diner("leader")
     conv = FriendConversation.objects.create(
@@ -1167,6 +1184,50 @@ def test_friends_chat_group_leave_error_creator(api_client, diner_user):
     api_client.force_login(diner_user)
     r = api_client.post(f"/api/friends-chat/group/{conv.id}/leave/", {}, format="json")
     assert r.status_code == 400
+
+
+def test_friends_chat_group_leave_creator_pass(api_client, diner_user):
+    mate = _make_diner("mate_pass")
+    conv = FriendConversation.objects.create(
+        name="OwnersPass", is_group=True, creator=diner_user
+    )
+    conv.participants.add(diner_user, mate)
+    api_client.force_login(diner_user)
+    r = api_client.post(
+        f"/api/friends-chat/group/{conv.id}/leave/", 
+        {"new_admin_id": mate.id}, 
+        format="json"
+    )
+    assert r.status_code == 200
+    conv.refresh_from_db()
+    assert conv.creator == mate
+    assert diner_user not in conv.participants.all()
+
+
+def test_friends_chat_search_users_success(api_client, diner_user):
+    _make_diner("searchable1")
+    _make_diner("searchable2")
+    api_client.force_login(diner_user)
+    r = api_client.get("/api/friends-chat/search-users/?q=searchable")
+    assert r.status_code == 200
+    data = r.json()
+    assert "users" in data
+    assert len(data["users"]) == 2
+
+
+def test_friends_chat_group_manage_error_only_diners(api_client, diner_user, owner_without_restaurant):
+    conv = FriendConversation.objects.create(
+        name="DinersOnlyGroup", is_group=True, creator=diner_user
+    )
+    conv.participants.add(diner_user)
+    api_client.force_login(diner_user)
+    r = api_client.post(
+        f"/api/friends-chat/group/{conv.id}/manage/",
+        {"action": "add", "user_id": owner_without_restaurant.id},
+        format="json",
+    )
+    assert r.status_code == 400
+    assert "Only diners can be added" in r.json()["error"]
 
 
 def test_friends_chat_recommend_success(api_client, diner_user, public_restaurant):
@@ -1574,7 +1635,7 @@ def test_restaurant_profile_create_success(api_client, owner_without_restaurant)
         "hours_open": "11:00",
         "hours_close": "23:00",
         "address": "9th Ave",
-        "phone": "555-0199",
+        "phone": "555-019-9000",
         "website": "https://example.com/",
         "email": "chef@example.com",
     }
@@ -1632,3 +1693,105 @@ def test_restaurant_detail_with_owner_response(api_client, owner_user, diner_use
     r = api_client.get(f"/api/restaurants/{rest.id}/")
     assert r.status_code == 200
     assert r.json()["reviews"][0]["owner_response"] is not None
+import pytest
+from nomz.models import UserProfile, Restaurant
+from .forms import RestaurantProfileForm
+
+pytestmark = pytest.mark.django_db
+
+def test_restaurant_profile_form_phone_validation():
+    # Alphabet in phone
+    form = RestaurantProfileForm(data={"phone": "1234abc56789"})
+    form.is_valid()
+    assert "phone" in form.errors
+    assert "Alphabets are not allowed" in form.errors["phone"][0]
+
+    # Less than 10 digits
+    form2 = RestaurantProfileForm(data={"phone": "123456"})
+    form2.is_valid()
+    assert "phone" in form2.errors
+    assert "must contain at least 10" in form2.errors["phone"][0]
+
+    # Valid phone
+    form3 = RestaurantProfileForm(data={"phone": "(123) 456-7890"})
+    form3.is_valid()
+    assert "phone" not in form3.errors
+
+def test_restaurant_profile_form_email_validation():
+    # Missing @
+    form = RestaurantProfileForm(data={"email": "q.com"})
+    form.is_valid()
+    assert "email" in form.errors
+    assert "missing an '@'" in form.errors["email"][0]
+
+    # Missing letter before @
+    form2 = RestaurantProfileForm(data={"email": "@q.com"})
+    form2.is_valid()
+    assert "email" in form2.errors
+    assert "before @" in form2.errors["email"][0]
+
+    # Missing letter after @
+    form3 = RestaurantProfileForm(data={"email": "texx@"})
+    form3.is_valid()
+    assert "email" in form3.errors
+    assert "following '@'" in form3.errors["email"][0]
+
+    # Bad domain
+    form4 = RestaurantProfileForm(data={"email": "texx@c,com"})
+    form4.is_valid()
+    assert "email" in form4.errors
+    assert "valid format" in form4.errors["email"][0]
+
+def test_restaurant_profile_minor_update_keeps_approval(api_client, owner_user):
+    owner, rest = owner_user
+    
+    owner.userprofile.is_approved = True
+    owner.userprofile.save()
+    
+    api_client.force_login(owner)
+    
+    from datetime import time
+    
+    payload = {
+        "name": rest.name,
+        "description": rest.description,
+        "cuisine_type": rest.cuisine_type,
+        "price_range": rest.price_range,
+        "address": rest.address,
+        "hours_open": "10:00",
+        "hours_close": "22:00",
+        "phone": "555-123-4567",
+        "website": rest.website,
+        "email": rest.email,
+    }
+    r = api_client.post("/api/restaurant/profile/", payload, format="json")
+    assert r.status_code == 200
+    
+    owner.userprofile.refresh_from_db()
+    assert owner.userprofile.is_approved is True
+
+def test_restaurant_profile_major_update_resets_approval(api_client, owner_user):
+    owner, rest = owner_user
+    
+    owner.userprofile.is_approved = True
+    owner.userprofile.save()
+    
+    api_client.force_login(owner)
+    
+    payload = {
+        "name": "Different Name",
+        "description": rest.description,
+        "cuisine_type": rest.cuisine_type,
+        "price_range": rest.price_range,
+        "address": rest.address,
+        "hours_open": "10:00",
+        "hours_close": "22:00",
+        "phone": "555-123-4567",
+        "website": rest.website,
+        "email": rest.email,
+    }
+    r = api_client.post("/api/restaurant/profile/", payload, format="json")
+    assert r.status_code == 200
+    
+    owner.userprofile.refresh_from_db()
+    assert owner.userprofile.is_approved is False

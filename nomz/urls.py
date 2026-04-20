@@ -242,6 +242,11 @@ urlpatterns = [
         spa_api.friends_chat_toggle_shared_api,
         name="api_friends_chat_toggle_shared",
     ),
+    path(
+        "api/friends-chat/search-users/",
+        spa_api.friends_chat_search_users_api,
+        name="api_friends_chat_search_users",
+    ),
 ]
 
 # --- Server-side views (POST actions that redirect) -------------------------

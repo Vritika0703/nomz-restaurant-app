@@ -43,6 +43,33 @@ export function Map({
   const [maxScore, setMaxScore] = useState('');
   const [sortBy, setSortBy] = useState('composite-high-low');
   const [onlyVisibleArea, setOnlyVisibleArea] = useState(false);
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch {}
+    })();
+    const rInt = setInterval(async () => {
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch {}
+    }, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(rInt);
+    };
+  }, []);
 
   const [results, setResults] = useState<MapRestaurantPoint[]>([]);
   const [loading, setLoading] = useState(false);
@@ -297,26 +324,40 @@ export function Map({
               </button>
 
               {onNavigateFriendChat && (
-                <button
-                  onClick={onNavigateFriendChat}
-                  className="text-xl transition-all p-2 rounded-lg"
-                  title="Friend Chat"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                  style={{ 
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#E06E7F',
-                    fontWeight: 'normal'
-                  }}
-                >
-                  🤝
-                </button>
+                <div className="relative">
+                  <button
+                    onClick={onNavigateFriendChat}
+                    className="text-xl transition-all p-2 rounded-lg"
+                    title="Friend Chat"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                    style={{ 
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: '#E06E7F',
+                      fontWeight: 'normal'
+                    }}
+                  >
+                    🤝
+                  </button>
+                  {totalUnread > 0 && (
+                    <div 
+                      className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[9px] font-bold"
+                      style={{ 
+                        backgroundColor: '#E06E7F',
+                        color: 'white',
+                        border: '1.5px solid #FFF9F5'
+                      }}
+                    >
+                      {totalUnread > 99 ? '99+' : totalUnread}
+                    </div>
+                  )}
+                </div>
               )}
               
               <button
