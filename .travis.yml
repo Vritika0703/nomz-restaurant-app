@@ -10,8 +10,13 @@ services:
   - postgresql
 
 before_script:
+<<<<<<< HEAD
   # Never use $$ here — the shell replaces it with the process ID and breaks psql.
   - psql -U postgres -v ON_ERROR_STOP=1 -c "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'travis') THEN CREATE ROLE travis LOGIN PASSWORD 'travis'; END IF; END $$;"
+=======
+  # Escape $$ to prevent shell expansion to process ID.
+  - psql -U postgres -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'travis') THEN CREATE ROLE travis LOGIN PASSWORD 'travis'; END IF; END \$\$;"
+>>>>>>> 46387146 (undo travis)
   - psql -U postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "nomz-db" OWNER travis;' || true
   - psql -U postgres -v ON_ERROR_STOP=1 -c 'GRANT ALL PRIVILEGES ON DATABASE "nomz-db" TO travis;'
 
@@ -86,9 +91,16 @@ deploy:
 =======
 =======
     branch: production
+<<<<<<< HEAD
   cleanup: true
 >>>>>>> 0e7aec09 (prod deployment)
+<<<<<<< HEAD
 >>>>>>> 73120762 (prod deployment)
+=======
+=======
+  skip_cleanup: false
+>>>>>>> e3772074 (undo travis)
+>>>>>>> 46387146 (undo travis)
 
 # Branches to build
 branches:
