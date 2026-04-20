@@ -993,7 +993,7 @@ def test_restaurant_profile_form_valid(owner_user):
         "hours_open": "09:00",
         "hours_close": "22:00",
         "address": "1 Broadway",
-        "phone": "555-0100",
+        "phone": "555-010-0000",
         "website": "https://example.com/",
         "email": "chef@example.com",
     }
