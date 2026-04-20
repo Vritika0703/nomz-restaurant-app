@@ -65,7 +65,11 @@ def test_cleanup_restaurant_data_apply_deactivates_orphan():
     out = StringIO()
     call_command("cleanup_restaurant_data", "--apply", stdout=out)
     assert "Deactivated" in out.getvalue()
-    assert Restaurant.objects.filter(name__startswith="OrphanCmd_").filter(is_active=False).exists()
+    assert (
+        Restaurant.objects.filter(name__startswith="OrphanCmd_")
+        .filter(is_active=False)
+        .exists()
+    )
 
 
 # --- fetch_nyc_sources -------------------------------------------------------
@@ -235,8 +239,12 @@ def test_recalculate_recommendations_daily_metrics(mock_recalc, db):
     )
     # Ensure calculated_at matches today for the metrics command
     import datetime
+
     today_utc = timezone.now().astimezone(datetime.timezone.utc).date()
-    noon_utc = timezone.make_aware(datetime.datetime.combine(today_utc, datetime.time(12, 0)), timezone=datetime.timezone.utc)
+    noon_utc = timezone.make_aware(
+        datetime.datetime.combine(today_utc, datetime.time(12, 0)),
+        timezone=datetime.timezone.utc,
+    )
     RecalculatedRecommendation.objects.all().update(calculated_at=noon_utc)
     assert prefs.has_enough_data_for_learning()
 
@@ -245,7 +253,7 @@ def test_recalculate_recommendations_daily_metrics(mock_recalc, db):
     mock_recalc.assert_called_once()
     # We check if the command output contains at least a success message
     assert "Successfully recalculated" in out.getvalue()
-    
+
     assert RecommendationModelMetric.objects.exists()
     metric = RecommendationModelMetric.objects.first()
     metric.refresh_from_db()
