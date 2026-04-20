@@ -62,7 +62,6 @@ deploy:
   bucket_path: deployments
   on:
     branch: production
-  skip_cleanup: false
 
 # Branches to build
 branches:
