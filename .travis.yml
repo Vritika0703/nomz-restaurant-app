@@ -72,9 +72,15 @@ deploy:
 =======
 =======
     branch: production
+<<<<<<< HEAD
   skip_cleanup: false
 >>>>>>> 0a665a09 (undo travis)
+<<<<<<< HEAD
 >>>>>>> e8301199 (undo travis)
+=======
+=======
+>>>>>>> c22df716 (branch travis fix)
+>>>>>>> e3fa4857 (branch travis fix)
 
 # Branches to build
 branches:
