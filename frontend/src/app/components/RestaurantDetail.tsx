@@ -274,16 +274,36 @@ export function RestaurantDetail({
               <hr style={{ border: 'none', borderTop: '1px solid rgba(224,110,127,0.1)', margin: '0 0 12px' }} />
               <div className="flex flex-col gap-2">
                 {data.owner_id && data.messaging_enabled && (
-                  <button
-                    type="button"
-                    onClick={() => onStartConversation?.(data.id, data.name)}
-                    className="w-full py-2 rounded text-xs text-white"
-                    title="Message this restaurant"
-                    style={{ backgroundColor: '#E06E7F', border: 'none', cursor: onStartConversation ? 'pointer' : 'not-allowed', fontFamily: 'Montserrat, sans-serif', opacity: onStartConversation ? 1 : 0.6 }}
-                    disabled={!onStartConversation}
-                  >
-                    ✉️ Message Restaurant
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => onStartConversation?.(data.id, data.name)}
+                      className="w-full py-2 rounded text-xs text-white"
+                      title="Message this restaurant"
+                      style={{ backgroundColor: '#E06E7F', border: 'none', cursor: onStartConversation ? 'pointer' : 'not-allowed', fontFamily: 'Montserrat, sans-serif', opacity: onStartConversation ? 1 : 0.6 }}
+                      disabled={!onStartConversation}
+                    >
+                      ✉️ Message Restaurant
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Assuming the Friend Chat page handle this or just navigate there
+                        window.location.href = '/friends-chat/';
+                      }}
+                      className="w-full py-2 rounded text-xs mt-2"
+                      title="Recommend this to a friend"
+                      style={{ 
+                        backgroundColor: 'white', 
+                        border: '1px solid #E06E7F', 
+                        color: '#E06E7F',
+                        cursor: 'pointer', 
+                        fontFamily: 'Montserrat, sans-serif'
+                      }}
+                    >
+                      🤝 Recommend to Friend
+                    </button>
+                  </>
                 )}
                 {data.owner_id && !data.messaging_enabled && (
                   <button className="w-full py-2 rounded text-xs" style={{ backgroundColor: '#e5e7eb', border: 'none', cursor: 'not-allowed', fontFamily: 'Montserrat, sans-serif', color: '#999' }} disabled>

@@ -1,25 +1,9 @@
 import { Footer } from "./Footer";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "../api";
+import { CUISINE_CHOICES } from "../constants";
 
 /** Must match `Restaurant.CUISINE_CHOICES` / `UserPreferenceForm` values (slugs sent to the API). */
-const CUISINE_CHOICES: { value: string; label: string }[] = [
-  { value: "american", label: "American" },
-  { value: "asian", label: "Asian" },
-  { value: "italian", label: "Italian" },
-  { value: "mexican", label: "Mexican" },
-  { value: "indian", label: "Indian" },
-  { value: "french", label: "French" },
-  { value: "japanese", label: "Japanese" },
-  { value: "chinese", label: "Chinese" },
-  { value: "thai", label: "Thai" },
-  { value: "mediterranean", label: "Mediterranean" },
-  { value: "fusion", label: "Fusion" },
-  { value: "vegetarian", label: "Vegetarian" },
-  { value: "vegan", label: "Vegan" },
-  { value: "other", label: "Other" },
-];
-
 const DIETARY_OPTIONS = ["Vegan", "Vegetarian", "Non-vegetarian", "Gluten-Free", "Halal", "Kosher"] as const;
 
 function splitFullName(full: string): { first_name: string; last_name: string } {
@@ -53,6 +37,36 @@ export function UserProfile({ onBack, onViewMessages, onViewFriendChat, onNaviga
 
   const cuisineLabel = (slug: string) =>
     CUISINE_CHOICES.find((c) => c.value === slug)?.label ?? slug;
+
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch {}
+    })();
+
+    const rInterval = setInterval(async () => {
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch {}
+    }, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(rInterval);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -268,26 +282,36 @@ export function UserProfile({ onBack, onViewMessages, onViewFriendChat, onNaviga
             💬
           </button>
 
-          <button
-            onClick={onViewFriendChat}
-            className="text-xl transition-all p-2 rounded-lg"
-            title="Friend Chat"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-            style={{ 
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#E06E7F',
-              fontWeight: 'normal'
-            }}
-          >
-            🤝
-          </button>
+          <div className="relative">
+            <button
+              onClick={onViewFriendChat}
+              className="text-xl transition-all p-2 rounded-lg"
+              title="Friend Chat"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              style={{ 
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                color: '#E06E7F',
+                fontWeight: 'normal'
+              }}
+            >
+              🤝
+            </button>
+            {totalUnread > 0 && (
+              <div 
+                className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold"
+                style={{ backgroundColor: '#E06E7F', color: 'white', border: '2px solid #FFF9F5' }}
+              >
+                {totalUnread > 99 ? '99+' : totalUnread}
+              </div>
+            )}
+          </div>
           
           <button
             onClick={onLogout}
