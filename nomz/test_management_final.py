@@ -12,7 +12,6 @@ from unittest.mock import patch
 import pytest
 from django.contrib.auth.models import User
 from django.core.management import call_command
-from django.utils import timezone
 
 from nomz.ingestion.runner import IngestionSummary
 from nomz.models import (
@@ -238,10 +237,20 @@ def test_recalculate_recommendations_daily_metrics(mock_recalc, db):
     out = StringIO()
     call_command("recalculate_recommendations", user_id=u.id, stdout=out)
     mock_recalc.assert_called_once()
-    assert RecommendationModelMetric.objects.filter(
-        metric_date=timezone.now().date()
-    ).exists()
     assert "Daily metrics calculated" in out.getvalue()
+
+    metric = (
+        RecommendationModelMetric.objects.filter(
+            total_recommendations_given=1,
+            successful_recommendations=1,
+            total_users_with_recommendations=1,
+        )
+        .order_by("-metric_date")
+        .first()
+    )
+    assert metric is not None
+    metric.refresh_from_db()
+    assert RecalculatedRecommendation.objects.get().user_id == u.id
 
 
 # --- seed_synthetic_reviews ----------------------------------------------------

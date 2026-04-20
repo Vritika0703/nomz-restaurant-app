@@ -72,7 +72,7 @@ class Command(BaseCommand):
 
     def _calculate_daily_metrics(self):
         """Calculate and store daily recommendation metrics"""
-        today = timezone.now().date()
+        today = timezone.localdate()
 
         # Get all recommendations from today
         today_recs = RecalculatedRecommendation.objects.filter(
