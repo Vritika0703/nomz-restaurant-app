@@ -12,6 +12,8 @@ from pathlib import Path
 
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse
+from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_GET
 
 
@@ -65,6 +67,19 @@ def _load_index_bytes() -> bytes:
 @require_GET
 def spa_index(request, spa_path: str | None = None, **kwargs):
     """**kwargs absorbs URL converter names (e.g. restaurant_id) from named SPA routes."""
+    # Optional post-auth style redirect: only allow same-site targets (relative or matching host).
+    next_raw = request.GET.get("next")
+    if next_raw is not None:
+        candidate = next_raw.strip()
+        if candidate:
+            site_host = request.get_host().split(":")[0]
+            if url_has_allowed_host_and_scheme(
+                url=candidate,
+                allowed_hosts={site_host},
+                require_https=request.is_secure(),
+            ):
+                return redirect(candidate)
+
     for p in _index_candidates():
         if p.is_file():
             response = HttpResponse(

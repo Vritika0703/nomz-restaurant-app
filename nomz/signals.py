@@ -295,6 +295,7 @@ def refresh_score_on_inspection_delete(sender, instance, **kwargs):
     )
 
 
+
 @receiver(post_save, sender=Message)
 def create_message_notification(sender, instance, created, raw=False, **kwargs):
     if raw or not created:

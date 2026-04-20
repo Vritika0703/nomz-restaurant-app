@@ -30,6 +30,7 @@ export function Recommendations({
   onNavigateMessages: () => void;
   onNavigateProfile: () => void;
   onOpenPreferences?: () => void;
+  onNavigateFriendChat?: () => void;
   onLogout: () => void;
   username: string;
 }) {
@@ -38,6 +39,21 @@ export function Recommendations({
   const [requiresPreferences, setRequiresPreferences] = useState(false);
   const [restaurants, setRestaurants] = useState<RecRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [totalUnread, setTotalUnread] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await apiFetch("/api/unread-counts/");
+        if (r.ok && !cancelled) {
+          const d = await r.json();
+          setTotalUnread(d.total_unread || 0);
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +108,19 @@ export function Recommendations({
           <button type="button" onClick={onNavigateMessages} title="Messages" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
             💬
           </button>
+          <div className="relative">
+            <button type="button" onClick={onNavigateFriendChat} title="Friends" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+              🤝
+            </button>
+            {totalUnread > 0 && (
+              <div 
+                className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full text-[9px] font-bold"
+                style={{ backgroundColor: '#E06E7F', color: 'white', border: '1.5px solid #FFF9F5' }}
+              >
+                {totalUnread > 99 ? '99+' : totalUnread}
+              </div>
+            )}
+          </div>
           <button type="button" onClick={onNavigateProfile} title="Profile" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
             👤
           </button>

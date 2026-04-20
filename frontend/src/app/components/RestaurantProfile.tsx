@@ -43,6 +43,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
   const [availableAgainDate, setAvailableAgainDate] = useState("");
 
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [profileFieldErrors, setProfileFieldErrors] = useState<Record<string, string[]> | null>(null);
   const [communicationSaveError, setCommunicationSaveError] = useState<string | null>(null);
   const [availabilitySaveError, setAvailabilitySaveError] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -71,6 +72,20 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
   const [respondError, setRespondError] = useState<string | null>(null);
   const [respondSaving, setRespondSaving] = useState(false);
   const [restaurantId, setRestaurantId] = useState<number | null>(null);
+  const [isApproved, setIsApproved] = useState(false);
+  const [isRejected, setIsRejected] = useState(false);
+  const [completionPercent, setCompletionPercent] = useState(0);
+  const [ownerJoinedDate, setOwnerJoinedDate] = useState("Recently");
+  const [profileCreatedDate, setProfileCreatedDate] = useState("Recently");
+
+  const renderFieldError = (field: string) => {
+    if (!profileFieldErrors || !profileFieldErrors[field]) return null;
+    return (
+      <p className="text-[#E06E7F] text-xs font-bold mt-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>
+        {profileFieldErrors[field].join(" ")}
+      </p>
+    );
+  };
 
   const applyRestaurantPayload = useCallback((r: Record<string, unknown>, cuisines: Choice[], prices: Choice[]) => {
     setRestaurantId(typeof r.id === "number" ? r.id : null);
@@ -116,6 +131,13 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
     setOwnerCitywideRank(typeof cr === "number" ? cr : cr != null && cr !== "" ? Number(cr) : null);
     const cwt = r.citywide_total;
     setOwnerCitywideTotal(typeof cwt === "number" ? cwt : Number(cwt) || 0);
+    setIsApproved(Boolean(r["is_approved"]));
+    setIsRejected(Boolean(r["is_rejected"]));
+    const cc = typeof r["completion_count"] === "number" ? (r["completion_count"] as number) : 0;
+    const ct_val = typeof r["completion_total"] === "number" ? (r["completion_total"] as number) : 10;
+    setCompletionPercent(Math.round((cc / (ct_val || 1)) * 100));
+    setOwnerJoinedDate(String(r["owner_joined"] || "Recently"));
+    setProfileCreatedDate(String(r["created_at"] || "Recently"));
   }, []);
 
   const loadProfile = useCallback(async () => {
@@ -144,6 +166,24 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
       setProfileLoading(false);
     }
   }, [applyRestaurantPayload]);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (hasRestaurant && !isApproved && !isRejected) {
+      interval = setInterval(async () => {
+        try {
+          const res = await apiFetch("/api/restaurant/profile/");
+          if (!res.ok) return;
+          const d = await res.json();
+          if (d.has_restaurant && d.restaurant) {
+            setIsApproved(Boolean(d.restaurant.is_approved));
+            setIsRejected(Boolean(d.restaurant.is_rejected));
+          }
+        } catch {}
+      }, 5000);
+    }
+    return () => clearInterval(interval);
+  }, [hasRestaurant, isApproved, isRejected]);
 
   useEffect(() => {
     loadProfile();
@@ -211,7 +251,12 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setProfileSaveError("Could not save profile.");
+        if (data.errors) {
+          setProfileFieldErrors(data.errors);
+          setProfileSaveError("Please correct the errors below.");
+        } else {
+          setProfileSaveError(data.error || "Could not save profile.");
+        }
         setSavingProfile(false);
         return;
       }
@@ -227,6 +272,8 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
   };
 
   const handleCancel = () => {
+    setProfileFieldErrors(null);
+    setProfileSaveError(null);
     setIsEditing(false);
     loadProfile();
   };
@@ -801,11 +848,11 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       Verification Status
                     </p>
                     <span className="inline-block py-1 px-3 rounded text-xs" style={{ 
-                      backgroundColor: '#FFD700',
-                      color: '#333',
+                      backgroundColor: isApproved ? '#4ADE80' : isRejected ? '#EF4444' : '#FFD700',
+                      color: (isApproved || isRejected) ? 'white' : '#333',
                       fontFamily: 'Montserrat, sans-serif'
                     }}>
-                      Pending approval
+                      {isApproved ? 'Approved & Active' : isRejected ? 'Verification Rejected' : 'Pending approval'}
                     </span>
                   </div>
                   <div>
@@ -819,7 +866,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       fontFamily: 'Montserrat, sans-serif',
                       color: '#E06E7F'
                     }}>
-                      65% Complete
+                      {completionPercent}% Complete
                     </p>
                   </div>
                 </div>
@@ -850,10 +897,29 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                         fontFamily: 'Montserrat, sans-serif',
                         color: '#999'
                       }}>
-                        March 23, 2028
+                        {ownerJoinedDate}
                       </p>
                     </div>
                   </div>
+                  {isApproved && (
+                    <div className="flex items-center gap-3 p-3 rounded" style={{ backgroundColor: 'rgba(74, 222, 128, 0.05)' }}>
+                      <span className="text-xl">✅</span>
+                      <div className="flex-1">
+                        <p className="text-sm mb-1" style={{ 
+                          fontFamily: 'Montserrat, sans-serif',
+                          color: '#333'
+                        }}>
+                          Identity verified & approved
+                        </p>
+                        <p className="text-xs" style={{ 
+                          fontFamily: 'Montserrat, sans-serif',
+                          color: '#999'
+                        }}>
+                          Active
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="text-center py-8">
                     <p className="text-sm" style={{ 
                       fontFamily: 'Montserrat, sans-serif',
@@ -1193,6 +1259,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       Business Name
                     </p>
                     {isEditing ? (
+                      <>
                       <input
                         type="text"
                         value={businessName}
@@ -1207,6 +1274,8 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                         onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
                         onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
                       />
+                      {renderFieldError('name')}
+                    </>
                     ) : (
                       <p className="text-sm" style={{ 
                         fontFamily: 'Montserrat, sans-serif',
@@ -1240,6 +1309,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       Email
                     </p>
                     {isEditing ? (
+                      <>
                       <input
                         type="email"
                         value={email}
@@ -1254,6 +1324,8 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                         onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
                         onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
                       />
+                      {renderFieldError('email')}
+                    </>
                     ) : (
                       <p className="text-sm" style={{ 
                         fontFamily: 'Montserrat, sans-serif',
@@ -1272,6 +1344,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       Phone
                     </p>
                     {isEditing ? (
+                      <>
                       <input
                         type="text"
                         value={phone}
@@ -1287,6 +1360,8 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                         onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
                         onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
                       />
+                      {renderFieldError('phone')}
+                    </>
                     ) : (
                       <p className="text-sm" style={{ 
                         fontFamily: 'Montserrat, sans-serif',
@@ -1305,6 +1380,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       Address
                     </p>
                     {isEditing ? (
+                      <>
                       <input
                         type="text"
                         value={address}
@@ -1320,6 +1396,8 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                         onFocus={(e) => e.target.style.borderColor = '#E06E7F'}
                         onBlur={(e) => e.target.style.borderColor = 'rgba(224, 110, 127, 0.2)'}
                       />
+                      {renderFieldError('address')}
+                    </>
                     ) : (
                       <p className="text-sm" style={{ 
                         fontFamily: 'Montserrat, sans-serif',
@@ -1341,7 +1419,7 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       fontFamily: 'Montserrat, sans-serif',
                       color: '#666'
                     }}>
-                      March 23, 2028
+                      {profileCreatedDate}
                     </p>
                   </div>
                 </div>
@@ -1518,11 +1596,11 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
                       Account Status
                     </p>
                     <span className="inline-block py-1 px-3 rounded text-xs" style={{ 
-                      backgroundColor: '#FFD700',
-                      color: '#333',
+                      backgroundColor: isApproved ? '#4ADE80' : isRejected ? '#EF4444' : '#FFD700',
+                      color: (isApproved || isRejected) ? 'white' : '#333',
                       fontFamily: 'Montserrat, sans-serif'
                     }}>
-                      Pending approval
+                      {isApproved ? 'Approved & Active' : isRejected ? 'Verification Rejected' : 'Pending approval'}
                     </span>
                   </div>
 
