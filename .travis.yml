@@ -54,7 +54,7 @@ deploy:
   bucket_name: nomz-static-files-friend-2026
   bucket_path: deployments
   on:
-    branch: develop
+    branch: production
   cleanup: true
 
 branches:
