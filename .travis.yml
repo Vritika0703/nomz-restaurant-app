@@ -36,7 +36,7 @@ env:
 
 script:
   - python manage.py migrate --no-input
-  - pytest --cov=nomz --cov-report=xml
+  - pytest --cov=nomz
 
 after_success:
   - coveralls --service=travis-ci
@@ -55,7 +55,7 @@ deploy:
   bucket_path: deployments
   on:
     branch: develop
-  skip_cleanup: false
+  cleanup: true
 
 branches:
   only:
