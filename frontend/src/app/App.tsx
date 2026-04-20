@@ -78,7 +78,7 @@ function UrlSync() {
 }
 
 function SessionBootstrap() {
-  const { setUserData } = useAppContext();
+  const { setUserData, setIsSessionLoading } = useAppContext();
 
   useEffect(() => {
     let cancelled = false;
@@ -86,26 +86,38 @@ function SessionBootstrap() {
       try {
         const r = await apiFetch('/api/auth/session/');
         const data = await r.json();
-        if (cancelled || !data.authenticated) return;
-        let accountType: UserData['accountType'] = 'diner';
-        if (data.is_staff) accountType = 'admin';
-        else if (data.role === 'restaurant') accountType = 'restaurant';
-        setUserData({ username: data.username, accountType });
+        if (cancelled) return;
+        if (data.authenticated) {
+          let accountType: UserData['accountType'] = 'diner';
+          if (data.is_staff) accountType = 'admin';
+          else if (data.role === 'restaurant') accountType = 'restaurant';
+          setUserData({ username: data.username, accountType });
+        }
       } catch {
         /* offline or CORS */
+      } finally {
+        if (!cancelled) {
+          setIsSessionLoading(false);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [setUserData]);
+  }, [setUserData, setIsSessionLoading]);
 
   return null;
 }
 
 function RequireAuth({ children }: { children: ReactElement }) {
-  const { userData } = useAppContext();
+  const { userData, isSessionLoading } = useAppContext();
   const location = useLocation();
+  
+  // While session is loading, show nothing (prevents flashing signin during reload)
+  if (isSessionLoading) {
+    return null;
+  }
+  
   if (!userData) {
     return (
       <Navigate
@@ -125,7 +137,13 @@ function RequireRole({
   allow: AccountType[];
   children: ReactElement;
 }) {
-  const { userData } = useAppContext();
+  const { userData, isSessionLoading } = useAppContext();
+  
+  // While session is loading, show nothing
+  if (isSessionLoading) {
+    return null;
+  }
+  
   if (!userData || !allow.includes(userData.accountType)) {
     return <Navigate to="/home/" replace />;
   }
