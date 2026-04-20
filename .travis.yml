@@ -39,8 +39,10 @@ script:
   - pytest --cov=nomz --cov-report=xml
 
 after_success:
-  - coveralls
   - coveralls --service=travis-ci
+
+after_script:
+  - coveralls --finish
 
 deploy:
   provider: elasticbeanstalk
@@ -52,7 +54,7 @@ deploy:
   bucket_name: nomz-static-files-friend-2026
   bucket_path: deployments
   on:
-    branch: production
+    branch: develop
   skip_cleanup: false
 
 branches:
