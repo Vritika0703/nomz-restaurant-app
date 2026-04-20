@@ -2,19 +2,18 @@ language: python
 python:
   - "3.12"
 
-dist: jammy
-
 cache:
   pip: true
 
+# Services required for testing
 services:
   - postgresql
 
 before_script:
   # Never use $$ here — the shell replaces it with the process ID and breaks psql.
-  - psql -U postgres -c "CREATE ROLE travis LOGIN PASSWORD 'travis';" || true
-  - psql -U postgres -c 'CREATE DATABASE "nomz-db" OWNER travis;' || true
-  - psql -U postgres -c 'GRANT ALL PRIVILEGES ON DATABASE "nomz-db" TO travis;'
+  - psql -U postgres -v ON_ERROR_STOP=1 -c "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'travis') THEN CREATE ROLE travis LOGIN PASSWORD 'travis'; END IF; END $$;"
+  - psql -U postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "nomz-db" OWNER travis;' || true
+  - psql -U postgres -v ON_ERROR_STOP=1 -c 'GRANT ALL PRIVILEGES ON DATABASE "nomz-db" TO travis;'
 
 install:
   - pip install --upgrade pip
@@ -34,16 +33,24 @@ env:
     - USE_S3=False
     - ENVIRONMENT=testing
 
+# Test script
 script:
+  - python manage.py check
   - python manage.py migrate --no-input
-  - pytest --cov=nomz
+  - coverage run --source='nomz' manage.py test --no-input --verbosity=2
+  - black --check .
+  - flake8 .
 
+# Send coverage to Coveralls
 after_success:
-  - coveralls --service=travis-ci
+  - coverage xml
+  - coveralls 
 
-after_script:
-  - coveralls --finish
+# IMPORTANT:
+# Do not build frontend in Travis deploy job. Building in CI mutates the working
+# tree and can produce oversized/corrupt EB bundles.
 
+# Deploy to AWS Elastic Beanstalk on production branch
 deploy:
   provider: elasticbeanstalk
   access_key_id: $AWS_ACCESS_KEY_ID
@@ -55,16 +62,16 @@ deploy:
   bucket_path: deployments
   on:
     branch: production
-  cleanup: true
+  skip_cleanup: false
 
+# Branches to build
 branches:
   only:
     - develop
     - production
     - main
-    - coverage-push-85
-    - hotfix/fix-travis-pid-expansion
 
+# Notifications (optional)
 notifications:
   email:
     on_success: change
