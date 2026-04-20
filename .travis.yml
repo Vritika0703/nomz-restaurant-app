@@ -63,7 +63,7 @@ deploy:
   bucket_path: deployments
   on:
     branch: production
-    condition: $TRAVIS_TEST_RESULT = 0  # only deploy if tests pass
+  cleanup: true
 
 # Branches to build
 branches:
