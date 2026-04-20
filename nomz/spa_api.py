@@ -1995,6 +1995,10 @@ def friends_chat_group_manage_api(request, conversation_id):
     if action == "add":
         if not (hasattr(target, "userprofile") and target.userprofile.role == "diner"):
             return _json_error("Only diners can be added to chat groups.", 400)
+        
+        if conv.participants.filter(id=target.id).exists():
+            return _json_error(f"{target.username} is already a member of this group.", 400)
+
         conv.participants.add(target)
         return JsonResponse({"success": True, "detail": f"Added {target.username}."})
 

@@ -1149,6 +1149,22 @@ def test_friends_chat_group_manage_error_not_creator(api_client, diner_user):
     assert r.status_code == 403
 
 
+def test_friends_chat_group_manage_error_already_added(api_client, diner_user):
+    mate = _make_diner("already_here")
+    conv = FriendConversation.objects.create(
+        name="Dupes", is_group=True, creator=diner_user
+    )
+    conv.participants.add(diner_user, mate)
+    api_client.force_login(diner_user)
+    r = api_client.post(
+        f"/api/friends-chat/group/{conv.id}/manage/",
+        {"action": "add", "user_id": mate.id},
+        format="json",
+    )
+    assert r.status_code == 400
+    assert "already a member" in r.json()["error"]
+
+
 def test_friends_chat_group_leave_success(api_client, diner_user):
     leader = _make_diner("leader")
     conv = FriendConversation.objects.create(
