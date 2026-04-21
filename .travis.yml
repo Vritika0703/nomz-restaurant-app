@@ -53,6 +53,7 @@ after_success:
 # Deploy to AWS Elastic Beanstalk on production branch
 deploy:
   provider: elasticbeanstalk
+  skip_cleanup: true
   access_key_id: $AWS_ACCESS_KEY_ID
   secret_access_key: $AWS_SECRET_ACCESS_KEY
   region: us-east-1
@@ -62,6 +63,7 @@ deploy:
   bucket_path: deployments
   on:
     branch: production
+    condition: $TRAVIS_TEST_RESULT = 0  # only deploy if tests pass
 
 # Branches to build
 branches:
