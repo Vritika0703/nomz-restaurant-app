@@ -188,6 +188,11 @@ FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Upload limits (bytes). Keep these above typical mobile photo sizes.
+MAX_UPLOAD_IMAGE_MB = config("MAX_UPLOAD_IMAGE_MB", default=10, cast=int)
+FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_IMAGE_MB * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = (MAX_UPLOAD_IMAGE_MB + 1) * 1024 * 1024
+
 # AWS S3 Configuration
 USE_S3 = config("USE_S3", default=False, cast=bool)
 

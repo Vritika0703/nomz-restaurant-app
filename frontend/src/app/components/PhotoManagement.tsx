@@ -8,6 +8,22 @@ interface Photo {
   is_primary: boolean;
 }
 
+const MAX_UPLOAD_MB = 10;
+const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function firstErrorMessage(errors: unknown): string | null {
+  if (!errors || typeof errors !== "object") return null;
+  for (const value of Object.values(errors as Record<string, unknown>)) {
+    if (Array.isArray(value) && value.length > 0) {
+      const msg = value[0];
+      if (typeof msg === "string" && msg.trim()) return msg;
+    }
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return null;
+}
+
 export function PhotoManagement({ onBack }: { onBack: () => void }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,6 +89,14 @@ export function PhotoManagement({ onBack }: { onBack: () => void }) {
     e.target.value = "";
     if (!file) return;
     setError(null);
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      setError("Please upload a JPG, PNG, or WEBP image.");
+      return;
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`Image is too large. Maximum size is ${MAX_UPLOAD_MB}MB.`);
+      return;
+    }
     const fd = new FormData();
     fd.append("photo", file);
     fd.append("caption", "");
@@ -84,7 +108,8 @@ export function PhotoManagement({ onBack }: { onBack: () => void }) {
       });
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
-        setError(typeof d.errors === "object" ? "Upload failed." : "Upload failed.");
+        const backendMessage = firstErrorMessage(d?.errors);
+        setError(backendMessage ?? `Upload failed (${r.status}).`);
         return;
       }
       await loadPhotos();
