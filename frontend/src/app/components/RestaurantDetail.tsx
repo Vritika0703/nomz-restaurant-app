@@ -35,6 +35,9 @@ interface RestaurantData {
   address: string;
   description: string;
   phone: string;
+  price_range: string;
+  hours_open: string;
+  hours_close: string;
   is_flagged: boolean;
   is_owner_flagged: boolean;
   owner_id: number | null;
@@ -181,6 +184,12 @@ export function RestaurantDetail({
                 📍 {data.neighborhood ? `${data.neighborhood} | ` : ''}{data.address}
               </p>
               {data.phone && <p className="text-sm mb-3" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>📞 {data.phone}</p>}
+              {data.price_range && <p className="text-sm mb-3" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>💰 {data.price_range}</p>}
+              {data.hours_open && data.hours_close && (
+                <p className="text-sm mb-3" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
+                  🕒 {data.hours_open} - {data.hours_close}
+                </p>
+              )}
               {data.composite_score !== null && (
                 <p className="text-sm mb-3" style={{ fontFamily: 'Montserrat, sans-serif', color: '#666' }}>
                   Composite Score: <strong style={{ color: '#E06E7F' }}>{data.composite_score.toFixed(1)}</strong>

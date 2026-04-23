@@ -13,6 +13,11 @@ interface AppContextValue {
   setUserData: (u: UserData | null) => void;
   isSessionLoading: boolean;
   setIsSessionLoading: (loading: boolean) => void;
+  selectedRestaurants: number[];
+  setSelectedRestaurants: (ids: number[]) => void;
+  addSelectedRestaurant: (id: number) => void;
+  removeSelectedRestaurant: (id: number) => void;
+  clearSelectedRestaurants: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -20,6 +25,19 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isSessionLoading, setIsSessionLoading] = useState(true);
+  const [selectedRestaurants, setSelectedRestaurants] = useState<number[]>([]);
+
+  const addSelectedRestaurant = useCallback((id: number) => {
+    setSelectedRestaurants(prev => prev.includes(id) ? prev : [...prev, id]);
+  }, []);
+
+  const removeSelectedRestaurant = useCallback((id: number) => {
+    setSelectedRestaurants(prev => prev.filter(rid => rid !== id));
+  }, []);
+
+  const clearSelectedRestaurants = useCallback(() => {
+    setSelectedRestaurants([]);
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -27,8 +45,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setUserData,
       isSessionLoading,
       setIsSessionLoading,
+      selectedRestaurants,
+      setSelectedRestaurants,
+      addSelectedRestaurant,
+      removeSelectedRestaurant,
+      clearSelectedRestaurants,
     }),
-    [userData, isSessionLoading],
+    [userData, isSessionLoading, selectedRestaurants, addSelectedRestaurant, removeSelectedRestaurant, clearSelectedRestaurants],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

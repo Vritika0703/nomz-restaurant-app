@@ -738,8 +738,19 @@ def test_restaurant_detail_data_success(api_client, owner_user):
     )
     r = api_client.get(f"/api/restaurants/{rest.id}/")
     assert r.status_code == 200
-    assert r.json()["id"] == rest.id
-    assert len(r.json()["reviews"]) == 1
+    data = r.json()
+    assert data["id"] == rest.id
+    assert len(data["reviews"]) == 1
+    # Check new fields for comparison
+    assert "price_range" in data
+    assert "hours_open" in data
+    assert "hours_close" in data
+    assert data["price_range"] == rest.price_range
+    # Hours should be formatted as HH:MM strings
+    expected_open = rest.hours_open.strftime("%H:%M") if hasattr(rest.hours_open, 'strftime') else str(rest.hours_open)
+    expected_close = rest.hours_close.strftime("%H:%M") if hasattr(rest.hours_close, 'strftime') else str(rest.hours_close)
+    assert data["hours_open"] == expected_open
+    assert data["hours_close"] == expected_close
 
 
 def test_restaurant_detail_data_error_not_found(api_client):

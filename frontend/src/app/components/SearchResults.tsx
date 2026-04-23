@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch, mapSortByToApi } from '../api';
 import { Footer } from './Footer';
+import { useAppContext } from '../AppContext';
 
 export type SearchResultRow = {
   id: number;
@@ -31,6 +32,7 @@ export function SearchResults({
   onNavigateMessages,
   onNavigateProfile,
   onLogout,
+  onNavigateCompare,
   username,
 }: {
   initialQuery: string;
@@ -41,8 +43,10 @@ export function SearchResults({
   onNavigateMessages: () => void;
   onNavigateProfile: () => void;
   onLogout: () => void;
+  onNavigateCompare: () => void;
   username: string;
 }) {
+  const { selectedRestaurants, addSelectedRestaurant, removeSelectedRestaurant } = useAppContext();
   const [q, setQ] = useState(initialQuery);
   const [committedQuery, setCommittedQuery] = useState(initialQuery);
   const [neighborhood, setNeighborhood] = useState(initialNeighborhood);
@@ -122,6 +126,18 @@ export function SearchResults({
           </button>
           <button type="button" onClick={onNavigateProfile} title="Profile" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
             👤
+          </button>
+          <button 
+            type="button" 
+            onClick={onNavigateCompare} 
+            disabled={selectedRestaurants.length < 2}
+            title={selectedRestaurants.length < 2 ? "Select at least 2 restaurants to compare" : "Compare selected restaurants"}
+            className="text-xl transition-all p-2 rounded-lg disabled:opacity-50" 
+            style={{ border: 'none', background: 'transparent', cursor: selectedRestaurants.length < 2 ? 'not-allowed' : 'pointer', color: '#E06E7F' }} 
+            onMouseEnter={(e) => { if (selectedRestaurants.length >= 2) e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'; }}
+            onMouseLeave={(e) => { if (selectedRestaurants.length >= 2) e.currentTarget.style.backgroundColor = 'transparent'; }}
+          >
+            ⚖️
           </button>
           <button type="button" onClick={onLogout} title="Logout" className="text-xl transition-all p-2 rounded-lg" style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#E06E7F' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,110,127,0.1)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
             →
@@ -205,50 +221,68 @@ export function SearchResults({
         )}
 
         <ul className="space-y-4">
-          {(data?.results ?? []).map((row) => (
-            <li key={row.id}>
-              <button
-                type="button"
-                onClick={() => onSelectRestaurant(row.id)}
-                className="w-full text-left p-5 rounded-lg transition-all"
-                title={`View ${row.name}`}
-                style={{
-                  backgroundColor: 'white',
-                  border: '2px solid rgba(224, 110, 127, 0.15)',
-                  fontFamily: 'Montserrat, sans-serif',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.15)'; }}
-              >
-                <div className="flex justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg mb-1" style={{ color: '#333' }}>
-                      {row.name}
-                      {row.is_flagged && (
-                        <span className="ml-2 text-xs" style={{ color: '#b45309' }}>
-                          flagged
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-xs mb-2" style={{ color: '#666' }}>
-                      {row.cuisine} • {row.price_label}
-                      {row.neighborhood ? ` • ${row.neighborhood}` : ''}
-                    </p>
-                    {row.description && (
-                      <p className="text-xs line-clamp-2" style={{ color: '#888' }}>
-                        {row.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right text-xs shrink-0" style={{ color: '#888' }}>
-                    {row.composite_score != null && <div>Score {Number(row.composite_score).toFixed(1)}</div>}
-                    {row.rating_score != null && <div>Rating {Number(row.rating_score).toFixed(1)}</div>}
-                  </div>
+          {(data?.results ?? []).map((row) => {
+            const isSelected = selectedRestaurants.includes(row.id);
+            return (
+              <li key={row.id}>
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        addSelectedRestaurant(row.id);
+                      } else {
+                        removeSelectedRestaurant(row.id);
+                      }
+                    }}
+                    className="mt-1"
+                    style={{ accentColor: '#E06E7F' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => onSelectRestaurant(row.id)}
+                    className="flex-1 text-left p-5 rounded-lg transition-all"
+                    title={`View ${row.name}`}
+                    style={{
+                      backgroundColor: 'white',
+                      border: '2px solid rgba(224, 110, 127, 0.15)',
+                      fontFamily: 'Montserrat, sans-serif',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.3)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = 'rgba(224, 110, 127, 0.15)'; }}
+                  >
+                    <div className="flex justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg mb-1" style={{ color: '#333' }}>
+                          {row.name}
+                          {row.is_flagged && (
+                            <span className="ml-2 text-xs" style={{ color: '#b45309' }}>
+                              flagged
+                            </span>
+                          )}
+                        </h3>
+                        <p className="text-xs mb-2" style={{ color: '#666' }}>
+                          {row.cuisine} • {row.price_label}
+                          {row.neighborhood ? ` • ${row.neighborhood}` : ''}
+                        </p>
+                        {row.description && (
+                          <p className="text-xs line-clamp-2" style={{ color: '#888' }}>
+                            {row.description}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right text-xs shrink-0" style={{ color: '#888' }}>
+                        {row.composite_score != null && <div>Score {Number(row.composite_score).toFixed(1)}</div>}
+                        {row.rating_score != null && <div>Rating {Number(row.rating_score).toFixed(1)}</div>}
+                      </div>
+                    </div>
+                  </button>
                 </div>
-              </button>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </main>
       <Footer />
