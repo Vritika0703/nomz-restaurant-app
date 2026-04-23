@@ -747,8 +747,16 @@ def test_restaurant_detail_data_success(api_client, owner_user):
     assert "hours_close" in data
     assert data["price_range"] == rest.price_range
     # Hours should be formatted as HH:MM strings
-    expected_open = rest.hours_open.strftime("%H:%M") if hasattr(rest.hours_open, 'strftime') else str(rest.hours_open)
-    expected_close = rest.hours_close.strftime("%H:%M") if hasattr(rest.hours_close, 'strftime') else str(rest.hours_close)
+    expected_open = (
+        rest.hours_open.strftime("%H:%M")
+        if hasattr(rest.hours_open, "strftime")
+        else str(rest.hours_open)
+    )
+    expected_close = (
+        rest.hours_close.strftime("%H:%M")
+        if hasattr(rest.hours_close, "strftime")
+        else str(rest.hours_close)
+    )
     assert data["hours_open"] == expected_open
     assert data["hours_close"] == expected_close
 

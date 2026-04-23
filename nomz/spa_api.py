@@ -996,8 +996,12 @@ def restaurant_detail_data(request, restaurant_id):
         "description": restaurant.description or "",
         "phone": restaurant.phone or "",
         "price_range": restaurant.price_range or "",
-        "hours_open": restaurant.hours_open.strftime("%H:%M") if restaurant.hours_open else "",
-        "hours_close": restaurant.hours_close.strftime("%H:%M") if restaurant.hours_close else "",
+        "hours_open": (
+            restaurant.hours_open.strftime("%H:%M") if restaurant.hours_open else ""
+        ),
+        "hours_close": (
+            restaurant.hours_close.strftime("%H:%M") if restaurant.hours_close else ""
+        ),
         "is_flagged": restaurant.is_flagged,
         "is_owner_flagged": is_owner_flagged,
         "owner_id": owner_id,
