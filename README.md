@@ -197,6 +197,9 @@ All configuration is driven by environment variables (via `python-decouple`). De
 | `AWS_ACCESS_KEY_ID` | — | AWS credentials (when `USE_S3=True`) |
 | `AWS_SECRET_ACCESS_KEY` | — | AWS credentials |
 | `AWS_STORAGE_BUCKET_NAME` | — | S3 bucket name |
+| `AWS_S3_REGION_NAME` | `us-east-1` | S3 bucket region |
+| `AWS_S3_CUSTOM_DOMAIN` | `<bucket>.s3.amazonaws.com` | Optional CDN/custom S3 domain for static/media URLs |
+| `MAX_UPLOAD_IMAGE_MB` | `10` | Max image upload size used by Django upload limits |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,...` | Comma-separated CORS origins |
 | `CSRF_TRUSTED_ORIGINS` | `http://localhost:8000,...` | Comma-separated trusted CSRF origins |
 | `EMAIL_HOST_USER` | *(empty)* | SMTP user (e.g. Gmail address for password reset emails) |

@@ -1,0 +1,1 @@
+Logs were saved to /Users/ananyaagarwal/Desktop/github/team3-mon-spring26/.elasticbeanstalk/logs/260420_195055.zip

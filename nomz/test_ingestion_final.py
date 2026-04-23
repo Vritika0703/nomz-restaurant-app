@@ -13,7 +13,11 @@ import pytest
 from django.db import IntegrityError, OperationalError
 
 from nomz.ingestion import persistence as persistence_mod
-from nomz.ingestion.persistence import DbIngestionWriter, IngestionRunContext, IngestionStats
+from nomz.ingestion.persistence import (
+    DbIngestionWriter,
+    IngestionRunContext,
+    IngestionStats,
+)
 from nomz.ingestion.runner import run_ingestion
 from nomz.ingestion.sources.socrata_client import SocrataError
 from nomz.ingestion.utils.normalization import normalize_text
@@ -609,9 +613,13 @@ def test_run_ingestion_writer_integrity_error_isolated_per_source():
         if rec["source"] == "DINING_OUT":
             raise IntegrityError("fk violation")
 
-    with patch("nomz.ingestion.runner.stream_eateries_rows", side_effect=stream_ok), patch(
+    with patch(
+        "nomz.ingestion.runner.stream_eateries_rows", side_effect=stream_ok
+    ), patch(
         "nomz.ingestion.runner.stream_dining_out_rows", side_effect=stream_bad
-    ), patch("nomz.ingestion.runner.stream_inspection_rows", side_effect=stream_ok2):
+    ), patch(
+        "nomz.ingestion.runner.stream_inspection_rows", side_effect=stream_ok2
+    ):
         summary = run_ingestion(writer=writer)
 
     assert summary.failures == 1
@@ -668,9 +676,7 @@ def test_run_ingestion_skip_sources_and_max_records():
 
     with patch(
         "nomz.ingestion.runner.stream_eateries_rows", side_effect=long_stream
-    ), patch(
-        "nomz.ingestion.runner.stream_dining_out_rows", side_effect=empty
-    ), patch(
+    ), patch("nomz.ingestion.runner.stream_dining_out_rows", side_effect=empty), patch(
         "nomz.ingestion.runner.stream_inspection_rows", side_effect=empty
     ):
         summary = run_ingestion(
@@ -702,9 +708,7 @@ def test_run_ingestion_combines_write_and_source_errors_in_summary():
 
     with patch(
         "nomz.ingestion.runner.stream_eateries_rows", side_effect=stream_mixed
-    ), patch(
-        "nomz.ingestion.runner.stream_dining_out_rows", side_effect=empty
-    ), patch(
+    ), patch("nomz.ingestion.runner.stream_dining_out_rows", side_effect=empty), patch(
         "nomz.ingestion.runner.stream_inspection_rows", side_effect=stream_dohmh_boom
     ):
         summary = run_ingestion(writer=writer)

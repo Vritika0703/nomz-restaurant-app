@@ -7,7 +7,6 @@ Each view has at least one success-path test (HTTP 2xx) and one error-path test
 
 from __future__ import annotations
 
-import json
 import os
 import uuid
 from io import BytesIO
@@ -23,6 +22,7 @@ from django.utils.http import urlsafe_base64_encode
 from PIL import Image
 from rest_framework.test import APIClient
 
+from nomz.forms import RestaurantProfileForm
 from nomz.models import (
     CompositeScoreAnomaly,
     CompositeScoreHistory,
@@ -173,7 +173,13 @@ def test_auth_register_error_invalid_json(api_client):
 def test_auth_register_error_validation(api_client):
     r = api_client.post(
         "/api/auth/register/",
-        {"email": "", "username": "", "role": "diner", "password1": "x", "password2": "y"},
+        {
+            "email": "",
+            "username": "",
+            "role": "diner",
+            "password1": "x",
+            "password2": "y",
+        },
         format="json",
     )
     assert r.status_code == 400
@@ -384,7 +390,9 @@ def test_restaurant_photo_set_primary_success(api_client, owner_user):
         restaurant=rest, photo=_make_image_upload(), caption="x", is_primary=False
     )
     api_client.force_login(owner)
-    r = api_client.post(f"/api/restaurant/photos/{ph.id}/set-primary/", {}, format="json")
+    r = api_client.post(
+        f"/api/restaurant/photos/{ph.id}/set-primary/", {}, format="json"
+    )
     assert r.status_code == 200
     ph.refresh_from_db()
     assert ph.is_primary is True
@@ -527,7 +535,9 @@ def test_admin_rejected_restaurant_accounts_error_forbidden(api_client, diner_us
     assert api_client.get("/api/admin/rejected-restaurants/").status_code == 403
 
 
-def test_admin_approve_user_success(api_client, staff_user, diner_user, public_restaurant):
+def test_admin_approve_user_success(
+    api_client, staff_user, diner_user, public_restaurant
+):
     pending = User.objects.create_user(
         username=_unique("claimant"),
         email=f"{uuid.uuid4().hex}@c.com",
@@ -548,10 +558,15 @@ def test_admin_approve_user_success(api_client, staff_user, diner_user, public_r
 
 def test_admin_approve_user_error_not_found(api_client, staff_user):
     api_client.force_login(staff_user)
-    assert api_client.post("/api/admin/approve/999999/", {}, format="json").status_code == 404
+    assert (
+        api_client.post("/api/admin/approve/999999/", {}, format="json").status_code
+        == 404
+    )
 
 
-def test_admin_reject_user_success(api_client, staff_user, diner_user, public_restaurant):
+def test_admin_reject_user_success(
+    api_client, staff_user, diner_user, public_restaurant
+):
     pending = User.objects.create_user(
         username=_unique("reject_me"),
         email=f"{uuid.uuid4().hex}@c.com",
@@ -572,7 +587,10 @@ def test_admin_reject_user_success(api_client, staff_user, diner_user, public_re
 
 def test_admin_reject_user_error_not_found(api_client, staff_user):
     api_client.force_login(staff_user)
-    assert api_client.post("/api/admin/reject/999999/", {}, format="json").status_code == 404
+    assert (
+        api_client.post("/api/admin/reject/999999/", {}, format="json").status_code
+        == 404
+    )
 
 
 def test_admin_moderation_data_success(api_client, staff_user, diner_user, owner_user):
@@ -625,7 +643,9 @@ def test_admin_resolve_report_success(api_client, staff_user, diner_user, owner_
     assert r.status_code == 200
 
 
-def test_admin_resolve_report_error_invalid_action(api_client, staff_user, diner_user, owner_user):
+def test_admin_resolve_report_error_invalid_action(
+    api_client, staff_user, diner_user, owner_user
+):
     _owner, rest = owner_user
     rev = Review.objects.create(
         restaurant=rest,
@@ -680,7 +700,9 @@ def test_admin_toggle_user_active_error_superuser(api_client, staff_user):
     )
     api_client.force_login(staff_user)
     assert (
-        api_client.post(f"/api/admin/users/{su.id}/toggle-active/", {}, format="json").status_code
+        api_client.post(
+            f"/api/admin/users/{su.id}/toggle-active/", {}, format="json"
+        ).status_code
         == 400
     )
 
@@ -725,8 +747,16 @@ def test_restaurant_detail_data_success(api_client, owner_user):
     assert "hours_close" in data
     assert data["price_range"] == rest.price_range
     # Hours should be formatted as HH:MM strings
-    expected_open = rest.hours_open.strftime("%H:%M") if hasattr(rest.hours_open, 'strftime') else str(rest.hours_open)
-    expected_close = rest.hours_close.strftime("%H:%M") if hasattr(rest.hours_close, 'strftime') else str(rest.hours_close)
+    expected_open = (
+        rest.hours_open.strftime("%H:%M")
+        if hasattr(rest.hours_open, "strftime")
+        else str(rest.hours_open)
+    )
+    expected_close = (
+        rest.hours_close.strftime("%H:%M")
+        if hasattr(rest.hours_close, "strftime")
+        else str(rest.hours_close)
+    )
     assert data["hours_open"] == expected_open
     assert data["hours_close"] == expected_close
 
@@ -820,7 +850,9 @@ def test_restaurant_search_api_error_requires_login(api_client):
 
 
 @patch("nomz.spa_api.recommend_restaurants_for_user", return_value=[])
-def test_diner_recommendations_requires_prefs_message(_mock_rec, api_client, diner_user):
+def test_diner_recommendations_requires_prefs_message(
+    _mock_rec, api_client, diner_user
+):
     api_client.force_login(diner_user)
     r = api_client.get("/api/recommendations/")
     assert r.status_code == 200
@@ -828,7 +860,9 @@ def test_diner_recommendations_requires_prefs_message(_mock_rec, api_client, din
 
 
 @patch("nomz.spa_api.recommend_restaurants_for_user")
-def test_diner_recommendations_success(mock_rec, api_client, diner_user, diner_prefs, public_restaurant):
+def test_diner_recommendations_success(
+    mock_rec, api_client, diner_user, diner_prefs, public_restaurant
+):
     mock_rec.return_value = [public_restaurant]
     api_client.force_login(diner_user)
     r = api_client.get("/api/recommendations/")
@@ -973,7 +1007,9 @@ def test_review_respond_api_error_wrong_user(api_client, diner_user, owner_user)
 
 
 @patch("nomz.spa_api.refresh_restaurant_composite", return_value={"anomaly_count": 0})
-def test_admin_recalculate_scores_success(_mock_refresh, api_client, staff_user, owner_user):
+def test_admin_recalculate_scores_success(
+    _mock_refresh, api_client, staff_user, owner_user
+):
     _owner, rest = owner_user
     api_client.force_login(staff_user)
     r = api_client.post(
@@ -1034,13 +1070,20 @@ def test_admin_resolve_score_anomaly_success(api_client, staff_user, owner_user)
         is_resolved=False,
     )
     api_client.force_login(staff_user)
-    r = api_client.post(f"/api/admin/score-anomalies/{an.id}/resolve/", {}, format="json")
+    r = api_client.post(
+        f"/api/admin/score-anomalies/{an.id}/resolve/", {}, format="json"
+    )
     assert r.status_code == 200
 
 
 def test_admin_resolve_score_anomaly_error_not_found(api_client, staff_user):
     api_client.force_login(staff_user)
-    assert api_client.post("/api/admin/score-anomalies/999999/resolve/", {}, format="json").status_code == 404
+    assert (
+        api_client.post(
+            "/api/admin/score-anomalies/999999/resolve/", {}, format="json"
+        ).status_code
+        == 404
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1060,7 +1103,9 @@ def _make_diner(username_prefix: str) -> User:
 
 def test_friends_chat_list_get_success(api_client, diner_user):
     other = _make_diner("pal")
-    conv = FriendConversation.objects.create(user1=diner_user, user2=other, is_group=False)
+    conv = FriendConversation.objects.create(
+        user1=diner_user, user2=other, is_group=False
+    )
     conv.participants.add(diner_user, other)
     api_client.force_login(diner_user)
     r = api_client.get("/api/friends-chat/")
@@ -1075,7 +1120,9 @@ def test_friends_chat_list_error_requires_login(api_client):
 def test_friends_chat_list_post_success(api_client, diner_user):
     buddy = _make_diner("buddy")
     api_client.force_login(diner_user)
-    r = api_client.post("/api/friends-chat/", {"username": buddy.username}, format="json")
+    r = api_client.post(
+        "/api/friends-chat/", {"username": buddy.username}, format="json"
+    )
     assert r.status_code == 201
 
 
@@ -1089,7 +1136,9 @@ def test_friends_chat_list_post_error_user_not_found(api_client, diner_user):
 
 def test_friends_chat_detail_get_post_success(api_client, diner_user):
     buddy = _make_diner("buddy2")
-    conv = FriendConversation.objects.create(user1=diner_user, user2=buddy, is_group=False)
+    conv = FriendConversation.objects.create(
+        user1=diner_user, user2=buddy, is_group=False
+    )
     conv.participants.add(diner_user, buddy)
     api_client.force_login(diner_user)
     assert api_client.get(f"/api/friends-chat/{conv.id}/").status_code == 200
@@ -1147,9 +1196,7 @@ def test_friends_chat_group_manage_success(api_client, diner_user):
 
 def test_friends_chat_group_manage_error_not_creator(api_client, diner_user):
     mate = _make_diner("mate3")
-    conv = FriendConversation.objects.create(
-        name="Other", is_group=True, creator=mate
-    )
+    conv = FriendConversation.objects.create(name="Other", is_group=True, creator=mate)
     conv.participants.add(mate, diner_user)
     api_client.force_login(diner_user)
     r = api_client.post(
@@ -1205,9 +1252,9 @@ def test_friends_chat_group_leave_creator_pass(api_client, diner_user):
     conv.participants.add(diner_user, mate)
     api_client.force_login(diner_user)
     r = api_client.post(
-        f"/api/friends-chat/group/{conv.id}/leave/", 
-        {"new_admin_id": mate.id}, 
-        format="json"
+        f"/api/friends-chat/group/{conv.id}/leave/",
+        {"new_admin_id": mate.id},
+        format="json",
     )
     assert r.status_code == 200
     conv.refresh_from_db()
@@ -1226,7 +1273,9 @@ def test_friends_chat_search_users_success(api_client, diner_user):
     assert len(data["users"]) == 2
 
 
-def test_friends_chat_group_manage_error_only_diners(api_client, diner_user, owner_without_restaurant):
+def test_friends_chat_group_manage_error_only_diners(
+    api_client, diner_user, owner_without_restaurant
+):
     conv = FriendConversation.objects.create(
         name="DinersOnlyGroup", is_group=True, creator=diner_user
     )
@@ -1243,7 +1292,9 @@ def test_friends_chat_group_manage_error_only_diners(api_client, diner_user, own
 
 def test_friends_chat_recommend_success(api_client, diner_user, public_restaurant):
     buddy = _make_diner("buddy4")
-    conv = FriendConversation.objects.create(user1=diner_user, user2=buddy, is_group=False)
+    conv = FriendConversation.objects.create(
+        user1=diner_user, user2=buddy, is_group=False
+    )
     conv.participants.add(diner_user, buddy)
     api_client.force_login(diner_user)
     r = api_client.post(
@@ -1256,7 +1307,9 @@ def test_friends_chat_recommend_success(api_client, diner_user, public_restauran
 
 def test_friends_chat_recommend_error_not_found(api_client, diner_user):
     buddy = _make_diner("buddy5")
-    conv = FriendConversation.objects.create(user1=diner_user, user2=buddy, is_group=False)
+    conv = FriendConversation.objects.create(
+        user1=diner_user, user2=buddy, is_group=False
+    )
     conv.participants.add(diner_user, buddy)
     api_client.force_login(diner_user)
     r = api_client.post(
@@ -1269,7 +1322,9 @@ def test_friends_chat_recommend_error_not_found(api_client, diner_user):
 
 def test_friends_chat_toggle_shared_success(api_client, diner_user, public_restaurant):
     buddy = _make_diner("buddy6")
-    conv = FriendConversation.objects.create(user1=diner_user, user2=buddy, is_group=False)
+    conv = FriendConversation.objects.create(
+        user1=diner_user, user2=buddy, is_group=False
+    )
     conv.participants.add(diner_user, buddy)
     api_client.force_login(diner_user)
     r = api_client.post(
@@ -1283,9 +1338,13 @@ def test_friends_chat_toggle_shared_success(api_client, diner_user, public_resta
     ).exists()
 
 
-def test_friends_chat_toggle_shared_error_bad_action(api_client, diner_user, public_restaurant):
+def test_friends_chat_toggle_shared_error_bad_action(
+    api_client, diner_user, public_restaurant
+):
     buddy = _make_diner("buddy7")
-    conv = FriendConversation.objects.create(user1=diner_user, user2=buddy, is_group=False)
+    conv = FriendConversation.objects.create(
+        user1=diner_user, user2=buddy, is_group=False
+    )
     conv.participants.add(diner_user, buddy)
     api_client.force_login(diner_user)
     r = api_client.post(
@@ -1303,7 +1362,9 @@ def test_friends_chat_toggle_shared_error_bad_action(api_client, diner_user, pub
 
 def test_friends_chat_detail_post_error_empty_body(api_client, diner_user):
     buddy = _make_diner("buddy8")
-    conv = FriendConversation.objects.create(user1=diner_user, user2=buddy, is_group=False)
+    conv = FriendConversation.objects.create(
+        user1=diner_user, user2=buddy, is_group=False
+    )
     conv.participants.add(diner_user, buddy)
     api_client.force_login(diner_user)
     r = api_client.post(f"/api/friends-chat/{conv.id}/", {"body": ""}, format="json")
@@ -1347,7 +1408,9 @@ def test_restaurant_photos_data_empty_list_when_no_restaurant(api_client, db):
     assert r.json()["photos"] == []
 
 
-def test_admin_resolve_report_flag_fraud_on_user(api_client, staff_user, diner_user, owner_user):
+def test_admin_resolve_report_flag_fraud_on_user(
+    api_client, staff_user, diner_user, owner_user
+):
     owner, rest = owner_user
     rep = ModerationReport.objects.create(
         reporter=diner_user,
@@ -1405,7 +1468,13 @@ def test_auth_register_when_already_authenticated(api_client, diner_user):
     api_client.force_login(diner_user)
     r = api_client.post(
         "/api/auth/register/",
-        {"email": "x@x.com", "username": "nope", "role": "diner", "password1": "x", "password2": "x"},
+        {
+            "email": "x@x.com",
+            "username": "nope",
+            "role": "diner",
+            "password1": "x",
+            "password2": "x",
+        },
         format="json",
     )
     assert r.status_code == 200
@@ -1422,7 +1491,9 @@ def test_auth_login_error_invalid_json(api_client):
 
 
 def test_auth_login_error_missing_credentials(api_client):
-    r = api_client.post("/api/auth/login/", {"username": "", "password": ""}, format="json")
+    r = api_client.post(
+        "/api/auth/login/", {"username": "", "password": ""}, format="json"
+    )
     assert r.status_code == 400
 
 
@@ -1469,7 +1540,9 @@ def test_auth_password_reset_confirm_error_missing_uid(api_client):
     assert r.status_code == 400
 
 
-def test_admin_resolve_report_flag_fraud_on_review(api_client, staff_user, diner_user, owner_user):
+def test_admin_resolve_report_flag_fraud_on_review(
+    api_client, staff_user, diner_user, owner_user
+):
     _owner, rest = owner_user
     rev = Review.objects.create(
         restaurant=rest,
@@ -1495,7 +1568,9 @@ def test_admin_resolve_report_flag_fraud_on_review(api_client, staff_user, diner
     assert rev.is_flagged is True
 
 
-def test_admin_resolve_report_unflag_review(api_client, staff_user, diner_user, owner_user):
+def test_admin_resolve_report_unflag_review(
+    api_client, staff_user, diner_user, owner_user
+):
     _owner, rest = owner_user
     rev = Review.objects.create(
         restaurant=rest,
@@ -1522,7 +1597,9 @@ def test_admin_resolve_report_unflag_review(api_client, staff_user, diner_user, 
     assert rev.is_flagged is False
 
 
-def test_admin_resolve_report_delete_review(api_client, staff_user, diner_user, owner_user):
+def test_admin_resolve_report_delete_review(
+    api_client, staff_user, diner_user, owner_user
+):
     _owner, rest = owner_user
     rev = Review.objects.create(
         restaurant=rest,
@@ -1548,7 +1625,9 @@ def test_admin_resolve_report_delete_review(api_client, staff_user, diner_user, 
     assert rev.is_deleted is True
 
 
-def test_admin_resolve_report_reevaluate(api_client, staff_user, diner_user, owner_user):
+def test_admin_resolve_report_reevaluate(
+    api_client, staff_user, diner_user, owner_user
+):
     _owner, rest = owner_user
     rev = Review.objects.create(
         restaurant=rest,
@@ -1572,7 +1651,9 @@ def test_admin_resolve_report_reevaluate(api_client, staff_user, diner_user, own
     assert r.status_code == 200
 
 
-def test_admin_resolve_report_error_invalid_json(api_client, staff_user, diner_user, owner_user):
+def test_admin_resolve_report_error_invalid_json(
+    api_client, staff_user, diner_user, owner_user
+):
     _owner, rest = owner_user
     rev = Review.objects.create(
         restaurant=rest,
@@ -1668,7 +1749,9 @@ def test_admin_recalculate_scores_empty_filter(_mock_refresh, api_client, staff_
 
 
 @patch("nomz.spa_api.refresh_restaurant_composite", return_value={"anomaly_count": 1})
-def test_admin_recalculate_scores_by_name(_mock_refresh, api_client, staff_user, public_restaurant):
+def test_admin_recalculate_scores_by_name(
+    _mock_refresh, api_client, staff_user, public_restaurant
+):
     api_client.force_login(staff_user)
     r = api_client.post(
         "/api/admin/recalculate-scores/",
@@ -1689,14 +1772,14 @@ def test_friends_chat_list_post_error_chat_with_self(api_client, diner_user):
 
 def test_restaurant_detail_with_owner_response(api_client, owner_user, diner_user):
     owner, rest = owner_user
-    rev = Review.objects.create(
+    Review.objects.create(
         restaurant=rest,
         user=diner_user,
         rating=5,
         comment="Super",
     )
     ReviewResponse.objects.create(
-        review=rev,
+        review=Review.objects.filter(restaurant=rest, user=diner_user).first(),
         restaurant=rest,
         responder=owner,
         response_text="Thanks!",
@@ -1704,11 +1787,10 @@ def test_restaurant_detail_with_owner_response(api_client, owner_user, diner_use
     r = api_client.get(f"/api/restaurants/{rest.id}/")
     assert r.status_code == 200
     assert r.json()["reviews"][0]["owner_response"] is not None
-import pytest
-from nomz.models import UserProfile, Restaurant
-from .forms import RestaurantProfileForm
+
 
 pytestmark = pytest.mark.django_db
+
 
 def test_restaurant_profile_form_phone_validation():
     # Alphabet in phone
@@ -1727,6 +1809,7 @@ def test_restaurant_profile_form_phone_validation():
     form3 = RestaurantProfileForm(data={"phone": "(123) 456-7890"})
     form3.is_valid()
     assert "phone" not in form3.errors
+
 
 def test_restaurant_profile_form_email_validation():
     # Missing @
@@ -1753,16 +1836,15 @@ def test_restaurant_profile_form_email_validation():
     assert "email" in form4.errors
     assert "valid format" in form4.errors["email"][0]
 
+
 def test_restaurant_profile_minor_update_keeps_approval(api_client, owner_user):
     owner, rest = owner_user
-    
+
     owner.userprofile.is_approved = True
     owner.userprofile.save()
-    
+
     api_client.force_login(owner)
-    
-    from datetime import time
-    
+
     payload = {
         "name": rest.name,
         "description": rest.description,
@@ -1777,18 +1859,19 @@ def test_restaurant_profile_minor_update_keeps_approval(api_client, owner_user):
     }
     r = api_client.post("/api/restaurant/profile/", payload, format="json")
     assert r.status_code == 200
-    
+
     owner.userprofile.refresh_from_db()
     assert owner.userprofile.is_approved is True
 
+
 def test_restaurant_profile_major_update_resets_approval(api_client, owner_user):
     owner, rest = owner_user
-    
+
     owner.userprofile.is_approved = True
     owner.userprofile.save()
-    
+
     api_client.force_login(owner)
-    
+
     payload = {
         "name": "Different Name",
         "description": rest.description,
@@ -1803,6 +1886,6 @@ def test_restaurant_profile_major_update_resets_approval(api_client, owner_user)
     }
     r = api_client.post("/api/restaurant/profile/", payload, format="json")
     assert r.status_code == 200
-    
+
     owner.userprofile.refresh_from_db()
     assert owner.userprofile.is_approved is False

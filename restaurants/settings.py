@@ -188,6 +188,11 @@ FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Upload limits (bytes). Keep these above typical mobile photo sizes.
+MAX_UPLOAD_IMAGE_MB = config("MAX_UPLOAD_IMAGE_MB", default=10, cast=int)
+FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_IMAGE_MB * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = (MAX_UPLOAD_IMAGE_MB + 1) * 1024 * 1024
+
 # AWS S3 Configuration
 USE_S3 = config("USE_S3", default=False, cast=bool)
 
@@ -200,18 +205,20 @@ if USE_S3:
     AWS_S3_CUSTOM_DOMAIN = config(
         "AWS_S3_CUSTOM_DOMAIN", default=f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
     )
-    AWS_LOCATION = "static"
+    AWS_STATIC_LOCATION = "static"
+    AWS_MEDIA_LOCATION = "media"
     AWS_DEFAULT_ACL = "public-read"
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_FILE_OVERWRITE = False
 
     # S3 Static Settings
-    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/"
-    STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STATIC_LOCATION}/"
+    STATICFILES_STORAGE = "nomz.storage_backends.StaticStorage"
 
     # S3 Public Media Settings
-    PUBLIC_MEDIA_LOCATION = "media"
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/"
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_MEDIA_LOCATION}/"
+    DEFAULT_FILE_STORAGE = "nomz.storage_backends.PublicMediaStorage"
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = config(

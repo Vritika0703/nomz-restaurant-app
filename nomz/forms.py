@@ -167,13 +167,12 @@ class RestaurantProfileForm(forms.ModelForm):
     Form for restaurant owners to create and edit their restaurant profile.
     Handles description, hours, cuisine type, and price range.
     """
-    
+
     email = forms.CharField(
         required=False,
-        widget=forms.EmailInput(attrs={
-            "class": "form-control", 
-            "placeholder": "contact@restaurant.com"
-        })
+        widget=forms.EmailInput(
+            attrs={"class": "form-control", "placeholder": "contact@restaurant.com"}
+        ),
     )
 
     class Meta:
@@ -248,10 +247,14 @@ class RestaurantProfileForm(forms.ModelForm):
         phone = self.cleaned_data.get("phone", "")
         if phone:
             if any(char.isalpha() for char in phone):
-                raise forms.ValidationError("Alphabets are not allowed in the phone number.")
+                raise forms.ValidationError(
+                    "Alphabets are not allowed in the phone number."
+                )
             digits_only = "".join(filter(str.isdigit, phone))
             if len(digits_only) < 10:
-                raise forms.ValidationError("The phone number must contain at least 10 digits.")
+                raise forms.ValidationError(
+                    "The phone number must contain at least 10 digits."
+                )
         return phone
 
     def clean_email(self):
@@ -260,25 +263,33 @@ class RestaurantProfileForm(forms.ModelForm):
             if "@" not in raw_email:
                 if "email" in self.errors:
                     del self.errors["email"]
-                raise forms.ValidationError(f"Please include an '@' in the email address. '{raw_email}' is missing an '@'.")
-            
+                raise forms.ValidationError(
+                    f"Please include an '@' in the email address. '{raw_email}' is missing an '@'."
+                )
+
             parts = raw_email.split("@")
             if len(parts[0]) == 0:
                 if "email" in self.errors:
                     del self.errors["email"]
                 raise forms.ValidationError("Please enter any letter before @.")
-                
+
             if len(parts) < 2 or len(parts[1]) == 0:
                 if "email" in self.errors:
                     del self.errors["email"]
                 raise forms.ValidationError("Please enter a part following '@'.")
-                
+
             domain_parts = parts[1].split(".")
-            if len(domain_parts) < 2 or len(domain_parts[0]) == 0 or len(domain_parts[1]) == 0:
+            if (
+                len(domain_parts) < 2
+                or len(domain_parts[0]) == 0
+                or len(domain_parts[1]) == 0
+            ):
                 if "email" in self.errors:
                     del self.errors["email"]
-                raise forms.ValidationError("Email must be in a valid format (e.g. name@example.com).")
-                
+                raise forms.ValidationError(
+                    "Email must be in a valid format (e.g. name@example.com)."
+                )
+
         return self.cleaned_data.get("email", raw_email)
 
 

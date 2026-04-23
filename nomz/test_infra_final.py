@@ -170,6 +170,7 @@ def test_middleware_unhandled_exception_audit_log():
 @pytest.mark.django_db
 def test_middleware_health_check_non_200_audit_and_alert_deduped():
     """Hits middleware ~244–289: failing ``/health`` response → audit + one alert per bucket."""
+
     def unhealthy(_request):
         return HttpResponse("unhealthy", status=503)
 
