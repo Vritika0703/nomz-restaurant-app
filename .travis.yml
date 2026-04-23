@@ -2,31 +2,18 @@ language: python
 python:
   - "3.12"
 
-dist: jammy
-
 cache:
   pip: true
 
+# Services required for testing
 services:
   - postgresql
 
 before_script:
-<<<<<<< HEAD
-<<<<<<< HEAD
   # Never use $$ here — the shell replaces it with the process ID and breaks psql.
   - psql -U postgres -v ON_ERROR_STOP=1 -c "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'travis') THEN CREATE ROLE travis LOGIN PASSWORD 'travis'; END IF; END $$;"
-=======
-  # Escape $$ to prevent shell expansion to process ID.
-  - psql -U postgres -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'travis') THEN CREATE ROLE travis LOGIN PASSWORD 'travis'; END IF; END \$\$;"
->>>>>>> 46387146 (undo travis)
   - psql -U postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "nomz-db" OWNER travis;' || true
   - psql -U postgres -v ON_ERROR_STOP=1 -c 'GRANT ALL PRIVILEGES ON DATABASE "nomz-db" TO travis;'
-=======
-  # Never use $$ here — the shell replaces it with the process ID and breaks psql.
-  - psql -U postgres -c "CREATE ROLE travis LOGIN PASSWORD 'travis';" || true
-  - psql -U postgres -c 'CREATE DATABASE "nomz-db" OWNER travis;' || true
-  - psql -U postgres -c 'GRANT ALL PRIVILEGES ON DATABASE "nomz-db" TO travis;'
->>>>>>> a26b8d56 (edit with develop travis)
 
 install:
   - pip install --upgrade pip
@@ -46,18 +33,27 @@ env:
     - USE_S3=False
     - ENVIRONMENT=testing
 
+# Test script
 script:
+  - python manage.py check
   - python manage.py migrate --no-input
-  - pytest --cov=nomz
+  - coverage run --source='nomz' manage.py test --no-input --verbosity=2
+  - black --check .
+  - flake8 .
 
+# Send coverage to Coveralls
 after_success:
-  - coveralls --service=travis-ci
+  - coverage xml
+  - coveralls 
 
-after_script:
-  - coveralls --finish
+# IMPORTANT:
+# Do not build frontend in Travis deploy job. Building in CI mutates the working
+# tree and can produce oversized/corrupt EB bundles.
 
+# Deploy to AWS Elastic Beanstalk on production branch
 deploy:
   provider: elasticbeanstalk
+  skip_cleanup: true
   access_key_id: $AWS_ACCESS_KEY_ID
   secret_access_key: $AWS_SECRET_ACCESS_KEY
   region: us-east-1
@@ -66,58 +62,17 @@ deploy:
   bucket_name: nomz-static-files-friend-2026
   bucket_path: deployments
   on:
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     branch: develop
-<<<<<<< HEAD
-  cleanup: true
-=======
     condition: $TRAVIS_TEST_RESULT = 0  # only deploy if tests pass
-<<<<<<< HEAD
->>>>>>> d3af8b6b (resolved conflicts)
-=======
-=======
-    branch: production
-<<<<<<< HEAD
-  skip_cleanup: false
->>>>>>> 0a665a09 (undo travis)
-<<<<<<< HEAD
->>>>>>> e8301199 (undo travis)
-=======
-=======
->>>>>>> c22df716 (branch travis fix)
-<<<<<<< HEAD
->>>>>>> e3fa4857 (branch travis fix)
-=======
-=======
-    branch: production
-<<<<<<< HEAD
-  cleanup: true
->>>>>>> 0e7aec09 (prod deployment)
-<<<<<<< HEAD
->>>>>>> 73120762 (prod deployment)
-=======
-=======
-  skip_cleanup: false
->>>>>>> e3772074 (undo travis)
-<<<<<<< HEAD
->>>>>>> 46387146 (undo travis)
-=======
-=======
-    branch: develop
-  cleanup: true
->>>>>>> da90eee5 (edit with develop travis)
->>>>>>> a26b8d56 (edit with develop travis)
 
+# Branches to build
 branches:
   only:
     - develop
     - production
     - main
-    - coverage-push-85
-    - hotfix/fix-travis-pid-expansion
 
+# Notifications (optional)
 notifications:
   email:
     on_success: change
