@@ -342,12 +342,7 @@ def restaurant_photos_data(request):
 
     photos = []
     for p in restaurant.photos.all():
-        url = ""
-        if p.photo:
-            try:
-                url = request.build_absolute_uri(p.photo.url)
-            except Exception:
-                url = p.photo.url
+        url = p.photo.url if p.photo else ""
         photos.append(
             {
                 "id": p.id,
@@ -373,12 +368,7 @@ def restaurant_photo_upload(request):
         photo = form.save(commit=False)
         photo.restaurant = restaurant
         photo.save()
-        url = ""
-        if photo.photo:
-            try:
-                url = request.build_absolute_uri(photo.photo.url)
-            except Exception:
-                url = photo.photo.url
+        url = photo.photo.url if photo.photo else ""
         return JsonResponse(
             {
                 "id": photo.id,

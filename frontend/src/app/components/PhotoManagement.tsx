@@ -152,7 +152,7 @@ export function PhotoManagement({ onBack }: { onBack: () => void }) {
             Manage Photos
           </h2>
           <p className="text-sm" style={{ fontFamily: "Montserrat, sans-serif", color: "#666" }}>
-            Upload, delete, and manage photos for your restaurant (Django session required).
+            Upload, delete, and manage photos for your restaurant.
           </p>
           {error && (
             <p className="text-sm mt-2" style={{ color: "#b91c1c" }}>

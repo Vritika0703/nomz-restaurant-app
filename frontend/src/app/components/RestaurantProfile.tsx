@@ -347,26 +347,6 @@ export function RestaurantProfile({ onLogout, username, onNavigateMessages, onPh
       {/* Navigation Bar */}
       <nav className="w-full px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-6">
-          <button
-            onClick={onBack}
-            className="text-xl transition-all p-2 rounded-lg"
-            title="Back"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(224, 110, 127, 0.1)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-            style={{ 
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#E06E7F',
-              fontWeight: 'normal'
-            }}
-          >
-            ←
-          </button>
           <h1 className="text-2xl" style={{ 
             fontFamily: 'Montserrat, sans-serif',
             color: '#E06E7F'
