@@ -36,6 +36,7 @@ import { RestaurantDetail } from './components/RestaurantDetail';
 import { AddReview } from './components/AddReview';
 import { ReportContent } from './components/ReportContent';
 import { SearchResults } from './components/SearchResults';
+import { RestaurantComparison } from './components/RestaurantComparison';
 import { Recommendations } from './components/Recommendations';
 import { RestaurantForm } from './components/RestaurantForm';
 import { FriendChat } from './components/FriendChat';
@@ -635,8 +636,22 @@ function SearchPage() {
         onNavigateMap={() => navigate('/map/')}
         onNavigateMessages={() => navigate('/messages/')}
         onNavigateProfile={() => navigate('/profile/')}
+        onNavigateCompare={() => navigate('/compare/')}
         onLogout={logout}
         username={userData?.username || 'Diner'}
+      />
+    </div>
+  );
+}
+
+function ComparisonPage() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="h-screen w-screen overflow-hidden">
+      <RestaurantComparison
+        onBack={() => navigate('/search/')}
+        onSelectRestaurant={(id) => navigate(`/restaurant/${id}/`)}
       />
     </div>
   );
@@ -933,6 +948,16 @@ export default function App() {
             <RequireAuth>
               <RequireRole allow={['diner']}>
                 <SearchPage />
+              </RequireRole>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/compare/"
+          element={
+            <RequireAuth>
+              <RequireRole allow={['diner']}>
+                <ComparisonPage />
               </RequireRole>
             </RequireAuth>
           }
