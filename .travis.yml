@@ -55,7 +55,11 @@ deploy:
   bucket_path: deployments
   on:
     branch: develop
+<<<<<<< HEAD
   cleanup: true
+=======
+    condition: $TRAVIS_TEST_RESULT = 0  # only deploy if tests pass
+>>>>>>> d3af8b6b (resolved conflicts)
 
 branches:
   only:
