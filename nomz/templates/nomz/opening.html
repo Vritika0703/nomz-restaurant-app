@@ -4,26 +4,98 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>nomz</title>
-    {% load static %}
-    <link rel="stylesheet" href="{% static 'nomz/css/main.css' %}">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap');
+
+        :root {
+            --font-size: 16px;
+            --font-family: "Montserrat", sans-serif;
+            --background: #FFF9F5;
+            --pink-center: #F7CAD0;
+            --foreground: #252525;
+            --font-weight-medium: 500;
+            --font-weight-normal: 400;
+            --radius: 0.625rem;
+        }
+
+        .dark {
+            --background: #252525;
+            --foreground: #fafafa;
+            --font-weight-medium: 500;
+            --font-weight-normal: 400;
+        }
+
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-size: var(--font-size);
+            font-family: var(--font-family);
+            background: var(--background);
+            color: var(--foreground);
+        }
+
+        .opening-screen {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background-color: var(--background);
+            background-image:
+                radial-gradient(
+                    circle at center,
+                    var(--pink-center) 0%,
+                    rgba(247, 202, 208, 0.92) 16%,
+                    rgba(247, 202, 208, 0.72) 32%,
+                    rgba(247, 202, 208, 0.42) 52%,
+                    rgba(247, 202, 208, 0.18) 70%,
+                    rgba(255, 249, 245, 0.94) 86%,
+                    var(--background) 100%
+                );
+        }
+
+        .opening-content {
+            text-align: center;
+            user-select: none;
+        }
+
+        .logo {
+            margin: 0;
+            color: #ffffff;
+            font-weight: 500;
+            font-size: clamp(44px, 7vw, 62px);
+            letter-spacing: 0.22em;
+            text-transform: lowercase;
+            text-shadow: 0 1px 8px rgba(125, 56, 72, 0.2);
+            line-height: 1;
+        }
+
+        .subtitle {
+            margin-top: 10px;
+            color: rgba(255, 255, 255, 0.95);
+            font-size: clamp(14px, 1.5vw, 18px);
+            font-weight: var(--font-weight-normal);
+            text-shadow: 0 1px 4px rgba(125, 56, 72, 0.2);
+        }
+    </style>
 </head>
-<body style="margin: 0; padding: 0; height: 100vh; display: flex; align-items: center; justify-content: center; background-color: #FFF9F5; overflow: hidden;">
-    <h1 id="logo" style="font-size: 72px; font-family: 'Montserrat', sans-serif; font-weight: 900; color: #E06E7F; letter-spacing: 8px;">
-        <span style="display: inline-block; opacity: 0;">n</span>
-        <span style="display: inline-block; opacity: 0;">o</span>
-        <span style="display: inline-block; opacity: 0;">m</span>
-        <span style="display: inline-block; opacity: 0;">z</span>
-    </h1>
+<body>
+    <main class="opening-screen" role="button" tabindex="0" aria-label="Go to home page" onclick="window.location.href='/home/'">
+        <section class="opening-content">
+            <h1 class="logo">nomz</h1>
+            <div class="subtitle">click to start</div>
+        </section>
+    </main>
     <script>
-    const letters = document.querySelectorAll('#logo span');
-    letters.forEach((letter, i) => {
-        setTimeout(() => {
-            letter.style.transition = 'opacity 0.8s, transform 0.8s';
-            letter.style.opacity = '1';
-            letter.style.transform = 'scale(1)';
-        }, i * 150);
-    });
-    setTimeout(() => window.location.href = '/home/', 2000);
+        document.querySelector(".opening-screen").addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+                window.location.href = "/home/";
+            }
+        });
     </script>
 </body>
 </html>
