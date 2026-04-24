@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Elastic Beanstalk: produce a fresh frontend/dist on every deploy.
-# If npm/node is unavailable or the build fails, falls back to the committed
+# If npm/node is unavailable or the build fails, fall back to the committed
 # frontend/dist that ships in the deployment archive.
 set -euo pipefail
 
@@ -13,7 +13,6 @@ if [[ ! -d "${FRONTEND}" ]]; then
 fi
 
 # ---- Attempt a fresh Vite build (best-effort) ----------------------------
-build_ok=0
 if [[ -f "${FRONTEND}/package.json" ]]; then
   if ! command -v npm >/dev/null 2>&1; then
     if command -v dnf >/dev/null 2>&1; then
@@ -24,11 +23,12 @@ if [[ -f "${FRONTEND}/package.json" ]]; then
   fi
 
   if command -v npm >/dev/null 2>&1; then
-    # EB often sets NODE_ENV=production; that makes npm skip devDependencies, so Vite is missing.
+    # EB often sets NODE_ENV=production; that makes npm skip devDependencies,
+    # so Vite is missing.
     unset NODE_ENV || true
     export NPM_CONFIG_PRODUCTION=false
 
-    # Back up the committed dist so we can restore it if the build fails.
+    # Back up committed dist so we can restore it if the build fails.
     if [[ -d "${FRONTEND}/dist" ]]; then
       cp -a "${FRONTEND}/dist" "${FRONTEND}/dist_backup"
     fi
@@ -44,24 +44,23 @@ if [[ -f "${FRONTEND}/package.json" ]]; then
       fi
       npm run build
     ); then
-      build_ok=1
       rm -rf "${FRONTEND}/dist_backup"
       echo "eb_build_frontend: fresh Vite build succeeded."
     else
-      echo "eb_build_frontend: Vite build FAILED — restoring committed dist."
+      echo "eb_build_frontend: Vite build failed - restoring committed dist."
       rm -rf "${FRONTEND}/dist"
       if [[ -d "${FRONTEND}/dist_backup" ]]; then
         mv "${FRONTEND}/dist_backup" "${FRONTEND}/dist"
       fi
     fi
   else
-    echo "eb_build_frontend: npm not available — using committed dist."
+    echo "eb_build_frontend: npm not available - using committed dist."
   fi
 fi
 
 # ---- Verify final state --------------------------------------------------
 if [[ ! -f "${FRONTEND}/dist/index.html" ]]; then
-  echo "eb_build_frontend: ERROR frontend/dist/index.html missing. Ensure the dist is committed to git."
+  echo "eb_build_frontend: ERROR frontend/dist/index.html missing. Ensure dist is committed."
   exit 1
 fi
 
