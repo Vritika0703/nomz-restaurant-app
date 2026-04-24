@@ -64,7 +64,7 @@ deploy:
     bucket_path: deployments
     on:
       branch: develop
-      condition: $TRAVIS_TEST_RESULT = 0 && $TRAVIS_PULL_REQUEST = false
+      condition: $TRAVIS_TEST_RESULT = 0
 
   - provider: elasticbeanstalk
     skip_cleanup: true
@@ -77,7 +77,7 @@ deploy:
     bucket_path: deployments
     on:
       branch: production
-      condition: $TRAVIS_TEST_RESULT = 0 && $TRAVIS_PULL_REQUEST = false
+      condition: $TRAVIS_TEST_RESULT = 0
 
 # Branches to build (main is deprecated and intentionally excluded)
 branches:
