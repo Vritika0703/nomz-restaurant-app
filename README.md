@@ -1,7 +1,7 @@
 # Nomz — NYC Restaurant Discovery Platform
 
 [![Build Status](https://app.travis-ci.com/gcivil-nyu-org/team3-mon-spring26.svg?branch=develop)](https://app.travis-ci.com/gcivil-nyu-org/team3-mon-spring26)
-[![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team3-mon-spring26/badge.svg?branch=develop)](https://coveralls.io/github/gcivil-nyu-org/team3-mon-spring26?branch=develop)
+[![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team3-mon-spring26/badge.svg?branch=production)](https://coveralls.io/github/gcivil-nyu-org/team3-mon-spring26?branch=production)
 
 Nomz is a full-stack web application for discovering, reviewing, and managing NYC restaurants. It combines real-time NYC Open Data ingestion, a multi-factor composite scoring system, personalized recommendations, and social features like friend chat and shared restaurant lists.
 
@@ -170,6 +170,9 @@ All configuration is driven by environment variables (via `python-decouple`). De
 | `AWS_ACCESS_KEY_ID` | — | AWS credentials (when `USE_S3=True`) |
 | `AWS_SECRET_ACCESS_KEY` | — | AWS credentials |
 | `AWS_STORAGE_BUCKET_NAME` | — | S3 bucket name |
+| `AWS_S3_REGION_NAME` | `us-east-1` | S3 bucket region |
+| `AWS_S3_CUSTOM_DOMAIN` | `<bucket>.s3.amazonaws.com` | Optional CDN/custom S3 domain for static/media URLs |
+| `MAX_UPLOAD_IMAGE_MB` | `10` | Max image upload size used by Django upload limits |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,...` | Comma-separated CORS origins |
 | `CSRF_TRUSTED_ORIGINS` | `http://localhost:8000,...` | Comma-separated trusted CSRF origins |
 | `EMAIL_HOST_USER` | *(empty)* | SMTP user (e.g. Gmail address for password reset emails) |

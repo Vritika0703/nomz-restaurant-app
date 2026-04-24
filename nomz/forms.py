@@ -176,6 +176,12 @@ class RestaurantProfileForm(forms.ModelForm):
         required=False,
         widget=forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
     )
+    email = forms.CharField(
+        required=False,
+        widget=forms.EmailInput(
+            attrs={"class": "form-control", "placeholder": "contact@restaurant.com"}
+        ),
+    )
 
     class Meta:
         model = Restaurant
@@ -244,6 +250,55 @@ class RestaurantProfileForm(forms.ModelForm):
                 attrs={"class": "form-control", "placeholder": "contact@restaurant.com"}
             ),
         }
+
+    def clean_phone(self):
+        phone = self.cleaned_data.get("phone", "")
+        if phone:
+            if any(char.isalpha() for char in phone):
+                raise forms.ValidationError(
+                    "Alphabets are not allowed in the phone number."
+                )
+            digits_only = "".join(filter(str.isdigit, phone))
+            if len(digits_only) < 10:
+                raise forms.ValidationError(
+                    "The phone number must contain at least 10 digits."
+                )
+        return phone
+
+    def clean_email(self):
+        raw_email = self.data.get("email", "")
+        if raw_email:
+            if "@" not in raw_email:
+                if "email" in self.errors:
+                    del self.errors["email"]
+                raise forms.ValidationError(
+                    f"Please include an '@' in the email address. '{raw_email}' is missing an '@'."
+                )
+
+            parts = raw_email.split("@")
+            if len(parts[0]) == 0:
+                if "email" in self.errors:
+                    del self.errors["email"]
+                raise forms.ValidationError("Please enter any letter before @.")
+
+            if len(parts) < 2 or len(parts[1]) == 0:
+                if "email" in self.errors:
+                    del self.errors["email"]
+                raise forms.ValidationError("Please enter a part following '@'.")
+
+            domain_parts = parts[1].split(".")
+            if (
+                len(domain_parts) < 2
+                or len(domain_parts[0]) == 0
+                or len(domain_parts[1]) == 0
+            ):
+                if "email" in self.errors:
+                    del self.errors["email"]
+                raise forms.ValidationError(
+                    "Email must be in a valid format (e.g. name@example.com)."
+                )
+
+        return self.cleaned_data.get("email", raw_email)
 
 
 class RestaurantAvailabilityForm(forms.ModelForm):

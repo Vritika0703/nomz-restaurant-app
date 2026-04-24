@@ -250,9 +250,9 @@ urlpatterns = [
         name="api_friends_chat_toggle_shared",
     ),
     path(
-        "api/diner-search-v2/",
-        views.diner_search_api_v2,
-        name="api_diner_search_v2",
+        "api/friends-chat/search-users/",
+        spa_api.friends_chat_search_users_api,
+        name="api_friends_chat_search_users",
     ),
 ]
 
