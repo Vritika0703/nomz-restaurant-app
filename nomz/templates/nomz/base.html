@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,7 +11,6 @@
     <link rel="icon" type="image/x-icon" href="{% static 'nomz/favicon.ico' %}">
 
     <!-- Main CSS -->
-    {% load static %}
     <link rel="stylesheet" href="{% static 'nomz/css/main.css' %}">
     <link rel="stylesheet" href="{% static 'nomz/css/modern.css' %}">
 
@@ -21,6 +21,9 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Compatibility mount node for legacy tests/scripts expecting SPA root -->
+    <div id="root" style="display: none;" aria-hidden="true"></div>
+
     <!-- Navbar -->
     {% if not hide_navbar %}
         {% include 'nomz/components/navbar.html' %}

@@ -664,5 +664,13 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
                 )
 
     def clean(self):
-        # Allow any time range (even spanning midnight)
-        return super().clean()
+        cleaned_data = super().clean()
+        start = cleaned_data.get("response_hours_start")
+        end = cleaned_data.get("response_hours_end")
+
+        if start and end and start >= end:
+            raise forms.ValidationError(
+                "Response hours start must be before end."
+            )
+
+        return cleaned_data
