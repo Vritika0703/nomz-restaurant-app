@@ -21,8 +21,8 @@
         border-radius: 20px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.02);
     }
     .rest-title {
-        font-family: 'Montserrat', sans-serif; font-size: 28px; font-weight: 700;
-        color: #E06E7F; margin: 0; list-style: none;
+        font-family: var(--font-sans); font-size: 28px; font-weight: 700;
+        color: var(--red); margin: 0; list-style: none;
     }
     .rest-subtitle { font-size: 14px; color: #777; margin: 0; }
 
@@ -44,14 +44,14 @@
     }
     
     .form-input, .form-select, .form-textarea {
-        width: 100%; box-sizing: border-box; font-family: 'Inter', sans-serif;
+        width: 100%; box-sizing: border-box; font-family: var(--font-sans);
         background: rgba(255, 255, 255, 0.9);
         border: 1px solid rgba(0,0,0,0.08); border-radius: 12px;
         padding: 0.75rem 1rem; font-size: 14.5px; color: #333;
         transition: all 0.2s ease;
     }
     .form-input:focus, .form-select:focus, .form-textarea:focus {
-        outline: none; border-color: #E06E7F; box-shadow: 0 0 0 3px rgba(224, 110, 127, 0.1);
+        outline: none; border-color: var(--red); box-shadow: 0 0 0 3px rgba(212, 43, 43, 0.1);
     }
     .form-textarea { resize: vertical; min-height: 100px; }
 
@@ -60,13 +60,13 @@
     
     .btn {
         display: inline-flex; align-items: center; justify-content: center;
-        padding: 0.7rem 1.6rem; font-size: 14.5px; font-weight: 600; font-family: 'Inter', sans-serif;
+        padding: 0.7rem 1.6rem; font-size: 14.5px; font-weight: 600; font-family: var(--font-sans);
         border-radius: 100px; cursor: pointer; transition: all 0.2s ease; text-decoration: none; border: none;
     }
-    .btn-primary { background: #E06E7F; color: #fff; }
-    .btn-primary:hover { background: #C85A6D; transform: translateY(-1px); }
-    .btn-outline { background: transparent; color: #E06E7F; border: 2px solid #E06E7F; }
-    .btn-outline:hover { background: rgba(224, 110, 127, 0.05); }
+    .btn-primary { background: var(--red); color: #fff; }
+    .btn-primary:hover { background: #b82020; transform: translateY(-1px); }
+    .btn-outline { background: transparent; color: var(--red); border: 2px solid var(--red); }
+    .btn-outline:hover { background: rgba(212, 43, 43, 0.05); }
 
     /* ── Utilities ─────────────────────────────────────────────────── */
     .hidden { display: none !important; }
@@ -80,10 +80,10 @@
     .glass-card {
         background: rgba(255, 255, 255, 0.7);
         backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(224, 110, 127, 0.15);
+        border: 1px solid rgba(212, 43, 43, 0.15);
         border-radius: 20px;
         padding: 1.5rem 2rem;
-        box-shadow: 0 4px 16px rgba(224, 110, 127, 0.05);
+        box-shadow: 0 4px 16px rgba(212, 43, 43, 0.05);
         margin-bottom: 1.5rem;
     }
     .rest-section-title { font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 1.25rem; margin-top: 0; }
@@ -95,8 +95,8 @@
         display: flex; justify-content: center; align-items: center;
     }
     .spinner {
-        width: 32px; height: 32px; border: 3px solid rgba(224,110,127,0.2);
-        border-top-color: #E06E7F; border-radius: 50%; animation: spin 0.8s linear infinite;
+        width: 32px; height: 32px; border: 3px solid rgba(212, 43, 43,0.2);
+        border-top-color: var(--red); border-radius: 50%; animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -125,12 +125,12 @@
                     <label class="form-label">Email</label>
                     <input type="email" id="inp-email" class="form-input" />
                     <!-- Example validation structure -->
-                    <div id="err-email" style="font-size:12px; color:#E06E7F; margin-top:4px; display:none;">Please include an '@' in the email address.</div>
+                    <div id="err-email" style="font-size:12px; color:var(--red); margin-top:4px; display:none;">Please include an '@' in the email address.</div>
                 </div>
                 <div>
                     <label class="form-label">Phone</label>
                     <input type="text" id="inp-phone" class="form-input" />
-                    <div id="err-phone" style="font-size:12px; color:#E06E7F; margin-top:4px; display:none;">Alphabets are not allowed in the phone number.</div>
+                    <div id="err-phone" style="font-size:12px; color:var(--red); margin-top:4px; display:none;">Alphabets are not allowed in the phone number.</div>
                 </div>
                 <div class="form-group-full">
                     <label class="form-label">Address</label>
@@ -180,9 +180,9 @@
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <div id="main-error-msg" style="font-size:13px; color:#E06E7F; opacity:0; transition:opacity 0.2s;">Please correct the errors below.</div>
+            <div id="main-error-msg" style="font-size:13px; color:var(--red); opacity:0; transition:opacity 0.2s;">Please correct the errors below.</div>
             <div class="rest-actions" style="margin-top:0;">
-                <button type="button" class="btn btn-outline" style="border:1px solid rgba(224,110,127,0.2) !important; color:#E06E7F; background:rgba(255,255,255,0.7) !important;" onclick="window.location.href='/restaurant-profile/'">Cancel</button>
+                <button type="button" class="btn btn-outline" style="border:1px solid rgba(212, 43, 43,0.2) !important; color:var(--red); background:rgba(255,255,255,0.7) !important;" onclick="window.location.href='/restaurant-profile/'">Cancel</button>
                 <button type="submit" class="btn btn-primary" id="btn-save">Save Changes</button>
             </div>
         </div>
