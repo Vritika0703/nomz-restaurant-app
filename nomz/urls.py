@@ -290,7 +290,7 @@ urlpatterns += [
 
 # Public pages
 urlpatterns += [
-    path("", html_views.opening_screen, name="landing"),
+    path("", html_views.home, name="landing"),
     path("home/", html_views.home, name="home"),
 ]
 

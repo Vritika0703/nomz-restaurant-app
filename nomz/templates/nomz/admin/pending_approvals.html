@@ -6,12 +6,12 @@
     .ad-container { max-width: 1100px; margin: 0 auto; padding: 2rem; position: relative; z-index: 10; }
     
     .ad-header { margin-bottom: 2.5rem; }
-    .ad-page-title { font-family: 'Montserrat', sans-serif; font-size: 28px; font-weight: 600; color: #E06E7F; margin: 0 0 0.5rem 0; }
+    .ad-page-title { font-family: var(--font-sans); font-size: 28px; font-weight: 600; color: var(--red); margin: 0 0 0.5rem 0; }
     .ad-page-subtitle { color: #8a7e75; font-size: 14px; margin: 0; }
     
     .ad-table-header { 
         display: flex; align-items: center; gap: 1.5rem; padding: 0 1.25rem 1rem 1.25rem;
-        border-bottom: 1px solid rgba(224, 110, 127, 0.1); margin-bottom: 1rem;
+        border-bottom: 1px solid rgba(212, 43, 43, 0.1); margin-bottom: 1rem;
         font-size: 11px; font-weight: 700; color: #8a7e75; text-transform: uppercase; letter-spacing: 0.5px;
     }
 
@@ -25,7 +25,7 @@
     .col-item { display: flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
     .col-value { font-size: 14px; color: #333; font-weight: 500; }
 
-    .status-pill { padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; display: inline-block; background: #E06E7F; color: white; }
+    .status-pill { padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; display: inline-block; background: var(--red); color: white; }
 
     /* Optimized widths */
     .col-user { width: 150px; }
@@ -43,31 +43,31 @@
     .empty-card { background: white; border-radius: 16px; padding: 5rem 2rem; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
 
     .filter-bar { display: flex; gap: 0.75rem; margin-bottom: 1rem; }
-    .filter-btn { padding: 8px 24px; border-radius: 12px; border: 1px solid rgba(224, 110, 127, 0.2); background: white; color: #8a7e75; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
-    .filter-btn.active { background: #E06E7F; color: white; border-color: #E06E7F; }
+    .filter-btn { padding: 8px 24px; border-radius: 12px; border: 1px solid rgba(212, 43, 43, 0.2); background: white; color: #8a7e75; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .filter-btn.active { background: var(--red); color: white; border-color: var(--red); }
     .found-count { font-size: 13px; color: #8a7e75; margin-bottom: 1.5rem; }
 
     /* Modal Styles */
     .ad-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: none; align-items: center; justify-content: center; z-index: 1000; }
     .ad-modal { background: white; border-radius: 16px; width: 440px; padding: 2rem; box-shadow: 0 10px 40px rgba(0,0,0,0.1); position: relative; animation: modalPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
     @keyframes modalPop { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    .ad-modal-title { font-family: 'Montserrat', sans-serif; font-size: 20px; font-weight: 600; color: #E06E7F; margin: 0 0 1.5rem 0; }
+    .ad-modal-title { font-family: var(--font-sans); font-size: 20px; font-weight: 600; color: var(--red); margin: 0 0 1.5rem 0; }
     
     .modal-group { margin-bottom: 1.5rem; }
     .modal-label { display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 0.75rem; }
     
     .radio-option { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; cursor: pointer; font-size: 14px; color: #444; }
-    .radio-option input { accent-color: #E06E7F; width: 16px; height: 16px; }
+    .radio-option input { accent-color: var(--red); width: 16px; height: 16px; }
     
-    .modal-textarea { width: 100%; border-radius: 10px; border: 1.5px solid #FFE8EC; padding: 12px; font-size: 14px; color: #333; min-height: 100px; resize: none; background: #FFF9F5; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
-    .modal-textarea:focus { border-color: #E06E7F; }
+    .modal-textarea { width: 100%; border-radius: 10px; border: 1.5px solid rgba(200,169,110,0.12); padding: 12px; font-size: 14px; color: #333; min-height: 100px; resize: none; background: var(--paper); outline: none; transition: border-color 0.2s; box-sizing: border-box; }
+    .modal-textarea:focus { border-color: var(--red); }
     
     .modal-actions { display: flex; gap: 12px; margin-top: 1rem; }
     .modal-btn { flex: 1; padding: 10px; border-radius: 10px; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.2s; border: none; }
-    .modal-btn-cancel { background: white; border: 1.5px solid #E06E7F; color: #E06E7F; }
-    .modal-btn-cancel:hover { background: #FFF9F5; }
-    .modal-btn-submit { background: #E06E7F; color: white; box-shadow: 0 4px 12px rgba(224, 110, 127, 0.2); }
-    .modal-btn-submit:hover { background: #C85A6D; transform: translateY(-1px); }
+    .modal-btn-cancel { background: white; border: 1.5px solid var(--red); color: var(--red); }
+    .modal-btn-cancel:hover { background: var(--paper); }
+    .modal-btn-submit { background: var(--red); color: white; box-shadow: 0 4px 12px rgba(212, 43, 43, 0.2); }
+    .modal-btn-submit:hover { background: #b82020; transform: translateY(-1px); }
     .modal-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>
 
