@@ -10,6 +10,12 @@ __pycache__/
 .Python
 build/
 develop-eggs/
+<<<<<<< HEAD
+=======
+# Node dependencies
+node_modules/
+frontend/node_modules/
+>>>>>>> bdad3f34 (travis error)
 # Only repo-root dist (avoid matching arbitrary */dist/ inside deps)
 /dist/
 # NOTE: frontend/dist/ is NOT ignored — it must ship in the deployment archive
@@ -64,6 +70,10 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+<<<<<<< HEAD
+=======
+staticfiles/
+>>>>>>> bdad3f34 (travis error)
 
 # Local / test-generated user uploads (photo tests write red JPEGs here)
 media/restaurant_photos/

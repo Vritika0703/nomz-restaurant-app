@@ -167,6 +167,7 @@ USE_I18N = True
 USE_TZ = True
 
 
+<<<<<<< HEAD
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
@@ -184,6 +185,12 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
 # Dev-only fallback (no script tags). In production, omit so missing dist is obvious vs silent stub.
 
+=======
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+>>>>>>> bdad3f34 (travis error)
 # Media files
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from django.urls import path, re_path
 from django.views.generic import RedirectView
 from django.contrib.auth.decorators import login_required
@@ -13,6 +14,15 @@ urlpatterns = [
         spa_shell_views.spa_asset,
         name="spa_asset",
     ),
+=======
+from django.urls import path
+from django.views.generic import RedirectView
+
+from . import api_views, spa_api, views, html_views
+
+# --- Health & JSON API (unchanged paths) ---------------------------------
+urlpatterns = [
+>>>>>>> bdad3f34 (travis error)
     path("health/", views.health_check, name="health_check"),
     path(
         "api/restaurants/map-data/",
