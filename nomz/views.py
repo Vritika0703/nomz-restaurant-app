@@ -1,10 +1,6 @@
 from django.http import HttpResponseForbidden, JsonResponse
 from django.utils import timezone
-<<<<<<< HEAD
-from django.shortcuts import get_object_or_404, redirect
-=======
 from django.shortcuts import get_object_or_404, redirect, render
->>>>>>> bdad3f34 (travis error)
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
@@ -791,8 +787,6 @@ def toggle_shared_restaurant(request, username=None, conversation_id=None):
     if conversation_id:
         return redirect("friends_chat_detail_by_id", conversation_id=conversation_id)
     return redirect("friends_chat_detail", username=username)
-<<<<<<< HEAD
-=======
 
 
 @login_required
@@ -854,4 +848,3 @@ def diner_search_api_v2(request):
     from .spa_api import friends_chat_search_users_api
 
     return friends_chat_search_users_api(request)
->>>>>>> bdad3f34 (travis error)
