@@ -1,0 +1,45 @@
+<!-- Navbar Component -->
+<nav class="navbar" style="
+    background-color: transparent;
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 10;
+">
+    <a href="{% if user.is_authenticated %}{% if user.is_staff %}/nomz-admin/{% elif user.userprofile.account_type == 'restaurant' %}/restaurant-profile/{% else %}/dashboard/{% endif %}{% else %}/home/{% endif %}" style="
+        font-size: 28px;
+        font-weight: 800;
+        color: #E06E7F;
+        text-decoration: none;
+        font-family: 'Montserrat', sans-serif;
+    ">
+        nomz
+    </a>
+
+    <div class="nav-actions" style="display: flex; gap: 15px; align-items: center;">
+        <a href="/signin/" style="
+            background: none;
+            border: 1px solid #E06E7F;
+            color: #E06E7F;
+            padding: 10px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+        ">Log In</a>
+        <a href="/register/" style="
+            background-color: #E06E7F;
+            border: 1px solid #E06E7F;
+            color: white;
+            padding: 10px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 600;
+            font-size: 14px;
+        ">Sign Up</a>
+    </div>
+</nav>

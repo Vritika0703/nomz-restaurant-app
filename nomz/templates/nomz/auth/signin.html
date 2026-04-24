@@ -1,0 +1,296 @@
+{% extends 'nomz/base.html' %}
+{% load static %}
+
+{% block title %}Sign In - nomz{% endblock %}
+
+{% block main_layout %}
+<div class="auth-wrapper">
+    <!-- Back Button -->
+    <button onclick="window.location.href='/home/'" class="back-link" title="Back">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E06E7F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+    </button>
+
+    <div class="auth-form-card" style="max-width: 400px;">
+        <!-- Logo -->
+        <h1 class="auth-logo">nomz</h1>
+        
+        <h2 class="auth-title">Welcome Back</h2>
+        
+        <p id="signin-error" class="error-msg"></p>
+
+        {% if admin_mode %}
+        <p style="font-size: 13px; color: #888; text-align: left; margin-bottom: 20px; line-height: 1.5;">
+            Security code required (same as Django `/admin-login/`).
+        </p>
+        {% endif %}
+
+        <form id="signin-form" class="auth-form">
+            <div class="input-col">
+                <label>Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" required {% if admin_mode %}value="admin"{% endif %}>
+            </div>
+            
+            <div class="input-col">
+                <label>Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" required>
+            </div>
+            
+            {% if admin_mode %}
+            <div class="input-col">
+                <label>Administrative Security Code</label>
+                <input type="password" id="security_code" name="security_code" placeholder="Enter security code" required>
+            </div>
+            {% endif %}
+
+            {% if not admin_mode %}
+            <div style="text-align: right; margin-top: -10px;">
+                <a href="/password-reset/" style="font-size: 12px; color: #E06E7F; text-decoration: none;">Forgot password?</a>
+            </div>
+            {% endif %}
+            
+            <button type="submit" id="signin-submit" class="auth-btn">Log In</button>
+        </form>
+        
+        {% if not admin_mode %}
+        <p class="auth-bottom-link">
+            Don't have an account? <a href="/register/">Sign up</a>
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('signin-form');
+    const errorDisplay = document.getElementById('signin-error');
+    const submitButton = document.getElementById('signin-submit');
+    const adminMode = {{ admin_mode|yesno:"true,false" }};
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Hide any previous errors
+        errorDisplay.style.display = 'none';
+        errorDisplay.textContent = '';
+
+        // Get form values
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value;
+        const securityCode = adminMode ? document.getElementById('security_code').value.trim() : '';
+
+        // Validate
+        if (!username || !password) {
+            errorDisplay.textContent = 'Enter username and password.';
+            errorDisplay.style.display = 'block';
+            return;
+        }
+
+        if (adminMode && !securityCode) {
+            errorDisplay.textContent = 'Enter the administrative security code.';
+            errorDisplay.style.display = 'block';
+            return;
+        }
+
+        // Disable button and show loading
+        submitButton.disabled = true;
+        submitButton.style.backgroundColor = '#ccc';
+        submitButton.style.cursor = 'wait';
+        submitButton.textContent = 'Logging in...';
+
+        try {
+            const endpoint = adminMode ? '/api/auth/admin-login/' : '/api/auth/login/';
+            const body = adminMode
+                ? { username, password, security_code: securityCode }
+                : { username, password };
+
+            const response = await apiFetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const msg = typeof data.error === 'string'
+                    ? data.error
+                    : (Array.isArray(data.errors?.__all__) && data.errors.__all__[0]
+                        ? String(data.errors.__all__[0])
+                        : (adminMode ? 'Admin sign-in failed.' : 'Login failed.'));
+                errorDisplay.textContent = msg;
+                errorDisplay.style.display = 'block';
+                return;
+            }
+
+            // Check if 2FA required
+            if (data.requires_2fa) {
+                window.location.href = '/two-factor-auth/';
+                return;
+            }
+
+            // Determine redirect based on role
+            if (data.is_staff || adminMode) {
+                window.location.href = '/nomz-admin/';
+            } else if (data.role === 'restaurant') {
+                window.location.href = '/restaurant-profile/';
+            } else {
+                window.location.href = '/dashboard/';
+            }
+
+        } catch (error) {
+            console.error('Login error:', error);
+            errorDisplay.textContent = 'Network error. Please try again.';
+            errorDisplay.style.display = 'block';
+        } finally {
+            // Re-enable button
+            submitButton.disabled = false;
+            submitButton.style.backgroundColor = '#D86374';
+            submitButton.style.cursor = 'pointer';
+            submitButton.textContent = 'Log In';
+        }
+    });
+});
+</script>
+
+<style>
+    /* Hide the navbar exactly on auth pages */
+    nav.navbar { display: none !important; }
+
+    body {
+        margin: 0;
+        background-color: #FFF9F5 !important;
+        font-family: 'Montserrat', sans-serif !important;
+    }
+
+    .auth-wrapper {
+        min-height: calc(100vh - 150px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        padding-top: 40px;
+    }
+
+    .back-link {
+        position: absolute;
+        top: 40px;
+        left: 40px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        transition: transform 0.2s;
+    }
+    .back-link:hover {
+        transform: translateX(-4px);
+    }
+
+    .auth-form-card {
+        width: 100%;
+        text-align: center;
+        padding: 20px;
+    }
+
+    .auth-logo {
+        color: #E06E7F;
+        font-size: 32px;
+        font-weight: 500;
+        margin-bottom: 20px;
+    }
+
+    .auth-title {
+        color: #555;
+        font-size: 20px;
+        font-weight: 500;
+        margin-bottom: 40px;
+    }
+
+    .error-msg {
+        background-color: #ffebee;
+        color: #c62828;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-size: 14px;
+        display: none;
+        text-align: left;
+    }
+
+    .auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        text-align: left;
+    }
+
+    .input-col label {
+        display: block;
+        font-size: 12px;
+        color: #777;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+
+    .input-col input {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid rgba(224, 110, 127, 0.2);
+        border-radius: 10px;
+        font-size: 14px;
+        background-color: #FAFAFA;
+        color: #333;
+        font-family: inherit;
+        box-sizing: border-box;
+    }
+    
+    .input-col input::placeholder {
+        color: #aaa;
+    }
+
+    .input-col input:focus {
+        outline: none;
+        border-color: #E06E7F;
+        background-color: #fff;
+    }
+
+    .auth-btn {
+        width: 100%;
+        padding: 16px;
+        background-color: #D86374;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        margin-top: 10px;
+        font-family: inherit;
+        transition: background-color 0.2s;
+    }
+
+    .auth-btn:hover {
+        background-color: #c45868;
+    }
+
+    .auth-bottom-link {
+        margin-top: 24px;
+        font-size: 13px;
+        color: #777;
+    }
+
+    .auth-bottom-link a {
+        color: #E06E7F;
+        text-decoration: none;
+        margin-left: 5px;
+    }
+
+    @media (max-width: 600px) {
+        .back-link {
+            top: 20px;
+            left: 20px;
+        }
+    }
+</style>
+{% endblock %}

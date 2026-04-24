@@ -6,10 +6,10 @@
 {% block extra_css %}
 <style>
     body {
-        background-color: #FFF9F5 !important;
+        background-color: #FFF9F5;
         margin: 0;
         padding: 0;
-        font-family: 'Montserrat', sans-serif !important;
+        font-family: 'Montserrat', sans-serif;
     }
 
     .landing-section {
@@ -143,15 +143,10 @@
             align-items: center;
         }
     }
-    
-    /* Override base.html hero if any */
-    .hero {
-        display: none !important;
-    }
 </style>
 {% endblock %}
 
-{% block main_layout %}
+{% block content %}
 <div class="landing-section">
     <h1 class="welcome-title">Welcome to nomz</h1>
     <p class="welcome-desc">

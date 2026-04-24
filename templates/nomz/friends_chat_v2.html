@@ -1,568 +1,466 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Friend Chats - Nomz</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { height: 100%; font-family: 'Montserrat', sans-serif; overflow: hidden; }
 
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            font-family: 'Montserrat', sans-serif;
-            background-color: #FFF9F5;
-            overflow: hidden;
+        @keyframes float {
+            0%, 100% { transform: translate(0,0) scale(1); }
+            50% { transform: translate(-20px,20px) scale(1.05); }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
 
         .layout-wrapper {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            width: 100vw;
-        }
-
-        /* Navbar */
-        .spa-navbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem 2rem;
-            flex-shrink: 0;
-        }
-
-        .nav-left {
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-        }
-
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .nav-logo {
-            color: #E06E7F;
-            font-size: 1.5rem;
-            text-decoration: none;
-        }
-
-        .nav-btn {
-            background: transparent;
-            border: none;
-            font-size: 1.25rem;
-            color: #E06E7F;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 0.5rem;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 44px;
-            height: 44px;
-            font-weight: normal;
-        }
-
-        .nav-btn:hover {
-            background-color: rgba(224, 110, 127, 0.1);
-        }
-
-        /* Main */
-        .main-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            padding: 1.5rem;
+            display: flex; flex-direction: column; height: 100vh;
+            background: linear-gradient(135deg, #FFF9F5 0%, #FFE8E0 50%, #FFF9F5 100%);
             position: relative;
         }
 
-        .content-area {
-            flex: 1;
-            display: flex;
-            gap: 1rem;
-            min-height: 0;
-            max-width: 72rem;
-            margin: 0 auto;
-            width: 100%;
-            justify-content: center;
+        .orb {
+            position: absolute; border-radius: 50%; filter: blur(80px);
+            opacity: 0.3; pointer-events: none; z-index: 0;
+            animation: float 20s infinite ease-in-out;
         }
+        .orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(224,110,127,0.3) 0%, transparent 70%); top: -100px; right: -100px; }
+        .orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(255,183,77,0.2) 0%, transparent 70%); bottom: 100px; left: -100px; animation-delay: -5s; }
 
-        /* Left Column */
-        .sidebar {
-            width: 18rem;
-            flex-shrink: 0;
-            border: 2px solid rgba(224, 110, 127, 0.15);
-            border-radius: 0.5rem;
-            background-color: white;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
+        /* ── Nav ── */
+        .search-nav {
+            width: 100%; padding: 0.75rem 2rem; display: flex; align-items: center; justify-content: space-between;
+            background: rgba(255,255,255,0.7); backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(224,110,127,0.1); z-index: 100; flex-shrink: 0;
         }
-
-        .sidebar-header {
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            background-color: #E06E7F;
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .nav-left { display: flex; align-items: center; gap: 1rem; }
+        .back-icon {
+            padding: 0.4rem 0.6rem; border-radius: 12px;
+            background: rgba(224,110,127,0.1); border: 1px solid rgba(224,110,127,0.2);
+            cursor: pointer; color: #E06E7F; transition: all 0.3s ease;
+            display: flex; text-decoration: none;
         }
+        .back-icon:hover { background: rgba(224,110,127,0.2); transform: translateX(-3px); }
+        .search-logo { font-size: 1.5rem; color: #E06E7F; font-weight: 700; text-decoration: none; }
+        .nav-icons { display: flex; align-items: center; gap: 1.5rem; }
 
-        .conversation-item {
-            text-align: left;
-            padding: 0.75rem;
-            border-bottom: 1px solid rgba(224, 110, 127, 0.1);
-            background-color: white;
-            border-top: none;
-            border-left: none;
-            border-right: none;
-            cursor: pointer;
-            display: block;
+        .nav-icon-wrapper { position: relative; }
+        .nav-icon {
+            font-size: 1.25rem; padding: 0.5rem; border-radius: 12px;
+            background: rgba(255,255,255,0.6); backdrop-filter: blur(10px);
+            border: 1px solid rgba(224,110,127,0.2); cursor: pointer; color: #E06E7F;
+            transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            display: flex; align-items: center; justify-content: center;
             text-decoration: none;
-            color: inherit;
+        }
+        .nav-icon:hover { background: rgba(224,110,127,0.1); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(224,110,127,0.15); }
+        .nav-icon.active { background: rgba(224,110,127,0.15); border-color: rgba(224,110,127,0.4); }
+        .nav-tooltip {
+            display: none; position: absolute; top: 100%; margin-top: 0.25rem;
+            padding: 0.25rem 0.5rem; border-radius: 0.25rem; background-color: #E06E7F;
+            color: white; font-size: 0.75rem; white-space: nowrap;
+            font-family: 'Montserrat', sans-serif; z-index: 10; left: 50%; transform: translateX(-50%);
+        }
+        .nav-tooltip.right { left: auto; right: 0; transform: none; }
+        .nav-icon-wrapper:hover .nav-tooltip { display: block; }
+
+        /* ── 3-column layout ── */
+        .main-content {
+            flex: 1; display: flex; gap: 1.25rem;
+            padding: 1.25rem 1.5rem; overflow: hidden;
+            position: relative; z-index: 10;
+            max-width: 1400px; margin: 0 auto; width: 100%;
         }
 
-        .conversation-item:hover,
-        .conversation-item.active {
-            background-color: rgba(224, 110, 127, 0.08);
+        /* Glassmorphism panel */
+        .glass-panel {
+            background: rgba(255,255,255,0.7); backdrop-filter: blur(20px);
+            border: 1px solid rgba(224,110,127,0.15); border-radius: 24px;
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 4px 24px rgba(224,110,127,0.06);
         }
 
-        .conv-name {
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: #333;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+        /* ── Sidebar ── */
+        .sidebar { width: 260px; flex-shrink: 0; }
+        .sidebar-header {
+            padding: 1rem 1.25rem; border-bottom: 1px solid rgba(224,110,127,0.1);
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
         }
+        .sidebar-title { color: #E06E7F; font-size: 15px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 6px; }
+        .sidebar-btn-group { display: flex; gap: 6px; }
+        .sidebar-icon-btn {
+            padding: 5px 10px; background: #E06E7F; color: white; border: none;
+            border-radius: 9px; font-size: 13px; cursor: pointer;
+            font-family: 'Montserrat', sans-serif; font-weight: 600;
+            transition: background 0.2s; display: flex; align-items: center; gap: 4px;
+        }
+        .sidebar-icon-btn:hover { background: #C85A6D; }
 
-        .conv-preview {
-            font-size: 0.75rem;
-            margin-top: 0.25rem;
-            color: #888;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+        .conv-list { flex: 1; overflow-y: auto; }
+        .conv-list::-webkit-scrollbar { width: 4px; }
+        .conv-list::-webkit-scrollbar-thumb { background: rgba(224,110,127,0.2); border-radius: 4px; }
 
-        /* Middle Column (Messages) */
-        .chat-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            border: 2px solid rgba(224, 110, 127, 0.15);
-            border-radius: 0.5rem;
-            background-color: white;
+        .conv-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 1.25rem; text-decoration: none; color: inherit;
+            border-bottom: 1px solid rgba(224,110,127,0.06);
+            transition: background 0.2s; animation: fadeIn 0.3s ease both;
+            cursor: pointer;
         }
+        .conv-item:hover { background: rgba(224,110,127,0.06); }
+        .conv-item.active { background: rgba(224,110,127,0.1); border-left: 3px solid #E06E7F; }
+        .conv-avatar {
+            width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%;
+            background: linear-gradient(135deg, rgba(224,110,127,0.2), rgba(224,110,127,0.4));
+            display: flex; align-items: center; justify-content: center;
+            color: #E06E7F; font-weight: 700; font-size: 14px;
+            border: 2px solid rgba(224,110,127,0.2);
+        }
+        .conv-info { flex: 1; min-width: 0; }
+        .conv-name { font-size: 13px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .conv-preview { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
 
-        .chat-header {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid rgba(224, 110, 127, 0.15);
-            color: #E06E7F;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 49px;
+        /* ── Chat panel ── */
+        .chat-area { flex: 1; min-width: 0; min-height: 0; }
+        .chat-top-bar {
+            padding: 0.875rem 1.25rem; border-bottom: 1px solid rgba(224,110,127,0.1);
+            display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
         }
+        .chat-bar-title { font-size: 14px; font-weight: 700; color: #E06E7F; }
 
-        .chat-header h2 {
-            margin: 0;
-            font-size: 0.875rem;
-            font-weight: 400;
+        /* Welcome area */
+        .welcome-wrap {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; text-align: center; gap: 1rem; padding: 2.5rem;
         }
+        .welcome-icon {
+            width: 72px; height: 72px;
+            background: linear-gradient(135deg, rgba(224,110,127,0.1), rgba(224,110,127,0.2));
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #E06E7F;
+        }
+        .welcome-wrap h3 { color: #E06E7F; font-size: 20px; font-weight: 700; }
+        .welcome-wrap p { color: #666; font-size: 13px; max-width: 380px; line-height: 1.7; }
+        .welcome-hint { color: #888; font-size: 12px; margin-top: 0.5rem; }
 
-        .messages-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
+        /* Forms inside chat panel */
+        .form-panel {
+            display: none; padding: 1.5rem; max-width: 500px; width: 100%; margin: auto;
         }
+        .form-panel.visible { display: flex; flex-direction: column; gap: 0.875rem; }
+        .form-label { font-size: 13px; font-weight: 600; color: #333; }
+        .form-input {
+            width: 100%; padding: 9px 14px; border: 1px solid rgba(224,110,127,0.2);
+            border-radius: 12px; font-size: 13px; font-family: 'Montserrat', sans-serif;
+            outline: none; background: rgba(255,255,255,0.8); color: #333; transition: border-color 0.2s;
+        }
+        .form-input:focus { border-color: #E06E7F; }
+        .form-input::placeholder { color: #bbb; }
+        .form-btn {
+            align-self: flex-end; padding: 9px 20px; background: #E06E7F; color: white; border: none;
+            border-radius: 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+            font-family: 'Montserrat', sans-serif; transition: background 0.2s;
+        }
+        .form-btn:hover { background: #C85A6D; }
 
-        .chat-input-area {
-            padding: 1rem;
-            border-top: 1px solid rgba(224, 110, 127, 0.15);
-            flex-shrink: 0;
-            display: flex;
-            gap: 0.5rem;
-        }
+        .divider { border: none; border-top: 1px solid rgba(224,110,127,0.1); margin: 8px 0; }
 
-        .chat-input {
-            flex: 1;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            border: 1px solid rgba(224, 110, 127, 0.25);
-            border-radius: 0.5rem;
-            font-family: inherit;
+        /* Member tags */
+        .member-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .member-tag {
+            background: rgba(224,110,127,0.1); color: #E06E7F; padding: 3px 10px;
+            border-radius: 20px; font-size: 12px; border: 1px solid rgba(224,110,127,0.2);
+            display: flex; align-items: center; gap: 5px;
         }
+        .member-tag .rm { cursor: pointer; font-weight: 700; }
 
-        .chat-input:focus {
-            outline: none;
-            border-color: rgba(224, 110, 127, 0.5);
+        /* Search dropdown */
+        .relative-wrapper { position: relative; }
+        .search-results {
+            display: none; position: absolute; z-index: 999; top: 100%; left: 0; right: 0;
+            background: white; border: 1.5px solid #E06E7F; border-radius: 10px; margin-top: 3px;
+            max-height: 160px; overflow-y: auto; box-shadow: 0 8px 20px rgba(0,0,0,0.12);
         }
+        .search-result-item {
+            padding: 8px 12px; font-size: 12px; cursor: pointer; border: none;
+            border-bottom: 1px solid rgba(224,110,127,0.07); background: none;
+            text-align: left; width: 100%; font-family: 'Montserrat', sans-serif; color: #333;
+        }
+        .search-result-item:hover { background: rgba(224,110,127,0.05); }
+        .search-result-item:last-child { border-bottom: none; }
 
-        .btn-send {
-            background-color: #d1d5db;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            font-family: inherit;
-            cursor: not-allowed;
-        }
+        /* ── Right panel ── */
+        .features-area { width: 240px; flex-shrink: 0; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; }
+        .features-area::-webkit-scrollbar { width: 4px; }
+        .features-area::-webkit-scrollbar-thumb { background: rgba(224,110,127,0.2); border-radius: 4px; }
 
-        /* Right Column (Features) */
-        .features-area {
-            width: 16rem;
-            flex-shrink: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
+        .right-card {
+            background: rgba(255,255,255,0.7); backdrop-filter: blur(20px);
+            border: 1px solid rgba(224,110,127,0.15); border-radius: 20px;
+            overflow: hidden; box-shadow: 0 4px 16px rgba(224,110,127,0.06); flex-shrink: 0;
         }
+        .right-card-header {
+            padding: 8px 14px; background: #E06E7F; color: white;
+            font-size: 13px; font-weight: 700; font-family: 'Montserrat', sans-serif;
+        }
+        .right-card-body { padding: 12px 14px; }
+        .right-placeholder { font-size: 12px; color: #aaa; text-align: center; line-height: 1.7; padding: 4px 0; }
 
-        .feature-card {
-            border: 2px solid rgba(224, 110, 127, 0.15);
-            border-radius: 0.5rem;
-            background-color: white;
-            display: flex;
-            flex-direction: column;
-        }
+        .footer { text-align: center; padding: 10px; font-size: 12px; color: #bbb; flex-shrink: 0; z-index: 10; }
 
-        .feature-header {
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            background-color: #E06E7F;
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .feature-content {
-            padding: 0.75rem;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            overflow-y: auto;
-            max-height: 250px;
-        }
-
-        .list-item { font-size: 0.75rem; display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px solid #f3f4f6; padding-bottom: 4px; }
-        .btn-remove { background: none; border: none; color: #EF4444; cursor: pointer; padding: 2px; }
-        
-        .selected-members-container { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
-        .member-tag { background-color: rgba(224, 110, 127, 0.1); color: #E06E7F; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(224, 110, 127, 0.2); }
-        .member-tag .remove-member { cursor: pointer; color: #E06E7F; font-weight: bold; }
-        
-        /* Footer */
-        .footer {
-            padding-bottom: 2rem;
-            text-align: center;
-            font-size: 0.75rem;
-            color: #9CA3AF;
-            flex-shrink: 0;
-            margin-top: auto;
-        }
+        .alert { padding: 10px 14px; background: #FEF2F2; color: #B91C1C; font-size: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #F87171; }
     </style>
 </head>
-
 <body>
-    <div class="layout-wrapper">
-        <!-- Navbar -->
-        <nav class="spa-navbar">
-            <div class="nav-left">
-                <a href="{% url 'dashboard' %}" class="nav-btn" style="color: #E06E7F; font-family: system-ui;"
-                    title="Home">←</a>
-                <h1 style="margin:0;"><a href="{% url 'dashboard' %}" class="nav-logo">nomz</a></h1>
+<div class="layout-wrapper">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <!-- Nav — exact match of conversation detail page -->
+    <nav class="search-nav">
+        <div class="nav-left">
+            <a href="{% url 'dashboard' %}" class="back-icon" title="Back">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            </a>
+            <a href="{% url 'dashboard' %}" class="search-logo">nomz</a>
+        </div>
+        <div class="nav-icons">
+            <div class="nav-icon-wrapper">
+                <a href="{% url 'map' %}" class="nav-icon" title="Map">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+                </a>
+                <div class="nav-tooltip">map</div>
             </div>
-            <div class="nav-right">
-                <a href="{% url 'map' %}" class="nav-btn" title="Map">🗺️</a>
-                <a href="{% url 'message_inbox' %}" class="nav-btn" title="Messages">💬</a>
-                <a href="{% url 'profile' %}" class="nav-btn" title="Profile">👤</a>
-                <a href="{% url 'logout' %}" class="nav-btn" title="Logout">→</a>
+            <div class="nav-icon-wrapper">
+                <a href="{% url 'friends_chat_index_v2' %}" class="nav-icon active" title="Friends Chat">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </a>
+                <div class="nav-tooltip">friends</div>
             </div>
-        </nav>
-
-        <!-- Main Content -->
-        <main class="main-container">
-            <!-- Error Alerts -->
-            {% if messages %}
-            {% for message in messages %}
-            <div class="alert"
-                style="max-width: 72rem; margin: 0 auto 1rem auto; width: 100%; padding: 0.75rem; border-radius: 0.5rem; background-color: #FEF2F2; color: #B91C1C; font-size: 0.875rem; border: 1px solid #F87171;">
-                {{ message }}</div>
-            {% endfor %}
-            {% endif %}
-
-            <div class="content-area">
-                <!-- Sidebar -->
-                <div class="sidebar">
-                    <div class="sidebar-header">
-                        <span>Conversations</span>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <button class="nav-btn"
-                                style="color: white; width: auto; height: auto; padding: 0.1rem 0.4rem; font-size: 1rem; line-height: 1;"
-                                title="Create Group Chat" onclick="showStartForm('group')">👥</button>
-                            <button class="nav-btn"
-                                style="color: white; width: auto; height: auto; padding: 0.1rem 0.4rem; font-size: 1rem; line-height: 1;"
-                                title="New Chat" aria-label="New Chat" onclick="showStartForm('new')">+</button>
-                        </div>
-                    </div>
-
-                    {% if conversations %}
-                    {% for c in conversations %}
-                    <a href="{% if c.is_group %}{% url 'friends_chat_detail_v2_by_id' c.id %}{% else %}{% if c.user1 == request.user %}{% url 'friends_chat_detail_v2' c.user2.username %}{% else %}{% url 'friends_chat_detail_v2' c.user1.username %}{% endif %}{% endif %}"
-                        class="conversation-item">
-                        <div class="conv-name">
-                            {% if c.is_group %}
-                                {{ c.name|default:"Group" }}
-                            {% else %}
-                                {% if c.user1 == request.user %}{{ c.user2.username }}{% else %}{{ c.user1.username }}{% endif %}
-                            {% endif %}
-                        </div>
-                        <div class="conv-preview">
-                            {% with last_msg=c.messages.last %}
-                            {% if last_msg %}{{ last_msg.body }}{% else %}—{% endif %}
-                            {% endwith %}
-                        </div>
-                    </a>
-                    {% endfor %}
-                    {% else %}
-                    <div style="padding: 0.75rem; font-size: 0.75rem; color: #666;">No conversations yet.</div>
-                    {% endif %}
-                </div>
-
-                <!-- Chat Area -->
-                <div class="chat-area">
-                    <div class="chat-header">
-                        <h2 id="dynamic-title">Start Conversation</h2>
-                    </div>
-                    <div class="messages-list" style="display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 400px; padding: 2rem; background-color: #fdfdfd; border-radius: 0.5rem;">
-                        
-                        <!-- Welcome Placeholder (Default) -->
-                        <div id="welcome-placeholder" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 1rem;">
-                            <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">👋</div>
-                            <h3 style="font-size: 1.5rem; color: #E06E7F; font-weight: 600; margin: 0;">Connect with your friends!</h3>
-                            <p style="font-size: 1rem; color: #666; max-width: 400px; line-height: 1.6; margin: 0;">Share restaurant recommendations and build your Together List. Choose an action from the sidebar to start.</p>
-                            <div style="margin-top: 1.5rem; color: #888; font-size: 0.825rem; white-space: nowrap;">
-                                Click <strong style="color: #E06E7F;">+</strong> for New Chat &nbsp; • &nbsp; Click <strong style="color: #E06E7F;">👥</strong> for Group Chat
-                            </div>
-                        </div>
-
-                        <div id="start-form-container"
-                            style="display: none; padding: 1.5rem; border: 1px solid rgba(224, 110, 127, 0.15); border-radius: 0.5rem; background: white; max-width: 500px; width: 100%; margin: 0 auto;">
-                            <!-- Forms are here ... -->
-                            <div id="direct-chat-section" style="display: block;">
-                                <!-- 1-on-1 Chat Form -->
-                                <form method="POST" action="{% url 'friends_chat_index_v2' %}"
-                                    style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                    {% csrf_token %}
-                                    <label style="font-size: 0.875rem; color: #333; font-weight: 500;">Direct
-                                        Message:</label>
-                                    <input type="text" name="username" class="chat-input"
-                                        placeholder="Enter friend's username..." required autocomplete="off">
-                                    <button type="submit" class="btn-send active"
-                                        style="align-self: flex-end; background-color: #E06E7F; cursor: pointer;">Start</button>
-                                </form>
-                            </div>
-
-                            <hr id="form-separator"
-                                style="border: none; border-top: 1px solid rgba(224, 110, 127, 0.15); margin-top: 1.5rem; margin-bottom: 1.5rem; display: block;">
-
-                            <div id="group-chat-section" style="display: block;">
-                                <!-- Group Chat Form -->
-                                <form method="POST" action="{% url 'create_group_chat_v2' %}"
-                                    style="display: flex; flex-direction: column; gap: 0.75rem;">
-                                    {% csrf_token %}
-                                    <label style="font-size: 0.875rem; color: #333; font-weight: 500;">Create Group
-                                        Chat:</label>
-                                    <input type="text" name="group_name" class="chat-input"
-                                        placeholder="Enter group name..." required autocomplete="off">
-
-                                    <label style="font-size: 0.75rem; color: #666; margin-top: 0.5rem;">Find Members:</label>
-                                    <div class="relative-wrapper">
-                                        <input type="text" id="memberSearchInput" class="chat-input" style="width: 100%;" placeholder="Search for diners by name..." autocomplete="off">
-                                        <div id="memberSearchResults" class="search-results" style="display: none;"></div>
-                                    </div>
-
-                                    <div id="selectedMembersList" class="selected-members-container">
-                                        <!-- Member tags will appear here -->
-                                    </div>
-                                    <div id="hiddenParticipantsInputs">
-                                        <!-- Hidden inputs for form submission -->
-                                    </div>
-                                    <button type="submit" class="btn-send active"
-                                        style="align-self: flex-end; background-color: #E06E7F; cursor: pointer; margin-top: 0.5rem;">Create
-                                        Group</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- Right Features Area -->
-                <div class="features-area">
-                    <!-- Recommender Context -->
-                    <div class="feature-card" style="opacity: 0.6;">
-                        <div class="feature-header">
-                            Recommend Restaurant
-                        </div>
-                        <div class="feature-content"
-                            style="align-items: center; justify-content: center; padding: 2rem 1rem;">
-                            <span style="font-size: 0.75rem; color: #888; text-align: center;">Select a conversation to
-                                recommend a restaurant to a friend.</span>
-                        </div>
-                    </div>
-
-                    <!-- Together List Context -->
-                    <div class="feature-card" style="opacity: 0.6;">
-                        <div class="feature-header">
-                            Together List
-                        </div>
-                        <div class="feature-content"
-                            style="align-items: center; justify-content: center; padding: 2rem 1rem;">
-                            <span style="font-size: 0.75rem; color: #888; text-align: center;">Select a conversation to
-                                view and manage your Together List.</span>
-                        </div>
-                    </div>
-                </div>
-
+            <div class="nav-icon-wrapper">
+                <a href="{% url 'message_inbox' %}" class="nav-icon" title="Messages">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </a>
+                <div class="nav-tooltip">messages</div>
             </div>
-        </main>
+            <div class="nav-icon-wrapper">
+                <a href="{% url 'profile' %}" class="nav-icon" title="Profile">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </a>
+                <div class="nav-tooltip">profile</div>
+            </div>
+            <div class="nav-icon-wrapper">
+                <a href="{% url 'logout' %}" class="nav-icon" title="Logout">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                </a>
+                <div class="nav-tooltip right">logout</div>
+            </div>
+        </div>
+    </nav>
 
-        <footer class="footer">
-            made with ❤️ for food lovers 🍕
-        </footer>
+    {% if messages %}
+    <div style="position:absolute;top:72px;left:50%;transform:translateX(-50%);z-index:200;width:480px;max-width:90vw;">
+        {% for message in messages %}<div class="alert">{{ message }}</div>{% endfor %}
     </div>
-    <script>
-        function showStartForm(section) {
-            var startForm = document.getElementById("start-form-container");
-            var placeholder = document.getElementById("welcome-placeholder");
-            var directSection = document.getElementById("direct-chat-section");
-            var groupSection = document.getElementById("group-chat-section");
-            var separator = document.getElementById("form-separator");
-            var title = document.getElementById("dynamic-title");
+    {% endif %}
 
-            placeholder.style.display = "none";
-            startForm.style.display = "block";
+    <!-- 3-column layout -->
+    <div class="main-content">
 
-            if (section === 'group') {
-                directSection.style.display = "none";
-                groupSection.style.display = "block";
-                separator.style.display = "none";
-                title.innerText = "Create Group Chat";
-            } else {
-                directSection.style.display = "block";
-                groupSection.style.display = "none";
-                separator.style.display = "none";
-                title.innerText = "Start a New Chat";
-            }
+        <!-- LEFT: Conversations sidebar -->
+        <div class="glass-panel sidebar">
+            <div class="sidebar-header">
+                <h2 class="sidebar-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Conversations
+                </h2>
+                <div class="sidebar-btn-group">
+                    <button class="sidebar-icon-btn" onclick="showStartForm('group')" title="Create Group">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </button>
+                    <button class="sidebar-icon-btn" onclick="showStartForm('new')" title="New Chat" style="font-size:16px;padding:3px 9px;">+</button>
+                </div>
+            </div>
+            <div class="conv-list">
+                {% if conversations %}
+                    {% for c in conversations %}
+                        {% if c.is_group %}
+                            <a href="{% url 'friends_chat_detail_v2_by_id' c.id %}" class="conv-item">
+                                <div class="conv-avatar">G</div>
+                                <div class="conv-info">
+                                    <div class="conv-name">{{ c.name|default:"Group" }}</div>
+                                    <div class="conv-preview">{% with last_msg=c.messages.last %}{% if last_msg %}{{ last_msg.body }}{% else %}—{% endif %}{% endwith %}</div>
+                                </div>
+                            </a>
+                        {% elif c.user1 == request.user %}
+                            <a href="{% url 'friends_chat_detail_v2' c.user2.username %}" class="conv-item">
+                                <div class="conv-avatar">{{ c.user2.username|slice:":1"|upper }}</div>
+                                <div class="conv-info">
+                                    <div class="conv-name">{{ c.user2.username }}</div>
+                                    <div class="conv-preview">{% with last_msg=c.messages.last %}{% if last_msg %}{{ last_msg.body }}{% else %}—{% endif %}{% endwith %}</div>
+                                </div>
+                            </a>
+                        {% else %}
+                            <a href="{% url 'friends_chat_detail_v2' c.user1.username %}" class="conv-item">
+                                <div class="conv-avatar">{{ c.user1.username|slice:":1"|upper }}</div>
+                                <div class="conv-info">
+                                    <div class="conv-name">{{ c.user1.username }}</div>
+                                    <div class="conv-preview">{% with last_msg=c.messages.last %}{% if last_msg %}{{ last_msg.body }}{% else %}—{% endif %}{% endwith %}</div>
+                                </div>
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div style="padding:1.5rem;text-align:center;color:#aaa;font-size:12px;">No conversations yet.</div>
+                {% endif %}
+            </div>
+        </div>
 
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        <!-- MIDDLE: Chat panel -->
+        <div class="glass-panel chat-area">
+            <div class="chat-top-bar">
+                <span class="chat-bar-title" id="dynamic-title">Start Conversation</span>
+            </div>
 
-        function setupMemberSearch() {
-            const input = document.getElementById('memberSearchInput');
-            const results = document.getElementById('memberSearchResults');
-            const selectedList = document.getElementById('selectedMembersList');
-            const hiddenInputs = document.getElementById('hiddenParticipantsInputs');
-            let selectedIds = new Set();
+            <!-- Welcome state -->
+            <div class="welcome-wrap" id="welcome-placeholder">
+                <div class="welcome-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <h3>Connect with your friends!</h3>
+                <p>Share restaurant recommendations and build your Together List. Choose an action from the sidebar to start.</p>
+                <div class="welcome-hint">
+                    Click <strong style="color:#E06E7F;">+</strong> for New Chat &nbsp;•&nbsp;
+                    Click <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E06E7F" stroke-width="2" style="display:inline;vertical-align:middle;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> for Group Chat
+                </div>
+            </div>
 
-            if (!input) return;
+            <!-- Direct chat form -->
+            <div class="form-panel" id="direct-form">
+                <div class="form-label">Start a Direct Chat</div>
+                <form method="POST" action="{% url 'friends_chat_index_v2' %}" style="display:flex;flex-direction:column;gap:10px;">
+                    {% csrf_token %}
+                    <input type="text" name="username" class="form-input" placeholder="Enter friend's username…" required autocomplete="off">
+                    <button type="submit" class="form-btn">Start Chat</button>
+                </form>
+            </div>
 
-            const updateHiddenInputs = () => {
-                hiddenInputs.innerHTML = '';
-                selectedIds.forEach(id => {
-                    const hidden = document.createElement('input');
-                    hidden.type = 'hidden';
-                    hidden.name = 'participants';
-                    hidden.value = id;
-                    hiddenInputs.appendChild(hidden);
-                });
-            };
+            <!-- Group chat form -->
+            <div class="form-panel" id="group-form">
+                <div class="form-label">Create Group Chat</div>
+                <form method="POST" action="{% url 'create_group_chat_v2' %}" style="display:flex;flex-direction:column;gap:10px;">
+                    {% csrf_token %}
+                    <input type="text" name="group_name" class="form-input" placeholder="Group name…" required autocomplete="off">
+                    <div class="form-label" style="font-size:12px;color:#888;">Add Members</div>
+                    <div class="relative-wrapper">
+                        <input type="text" id="memberSearchInput" class="form-input" placeholder="Search diners…" autocomplete="off">
+                        <div id="memberSearchResults" class="search-results"></div>
+                    </div>
+                    <div class="member-tags" id="selectedMembersList"></div>
+                    <div id="hiddenParticipantsInputs"></div>
+                    <button type="submit" class="form-btn">Create Group</button>
+                </form>
+            </div>
+        </div>
 
-            const addMember = (user) => {
-                if (selectedIds.has(user.id)) return;
-                
-                selectedIds.add(user.id);
-                const tag = document.createElement('div');
-                tag.className = 'member-tag';
-                tag.innerHTML = `<span>${user.username}</span><span class="remove-member" data-id="${user.id}">&times;</span>`;
-                
-                tag.querySelector('.remove-member').onclick = () => {
-                    selectedIds.delete(user.id);
-                    tag.remove();
-                    updateHiddenInputs();
-                };
+        <!-- RIGHT: Feature cards -->
+        <div class="features-area">
+            <div class="right-card">
+                <div class="right-card-header">Recommend Restaurant</div>
+                <div class="right-card-body">
+                    <p class="right-placeholder">Select a conversation to recommend a restaurant to a friend.</p>
+                </div>
+            </div>
+            <div class="right-card">
+                <div class="right-card-header">Together List</div>
+                <div class="right-card-body">
+                    <p class="right-placeholder">Select a conversation to view and manage your Together List.</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
-                selectedList.appendChild(tag);
-                updateHiddenInputs();
-                input.value = '';
-                results.style.display = 'none';
-            };
+    <div class="footer">made with ❤️ for food lovers 🍰</div>
+</div>
 
-            input.addEventListener('input', function() {
-                const query = this.value.trim();
-                if (query.length < 1) {
-                    results.style.display = 'none';
-                    return;
-                }
+<script>
+function showStartForm(section) {
+    document.getElementById('welcome-placeholder').style.display = 'none';
+    document.getElementById('direct-form').classList.remove('visible');
+    document.getElementById('group-form').classList.remove('visible');
 
-                fetch(`{% url 'diner_search_api_v2' %}?search=${encodeURIComponent(query)}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        results.innerHTML = '';
-                        if (data.results && data.results.length > 0) {
-                            data.results.forEach(d => {
-                                if (selectedIds.has(d.id)) return;
-                                const btn = document.createElement('button');
-                                btn.type = 'button';
-                                btn.className = 'search-result-item';
-                                btn.textContent = d.username;
-                                btn.onclick = () => addMember(d);
-                                results.appendChild(btn);
-                            });
-                            results.style.display = 'block';
-                        } else {
-                            results.style.display = 'none';
-                        }
+    if (section === 'group') {
+        document.getElementById('dynamic-title').textContent = 'Create Group Chat';
+        document.getElementById('group-form').classList.add('visible');
+    } else {
+        document.getElementById('dynamic-title').textContent = 'Start a New Chat';
+        document.getElementById('direct-form').classList.add('visible');
+    }
+}
+
+function setupMemberSearch() {
+    const input = document.getElementById('memberSearchInput');
+    const results = document.getElementById('memberSearchResults');
+    const selectedList = document.getElementById('selectedMembersList');
+    const hiddenInputs = document.getElementById('hiddenParticipantsInputs');
+    let selectedIds = new Set();
+    if (!input) return;
+
+    const updateHidden = () => {
+        hiddenInputs.innerHTML = '';
+        selectedIds.forEach(id => {
+            const h = document.createElement('input');
+            h.type = 'hidden'; h.name = 'participants'; h.value = id;
+            hiddenInputs.appendChild(h);
+        });
+    };
+
+    const addMember = (user) => {
+        if (selectedIds.has(user.id)) return;
+        selectedIds.add(user.id);
+        const tag = document.createElement('div');
+        tag.className = 'member-tag';
+        tag.innerHTML = `<span>${user.username}</span><span class="rm" data-id="${user.id}">×</span>`;
+        tag.querySelector('.rm').onclick = () => { selectedIds.delete(user.id); tag.remove(); updateHidden(); };
+        selectedList.appendChild(tag);
+        updateHidden(); input.value = ''; results.style.display = 'none';
+    };
+
+    input.addEventListener('input', function() {
+        const q = this.value.trim();
+        if (q.length < 1) { results.style.display = 'none'; return; }
+        fetch(`{% url 'diner_search_api_v2' %}?search=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                results.innerHTML = '';
+                if (data.results && data.results.length > 0) {
+                    data.results.forEach(d => {
+                        if (selectedIds.has(d.id)) return;
+                        const btn = document.createElement('button');
+                        btn.type = 'button'; btn.className = 'search-result-item'; btn.textContent = d.username;
+                        btn.onclick = () => addMember(d);
+                        results.appendChild(btn);
                     });
+                    results.style.display = 'block';
+                } else { results.style.display = 'none'; }
             });
+    });
 
-            document.addEventListener('click', (e) => {
-                if (e.target !== input && !results.contains(e.target)) {
-                    results.style.display = 'none';
-                }
-            });
-        }
+    document.addEventListener('click', e => {
+        if (e.target !== input && !results.contains(e.target)) results.style.display = 'none';
+    });
+}
 
-        window.onload = function () {
-            const urlParams = new URLSearchParams(window.location.search);
-            const mode = urlParams.get('mode');
-            if (mode === 'group' || mode === 'new') {
-                showStartForm(mode);
-            }
-            setupMemberSearch();
-        };
-    </script>
+window.onload = function() {
+    const mode = new URLSearchParams(window.location.search).get('mode');
+    if (mode === 'group' || mode === 'new') showStartForm(mode);
+    setupMemberSearch();
+};
+</script>
 </body>
-
 </html>
