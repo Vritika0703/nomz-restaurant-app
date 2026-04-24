@@ -300,11 +300,31 @@ urlpatterns += [
     path("register/", html_views.signup, name="register"),
     path("logout/", html_views.logout_view, name="logout"),
     path("password-reset/", html_views.password_reset, name="password_reset"),
-    path("password-reset/done/", html_views.password_reset_done, name="password_reset_done"),
-    path("password-reset/confirm/", html_views.password_reset_confirm, name="password_reset_confirm"),
-    path("password-reset/complete/", html_views.password_reset_complete, name="password_reset_complete"),
-    path("reset/<uidb64>/<token>/", html_views.password_reset_confirm, name="password_reset_confirm_link"),
-    path("reset/done/", html_views.password_reset_complete, name="password_reset_complete_legacy"),
+    path(
+        "password-reset/done/",
+        html_views.password_reset_done,
+        name="password_reset_done",
+    ),
+    path(
+        "password-reset/confirm/",
+        html_views.password_reset_confirm,
+        name="password_reset_confirm",
+    ),
+    path(
+        "password-reset/complete/",
+        html_views.password_reset_complete,
+        name="password_reset_complete",
+    ),
+    path(
+        "reset/<uidb64>/<token>/",
+        html_views.password_reset_confirm,
+        name="password_reset_confirm_link",
+    ),
+    path(
+        "reset/done/",
+        html_views.password_reset_complete,
+        name="password_reset_complete_legacy",
+    ),
     path("admin-login/", html_views.admin_login, name="admin_login"),
 ]
 
@@ -320,12 +340,32 @@ urlpatterns += [
     path("profile/", html_views.user_profile, name="profile"),
     path("preferences/", html_views.manage_preferences, name="manage_preferences"),
     path("recommendations/", html_views.recommendations, name="recommendations"),
-    path("restaurant/<int:restaurant_id>/", html_views.restaurant_detail, name="restaurant_detail"),
-    path("restaurant/<int:restaurant_id>/review/", html_views.add_review, name="add_review"),
+    path(
+        "restaurant/<int:restaurant_id>/",
+        html_views.restaurant_detail,
+        name="restaurant_detail",
+    ),
+    path(
+        "restaurant/<int:restaurant_id>/review/",
+        html_views.add_review,
+        name="add_review",
+    ),
     path("messages/", html_views.messages_view, name="message_inbox"),
-    path("messages/restaurant/<int:restaurant_id>/", html_views.start_message, name="message_restaurant"),
-    path("messages/conversations/<int:conversation_id>/", html_views.message_thread, name="conversation_detail"),
-    path("report/<str:content_type>/<int:content_id>/", html_views.report_content, name="report_content"),
+    path(
+        "messages/restaurant/<int:restaurant_id>/",
+        html_views.start_message,
+        name="message_restaurant",
+    ),
+    path(
+        "messages/conversations/<int:conversation_id>/",
+        html_views.message_thread,
+        name="conversation_detail",
+    ),
+    path(
+        "report/<str:content_type>/<int:content_id>/",
+        html_views.report_content,
+        name="report_content",
+    ),
 ]
 
 # Friends chat
@@ -341,15 +381,27 @@ urlpatterns += [
 
 # Restaurant owner pages
 urlpatterns += [
-    path("restaurant-profile/", html_views.restaurant_profile, name="restaurant_profile"),
+    path(
+        "restaurant-profile/", html_views.restaurant_profile, name="restaurant_profile"
+    ),
     path("restaurant/photos/", html_views.photo_management, name="restaurant_photos"),
     path("restaurant/photos/upload/", html_views.upload_photo, name="upload_photo"),
     path("restaurant/claim/", html_views.claim_restaurant, name="claim_restaurant"),
     path("restaurant/create/", html_views.create_restaurant, name="create_restaurant"),
     path("restaurant/edit/", html_views.edit_restaurant, name="edit_restaurant"),
-    path("restaurant/availability/", html_views.manage_availability, name="manage_availability"),
-    path("restaurant/activate/", html_views.manage_activation, name="manage_activation"),
-    path("restaurant/communication/", html_views.manage_communication_settings, name="manage_communication_settings"),
+    path(
+        "restaurant/availability/",
+        html_views.manage_availability,
+        name="manage_availability",
+    ),
+    path(
+        "restaurant/activate/", html_views.manage_activation, name="manage_activation"
+    ),
+    path(
+        "restaurant/communication/",
+        html_views.manage_communication_settings,
+        name="manage_communication_settings",
+    ),
     path("restaurant/map/", html_views.restaurant_map, name="restaurant_map"),
 ]
 
@@ -357,13 +409,33 @@ urlpatterns += [
 urlpatterns += [
     path("nomz-admin/", html_views.admin_dashboard, name="admin_dashboard"),
     path("nomz-admin/map/", html_views.admin_map, name="admin_map"),
-    path("nomz-admin/moderation/", html_views.admin_moderation, name="admin_moderation_dashboard"),
-    path("nomz-admin/moderation/resolve/<int:report_id>/", html_views.resolve_report, name="admin_resolve_report"),
-    path("nomz-admin/pending-approvals/", html_views.pending_approvals, name="admin_pending_approvals"),
+    path(
+        "nomz-admin/moderation/",
+        html_views.admin_moderation,
+        name="admin_moderation_dashboard",
+    ),
+    path(
+        "nomz-admin/moderation/resolve/<int:report_id>/",
+        html_views.resolve_report,
+        name="admin_resolve_report",
+    ),
+    path(
+        "nomz-admin/pending-approvals/",
+        html_views.pending_approvals,
+        name="admin_pending_approvals",
+    ),
     path("nomz-admin/users/", html_views.manage_users, name="admin_manage_users"),
     path("nomz-admin/logs/", html_views.admin_logs, name="admin_login_logs"),
-    path("nomz-admin/approved-accounts/", html_views.approved_accounts, name="admin_approved_accounts"),
-    path("nomz-admin/rejected-accounts/", html_views.rejected_accounts, name="admin_rejected_accounts"),
+    path(
+        "nomz-admin/approved-accounts/",
+        html_views.approved_accounts,
+        name="admin_approved_accounts",
+    ),
+    path(
+        "nomz-admin/rejected-accounts/",
+        html_views.rejected_accounts,
+        name="admin_rejected_accounts",
+    ),
 ]
 
 # --- Modernized Friend Chat Route Overrides ---

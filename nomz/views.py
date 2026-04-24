@@ -824,7 +824,9 @@ def recommend_friend_restaurant_v2(request, username=None, conversation_id=None)
 
 
 def toggle_shared_restaurant_v2(request, username=None, conversation_id=None):
-    return toggle_shared_restaurant(request, username=username, conversation_id=conversation_id)
+    return toggle_shared_restaurant(
+        request, username=username, conversation_id=conversation_id
+    )
 
 
 @login_required

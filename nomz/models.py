@@ -118,8 +118,12 @@ class Restaurant(models.Model):
     ]
 
     # Hours stored as JSONField for flexibility (optional: can use TimeField pairs)
-    hours_open = models.TimeField(default="09:00", null=True, blank=True, help_text="Opening time")
-    hours_close = models.TimeField(default="21:00", null=True, blank=True, help_text="Closing time")
+    hours_open = models.TimeField(
+        default="09:00", null=True, blank=True, help_text="Opening time"
+    )
+    hours_close = models.TimeField(
+        default="21:00", null=True, blank=True, help_text="Closing time"
+    )
 
     # Status and availability
     is_active = models.BooleanField(

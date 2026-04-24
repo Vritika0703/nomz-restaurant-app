@@ -163,6 +163,7 @@ def auth_login(request):
         # Force a success log entry if signal is flaky
         from .models import LoginLog
         from .signals import get_client_ip
+
         LoginLog.objects.get_or_create(
             user=user,
             username=user.username,
@@ -171,7 +172,7 @@ def auth_login(request):
                 "ip_address": get_client_ip(request),
                 "status": "Success",
                 "user_agent": request.META.get("HTTP_USER_AGENT", ""),
-            }
+            },
         )
         return JsonResponse(session_payload(request))
 
@@ -535,10 +536,18 @@ def diner_account_api(request):
         if len(new_username) > 150:
             return _json_error("Username must be 150 characters or fewer.")
         import re
-        if not re.match(r'^[\w.@+-]+$', new_username):
-            return _json_error("Username may only contain letters, digits, and @/./+/-/_.")
+
+        if not re.match(r"^[\w.@+-]+$", new_username):
+            return _json_error(
+                "Username may only contain letters, digits, and @/./+/-/_."
+            )
         from django.contrib.auth.models import User as AuthUser
-        if AuthUser.objects.filter(username__iexact=new_username).exclude(pk=u.pk).exists():
+
+        if (
+            AuthUser.objects.filter(username__iexact=new_username)
+            .exclude(pk=u.pk)
+            .exists()
+        ):
             return _json_error("That username is already taken.", status=409)
         u.username = new_username
 
@@ -640,8 +649,12 @@ def admin_pending_approvals_data(request):
         claim = claims_by_user_id.get(u.id)
         res_name = "Unnamed Business"
         if claim and claim.restaurant:
-            res_name = claim.restaurant.display_name or claim.restaurant.name or "Unnamed Business"
-        
+            res_name = (
+                claim.restaurant.display_name
+                or claim.restaurant.name
+                or "Unnamed Business"
+            )
+
         results.append(
             {
                 "id": u.id,
@@ -662,10 +675,16 @@ def _serialize_admin_restaurant_account_row(u: User) -> dict:
     # Try owner first, then fallback to most recent approved claim
     restaurant = Restaurant.objects.filter(owner=u).first()
     if not restaurant:
-        claim = RestaurantOwnershipClaim.objects.filter(claimant=u, status=RestaurantOwnershipClaim.STATUS_APPROVED).select_related("restaurant").first()
+        claim = (
+            RestaurantOwnershipClaim.objects.filter(
+                claimant=u, status=RestaurantOwnershipClaim.STATUS_APPROVED
+            )
+            .select_related("restaurant")
+            .first()
+        )
         if claim:
             restaurant = claim.restaurant
-    
+
     return {
         "id": u.id,
         "username": u.username,
@@ -737,7 +756,7 @@ def admin_approve_user_api(request, user_id):
         data = json.loads(request.body)
         if data.get("notes"):
             notes = data["notes"]
-    except:
+    except json.JSONDecodeError:
         pass
 
     if pending_claim:
@@ -753,7 +772,7 @@ def admin_approve_user_api(request, user_id):
         profile = user_to_approve.userprofile
         profile.is_approved = True
         profile.is_rejected = False
-        profile.role = 'restaurant' # Ensure role is set on approval
+        profile.role = "restaurant"  # Ensure role is set on approval
         profile.save()
 
     return JsonResponse({"ok": True, "status": "approved"})
@@ -779,7 +798,7 @@ def admin_reject_user_api(request, user_id):
         data = json.loads(request.body)
         if data.get("notes"):
             notes = data["notes"]
-    except:
+    except json.JSONDecodeError:
         pass
 
     for claim in pending_claims:
@@ -927,15 +946,24 @@ def admin_users_data(request):
     from django.db.models import Exists, OuterRef, Subquery, F, Value
     from django.db.models.functions import Coalesce
     from django.utils import timezone
-    
-    latest_log = LoginLog.objects.filter(username=OuterRef("username")).order_by("-timestamp")
-    users = users.annotate(
-        has_suspicious_activity=Exists(latest_log.filter(is_user_suspicious=True)),
-        last_login_at=Subquery(latest_log.values("timestamp")[:1]),
-        last_ip=Subquery(latest_log.values("ip_address")[:1])
-    ).annotate(
-        sort_date=Coalesce(F("last_login_at"), Value(timezone.make_aware(timezone.datetime(2000, 1, 1))))
-    ).order_by("-sort_date", "-date_joined")
+
+    latest_log = LoginLog.objects.filter(username=OuterRef("username")).order_by(
+        "-timestamp"
+    )
+    users = (
+        users.annotate(
+            has_suspicious_activity=Exists(latest_log.filter(is_user_suspicious=True)),
+            last_login_at=Subquery(latest_log.values("timestamp")[:1]),
+            last_ip=Subquery(latest_log.values("ip_address")[:1]),
+        )
+        .annotate(
+            sort_date=Coalesce(
+                F("last_login_at"),
+                Value(timezone.make_aware(timezone.datetime(2000, 1, 1))),
+            )
+        )
+        .order_by("-sort_date", "-date_joined")
+    )
 
     payload = []
     for u in users:
@@ -944,7 +972,11 @@ def admin_users_data(request):
                 "id": u.id,
                 "username": u.username,
                 "email": u.email or "",
-                "account_type": getattr(u.userprofile, "role", "diner") if hasattr(u, "userprofile") else "diner",
+                "account_type": (
+                    getattr(u.userprofile, "role", "diner")
+                    if hasattr(u, "userprofile")
+                    else "diner"
+                ),
                 "is_active": u.is_active,
                 "date_joined": u.date_joined.isoformat(),
                 "last_login": u.last_login_at.isoformat() if u.last_login_at else None,
@@ -952,7 +984,11 @@ def admin_users_data(request):
                 "review_count": getattr(u, "review_count", 0),
                 "report_count": getattr(u, "report_count", 0),
                 "has_suspicious_activity": getattr(u, "has_suspicious_activity", False),
-                "is_flagged": getattr(u.userprofile, "is_flagged", False) if hasattr(u, "userprofile") else False,
+                "is_flagged": (
+                    getattr(u.userprofile, "is_flagged", False)
+                    if hasattr(u, "userprofile")
+                    else False
+                ),
             }
         )
     return JsonResponse({"count": len(payload), "results": payload})
@@ -1639,8 +1675,16 @@ def restaurant_communication_api(request):
         return JsonResponse(
             {
                 "messaging_enabled": restaurant.messaging_enabled,
-                "response_hours_start": restaurant.response_hours_start.isoformat() if restaurant.response_hours_start else "",
-                "response_hours_end": restaurant.response_hours_end.isoformat() if restaurant.response_hours_end else "",
+                "response_hours_start": (
+                    restaurant.response_hours_start.isoformat()
+                    if restaurant.response_hours_start
+                    else ""
+                ),
+                "response_hours_end": (
+                    restaurant.response_hours_end.isoformat()
+                    if restaurant.response_hours_end
+                    else ""
+                ),
             }
         )
 
@@ -1740,12 +1784,20 @@ def restaurant_performance_api(request):
     )
 
     rc = float(latest_history.review_component_score or 0) if latest_history else None
-    ic = float(latest_history.inspection_component_score or 0) if latest_history else None
+    ic = (
+        float(latest_history.inspection_component_score or 0)
+        if latest_history
+        else None
+    )
     pv = float(latest_history.price_value_score or 0) if latest_history else None
     op = float(latest_history.operational_score or 0) if latest_history else None
-    review_count = latest_history.review_count if latest_history and latest_history.review_count else 0
+    review_count = (
+        latest_history.review_count
+        if latest_history and latest_history.review_count
+        else 0
+    )
     grade = restaurant.grade_latest or "N/A"
-    
+
     breakdown = [
         {
             "label": "User Experience Signal",
@@ -1792,8 +1844,16 @@ def restaurant_performance_api(request):
     )
     history_data = [
         {
-            "date": h["calculated_at"].strftime("%b %d, %Y") if h.get("calculated_at") else "",
-            "score": round(float(h["composite_score"]), 1) if h.get("composite_score") is not None else None,
+            "date": (
+                h["calculated_at"].strftime("%b %d, %Y")
+                if h.get("calculated_at")
+                else ""
+            ),
+            "score": (
+                round(float(h["composite_score"]), 1)
+                if h.get("composite_score") is not None
+                else None
+            ),
         }
         for h in history_qs
     ]
@@ -1815,16 +1875,22 @@ def restaurant_performance_api(request):
             value=Avg("value_rating"),
             cleanliness=Avg("cleanliness_rating"),
         )
-        review_params = {k: round(float(v or 0), 1) for k, v in agg.items() if v is not None}
+        review_params = {
+            k: round(float(v or 0), 1) for k, v in agg.items() if v is not None
+        }
 
     return JsonResponse(
         {
             "has_restaurant": True,
             "composite_score": (
-                float(restaurant.composite_score) if restaurant.composite_score is not None else None
+                float(restaurant.composite_score)
+                if restaurant.composite_score is not None
+                else None
             ),
             "inspection_rating": (
-                float(restaurant.grade_score_latest) if restaurant.grade_score_latest is not None else None
+                float(restaurant.grade_score_latest)
+                if restaurant.grade_score_latest is not None
+                else None
             ),
             "review_count": review_count_real,
             "citywide_rank": rank,

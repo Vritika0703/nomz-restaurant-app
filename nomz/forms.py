@@ -632,6 +632,7 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
     Form for restaurant owners to manage their communication settings.
     Controls the messaging on/off toggle and available response hours.
     """
+
     class Meta:
         model = Restaurant
         fields = [
@@ -645,9 +646,15 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
             "response_hours_end": "Response Hours End",
         }
         widgets = {
-            "messaging_enabled": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-            "response_hours_start": forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
-            "response_hours_end": forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
+            "messaging_enabled": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "response_hours_start": forms.TimeInput(
+                attrs={"class": "form-control", "type": "time"}
+            ),
+            "response_hours_end": forms.TimeInput(
+                attrs={"class": "form-control", "type": "time"}
+            ),
         }
 
     def __init__(self, *args, **kwargs):
@@ -669,8 +676,6 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
         end = cleaned_data.get("response_hours_end")
 
         if start and end and start >= end:
-            raise forms.ValidationError(
-                "Response hours start must be before end."
-            )
+            raise forms.ValidationError("Response hours start must be before end.")
 
         return cleaned_data

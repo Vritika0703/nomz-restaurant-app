@@ -45,10 +45,13 @@ def log_user_login_failed(sender, credentials, request, **kwargs):
     # Support both username and email based login for logging
     login_id = credentials.get("username") or credentials.get("email") or "unknown"
     ip_address = get_client_ip(request) if request else None
-    
+
     # Try to find the actual user to link the log, even on failure
     from django.contrib.auth.models import User
-    user = User.objects.filter(models.Q(username=login_id) | models.Q(email=login_id)).first()
+
+    user = User.objects.filter(
+        models.Q(username=login_id) | models.Q(email=login_id)
+    ).first()
 
     # Check for suspicious activity: > 3 failures in 15 minutes
     fifteen_mins_ago = timezone.now() - timedelta(minutes=15)
@@ -62,22 +65,32 @@ def log_user_login_failed(sender, credentials, request, **kwargs):
         user_agent=request.META.get("HTTP_USER_AGENT", "") if request else "",
     )
 
+    failures_by_ip = 0
+    failures_by_user = 0
+
     if user or ip_address:
         # Check by IP
-        failures_by_ip = LoginLog.objects.filter(
-            ip_address=ip_address, status="Failure", timestamp__gte=fifteen_mins_ago
-        ).count() if ip_address else 0
+        failures_by_ip = (
+            LoginLog.objects.filter(
+                ip_address=ip_address, status="Failure", timestamp__gte=fifteen_mins_ago
+            ).count()
+            if ip_address
+            else 0
+        )
 
         # Check by User
         failures_by_user = LoginLog.objects.filter(
-            username=(user.username if user else login_id), status="Failure", timestamp__gte=fifteen_mins_ago
+            username=(user.username if user else login_id),
+            status="Failure",
+            timestamp__gte=fifteen_mins_ago,
         ).count()
 
         if failures_by_ip > 3 or failures_by_user > 3:
             # Mark all recent logs as suspicious
             LoginLog.objects.filter(
-                models.Q(ip_address=ip_address) | models.Q(username=(user.username if user else login_id)),
-                timestamp__gte=fifteen_mins_ago
+                models.Q(ip_address=ip_address)
+                | models.Q(username=(user.username if user else login_id)),
+                timestamp__gte=fifteen_mins_ago,
             ).update(is_user_suspicious=True)
 
     # Check if this was an attempt on an admin or dashboard URL (Issue #46)
@@ -92,7 +105,7 @@ def log_user_login_failed(sender, credentials, request, **kwargs):
     is_suspicious = failures_by_ip >= 2 or is_user_suspicious or is_admin_path
 
     LoginLog.objects.create(
-        username=username,
+        username=(user.username if user else login_id),
         ip_address=ip_address,
         status="Failure",
         user_agent=request.META.get("HTTP_USER_AGENT", "") if request else None,
