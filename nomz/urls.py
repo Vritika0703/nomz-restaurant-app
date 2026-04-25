@@ -337,6 +337,7 @@ urlpatterns += [
 urlpatterns += [
     path("map/", html_views.map_view, name="map"),
     path("search/", html_views.search_results, name="restaurant_search"),
+    path("compare/", html_views.compare_restaurants, name="restaurant_compare"),
     path("profile/", html_views.user_profile, name="profile"),
     path("preferences/", html_views.manage_preferences, name="manage_preferences"),
     path("recommendations/", html_views.recommendations, name="recommendations"),

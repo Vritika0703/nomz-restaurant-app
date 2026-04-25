@@ -92,7 +92,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const body = adminMode ? { username, password, security_code: securityCode } : { username, password };
             const response = await apiFetch(endpoint, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                },
                 body: JSON.stringify(body)
             });
             const data = await response.json().catch(() => ({}));
