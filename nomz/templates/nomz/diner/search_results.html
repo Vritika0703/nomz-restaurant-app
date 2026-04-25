@@ -44,6 +44,12 @@
     <div id="results-count" style="display:none;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--mid);margin-bottom:16px;"></div>
     <div id="empty-message" style="display:none;font-size:14px;color:var(--mid);padding:40px 0;text-align:center;border:1px solid var(--rule);">No restaurants match your filters. Try a different search.</div>
 
+    <div id="compare-toolbar" style="display:none;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+        <span id="compare-count" style="font-size:0.95rem;color:var(--mid);"></span>
+        <button id="compare-button" type="button" class="btn btn-primary" disabled style="white-space:nowrap;">Compare selected</button>
+        <button id="clear-compare-button" type="button" class="btn btn-outline btn-sm" style="display:none;">Clear selection</button>
+    </div>
+
     <!-- Results -->
     <ul id="results-list" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:1px;background:var(--rule);border:1px solid var(--rule);"></ul>
 
@@ -79,6 +85,8 @@
 .result-desc { font-size: 12px; color: var(--mid); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .result-score { font-size: 11px; font-weight: 700; letter-spacing: 0.15em; color: var(--red); white-space: nowrap; padding: 4px 8px; border: 1px solid rgba(212,43,43,0.2); flex-shrink: 0; }
 .flagged-badge { font-size: 10px; color: var(--mid); background: rgba(200,169,110,0.15); padding: 2px 6px; margin-left: 6px; }
+.compare-checkbox { display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:var(--mid); padding:0 24px 14px 24px; }
+.compare-checkbox input { accent-color: var(--red); }
 </style>
 {% endblock %}
 
@@ -86,10 +94,16 @@
 <script>
 let currentData = null;
 let cancelled = false;
+const selectedRestaurantIds = new Set();
 
 function getUrlParams() {
     const params = new URLSearchParams(window.location.search);
-    return { q: params.get('q') || '', neighborhood: params.get('neighborhood') || '', sort_by: params.get('sort_by') || 'composite-high-low' };
+    return {
+        q: params.get('q') || '',
+        neighborhood: params.get('neighborhood') || '',
+        sort_by: params.get('sort_by') || 'composite-high-low',
+        ids: params.get('ids') || '',
+    };
 }
 
 function mapSortByToApi(uiValue) {
@@ -101,6 +115,62 @@ function initializeForm() {
     const params = getUrlParams();
     document.getElementById('search-query').value = params.q;
     document.getElementById('sort-by').value = params.sort_by;
+    selectedRestaurantIds.clear();
+    params.ids.split(',').map(id => Number(id)).filter(Boolean).forEach(id => selectedRestaurantIds.add(id));
+    updateCompareToolbar();
+}
+
+function updateCompareToolbar() {
+    const toolbar = document.getElementById('compare-toolbar');
+    const countEl = document.getElementById('compare-count');
+    const compareButton = document.getElementById('compare-button');
+    const clearButton = document.getElementById('clear-compare-button');
+    const count = selectedRestaurantIds.size;
+
+    if (count > 0) {
+        toolbar.style.display = 'flex';
+        countEl.textContent = `${count} restaurant${count === 1 ? '' : 's'} selected`;
+        compareButton.disabled = count < 2;
+        compareButton.textContent = count < 2 ? 'Select 2+ to compare' : `Compare ${count} restaurant${count === 1 ? '' : 's'}`;
+        clearButton.style.display = 'inline-flex';
+    } else {
+        toolbar.style.display = 'none';
+        clearButton.style.display = 'none';
+    }
+}
+
+function setSelectedRestaurant(id, selected) {
+    if (selected) {
+        selectedRestaurantIds.add(id);
+    } else {
+        selectedRestaurantIds.delete(id);
+    }
+    updateUrlIds();
+    updateCompareToolbar();
+}
+
+function updateUrlIds() {
+    const params = new URLSearchParams(window.location.search);
+    if (selectedRestaurantIds.size > 0) {
+        params.set('ids', Array.from(selectedRestaurantIds).join(','));
+    } else {
+        params.delete('ids');
+    }
+    const queryString = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${queryString ? `?${queryString}` : ''}`);
+}
+
+function clearCompareSelection() {
+    selectedRestaurantIds.clear();
+    updateUrlIds();
+    updateCompareToolbar();
+    document.querySelectorAll('.compare-checkbox-input').forEach(el => { el.checked = false; });
+}
+
+function navigateToCompare() {
+    const ids = Array.from(selectedRestaurantIds);
+    if (ids.length < 2) return;
+    window.location.href = `/compare/?ids=${ids.join(',')}`;
 }
 
 async function fetchResults() {
@@ -140,6 +210,7 @@ function showError(message) {
 }
 
 function renderResults(data) {
+    console.log('renderResults called with data:', data);
     const neighborhoodSelect = document.getElementById('neighborhood-filter');
     const currentNeighborhood = getUrlParams().neighborhood;
     neighborhoodSelect.innerHTML = '<option value="">All neighborhoods</option>';
@@ -156,12 +227,18 @@ function renderResults(data) {
     if (data.neighborhood) countText += ` in ${data.neighborhood}`;
     countEl.textContent = countText;
     countEl.style.display = 'block';
-    if (data.results.length === 0) { document.getElementById('empty-message').style.display = 'block'; return; }
+    if (data.results.length === 0) {
+        document.getElementById('empty-message').style.display = 'block';
+        updateCompareToolbar();
+        return;
+    }
     const listEl = document.getElementById('results-list');
+    console.log('listEl:', listEl);
+    console.log('generating HTML for', data.results.length, 'results');
     listEl.innerHTML = data.results.map(restaurant => `
         <li>
-            <div class="result-item" onclick="window.location.href='/restaurant/${restaurant.id}/'">
-                <div style="flex:1;min-width:0;">
+            <div class="result-item">
+                <div style="flex:1;min-width:0;cursor:pointer;" onclick="window.location.href='/restaurant/${restaurant.id}/'">
                     <div class="result-name">
                         ${escapeHtml(restaurant.name)}
                         ${restaurant.is_flagged ? '<span class="flagged-badge">flagged</span>' : ''}
@@ -174,8 +251,21 @@ function renderResults(data) {
                     ${restaurant.rating_score != null ? `<span style="font-size:11px;color:var(--mid);">Rating ${Number(restaurant.rating_score).toFixed(1)}</span>` : ''}
                 </div>
             </div>
+            <label class="compare-checkbox"><input type="checkbox" class="compare-checkbox-input" data-id="${restaurant.id}" ${selectedRestaurantIds.has(restaurant.id) ? 'checked' : ''}> Compare</label>
         </li>
     `).join('');
+    console.log('innerHTML set, count:', listEl.children.length);
+
+
+    document.querySelectorAll('.compare-checkbox-input').forEach(input => {
+        input.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const restaurantId = Number(event.target.dataset.id);
+            setSelectedRestaurant(restaurantId, event.target.checked);
+        });
+    });
+
+    updateCompareToolbar();
 }
 
 function handleSearchSubmit(event) {
@@ -187,6 +277,9 @@ function handleSearchSubmit(event) {
     if (query) params.set('q', query);
     if (neighborhood) params.set('neighborhood', neighborhood);
     params.set('sort_by', sortBy);
+    if (selectedRestaurantIds.size > 0) {
+        params.set('ids', Array.from(selectedRestaurantIds).join(','));
+    }
     window.history.pushState({}, '', `${window.location.pathname}?${params.toString()}`);
     fetchResults();
 }
@@ -199,6 +292,11 @@ function escapeHtml(text) {
 
 window.addEventListener('popstate', () => { initializeForm(); fetchResults(); });
 window.addEventListener('beforeunload', () => { cancelled = true; });
-document.addEventListener('DOMContentLoaded', () => { initializeForm(); fetchResults(); });
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('compare-button').addEventListener('click', navigateToCompare);
+    document.getElementById('clear-compare-button').addEventListener('click', clearCompareSelection);
+    initializeForm();
+    fetchResults();
+});
 </script>
 {% endblock %}
