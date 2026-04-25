@@ -179,42 +179,9 @@
     text-transform: uppercase;
     color: var(--mid);
     margin-top: 20px;
+    margin-bottom: 8px;
     font-weight: 300;
   }
-
-  .cta-row {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    margin-top: 36px;
-  }
-
-  .btn-diner {
-    display: inline-block;
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    text-decoration: none;
-    padding: 12px 28px;
-    background: var(--red);
-    color: var(--paper);
-    transition: background 0.2s;
-  }
-  .btn-diner:hover { background: #b82020; }
-
-  .btn-text-link {
-    font-size: 11px;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: var(--mid);
-    text-decoration: none;
-    border-bottom: 1px solid var(--tan);
-    padding-bottom: 2px;
-    transition: color 0.2s;
-  }
-  .btn-text-link:hover { color: var(--ink); }
 
   /* Right col */
   .hero-right {
@@ -438,11 +405,10 @@
   <header class="top-bar">
     <span class="top-left">Vol. IV &nbsp;·&nbsp; Issue 12</span>
     <nav class="top-center">
-      <a href="/search/">Search</a>
       <a href="/signin/">Sign In</a>
       <a href="/register/">Register</a>
     </nav>
-    <span class="top-right">Friday, April 2026</span>
+    <span class="top-right">{% now "l, F j, Y" %}</span>
   </header>
 
   <!-- HERO -->
@@ -465,10 +431,6 @@
       <span class="issue-label">food &amp; culture</span>
       <h1 class="headline">nomz</h1>
       <p class="sub-headline">eat. explore. repeat</p>
-      <div class="cta-row">
-        <a href="/register/" class="btn-diner">Start Eating</a>
-        <a href="/search/" class="btn-text-link">Browse All</a>
-      </div>
     </div>
 
     <div class="hero-right">
