@@ -87,6 +87,9 @@
     </div>
 
     {% include 'nomz/components/premium_nav.html' %}
+    <div id="map-return-wrap" style="display:none;max-width:800px;width:100%;margin:0 auto;padding:0.75rem 1rem 0;position:relative;z-index:5;">
+        <button type="button" class="btn btn-cancel" style="max-width:220px;" onclick="goBackToMap()">← Back to map</button>
+    </div>
 
     <div class="main-body">
         <div class="review-card">
@@ -105,7 +108,7 @@
                     <div style="margin-top: 20px;"><textarea id="comment" class="review-textarea" placeholder="Write your review here.."></textarea></div>
                     <div class="action-buttons">
                         <button type="submit" id="submit-btn" class="btn btn-post">Post Review</button>
-                        <button type="button" onclick="history.back()" class="btn btn-cancel">Cancel</button>
+                        <button type="button" onclick="goBackToDetail()" class="btn btn-cancel">Cancel</button>
                     </div>
                 </form>
             </div>
@@ -138,6 +141,25 @@
             if (idx < count) s.classList.add('filled'); else s.classList.remove('filled');
         });
     }
+    function getMapReturnUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const mapReturn = params.get('map_return');
+        if (!mapReturn) return null;
+        let decoded = mapReturn;
+        try {
+            decoded = decodeURIComponent(mapReturn);
+        } catch (_) {}
+        return decoded.startsWith('/map/') ? decoded : null;
+    }
+    function goBackToMap() {
+        const mapReturn = getMapReturnUrl();
+        if (mapReturn) window.location.href = mapReturn;
+    }
+    function goBackToDetail() {
+        const mapReturn = getMapReturnUrl();
+        const suffix = mapReturn ? `?map_return=${encodeURIComponent(mapReturn)}` : '';
+        window.location.href = `/restaurant/{{restaurant_id}}/${suffix}`;
+    }
     async function fetchName() {
         try {
             const r = await apiFetch('/api/restaurants/{{restaurant_id}}/');
@@ -146,6 +168,10 @@
         } catch (e) {}
     }
     document.addEventListener('DOMContentLoaded', () => {
+        if (getMapReturnUrl()) {
+            const mapWrap = document.getElementById('map-return-wrap');
+            if (mapWrap) mapWrap.style.display = 'block';
+        }
         ['rating', 'food', 'service', 'ambience', 'location', 'value', 'dietary', 'cleanliness'].forEach(k => initStars(`stars-${k}`, `${k}-val`));
         fetchName();
     });
@@ -170,7 +196,7 @@
                     comment: document.getElementById('comment').value
                 })
             });
-            if (res.ok) window.location.href = '/restaurant/{{restaurant_id}}/';
+            if (res.ok) goBackToDetail();
             else { alert("Error posting review."); btn.disabled = false; btn.textContent = "Post Review"; }
         } catch (err) { btn.disabled = false; btn.textContent = "Post Review"; }
     });
