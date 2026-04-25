@@ -97,7 +97,7 @@ ROOT_URLCONF = "restaurants.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -167,26 +167,17 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [
-    BASE_DIR / "frontend" / "dist" / "assets",
-]
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
-# Vite production build (optional). When present, Django serves index.html + /assets/* from here.
-FRONTEND_DIST_DIR = BASE_DIR / "frontend" / "dist"
-# Dev-only fallback (no script tags). In production, omit so missing dist is obvious vs silent stub.
-
 # Media files
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+# Upload limits (bytes). Keep these above typical mobile photo sizes.
+MAX_UPLOAD_IMAGE_MB = config("MAX_UPLOAD_IMAGE_MB", default=10, cast=int)
+FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_IMAGE_MB * 1024 * 1024
+DATA_UPLOAD_MAX_MEMORY_SIZE = (MAX_UPLOAD_IMAGE_MB + 1) * 1024 * 1024
 
 # AWS S3 Configuration
 USE_S3 = config("USE_S3", default=False, cast=bool)
@@ -200,18 +191,21 @@ if USE_S3:
     AWS_S3_CUSTOM_DOMAIN = config(
         "AWS_S3_CUSTOM_DOMAIN", default=f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
     )
-    AWS_LOCATION = "static"
+    AWS_STATIC_LOCATION = "static"
+    AWS_MEDIA_LOCATION = "media"
     AWS_DEFAULT_ACL = "public-read"
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_FILE_OVERWRITE = False
 
-    # S3 Static Settings
-    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/"
-    STATICFILES_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    # S3 static: nomz.storage_backends.StaticStorage uses S3ManifestStaticStorage
+    # (content-hashed URLs) so CDN/browser caches do not keep stale CSS after deploy.
+    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STATIC_LOCATION}/"
+    STATICFILES_STORAGE = "nomz.storage_backends.StaticStorage"
 
     # S3 Public Media Settings
-    PUBLIC_MEDIA_LOCATION = "media"
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{PUBLIC_MEDIA_LOCATION}/"
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_MEDIA_LOCATION}/"
+    DEFAULT_FILE_STORAGE = "nomz.storage_backends.PublicMediaStorage"
 
 # CORS Configuration
 CORS_ALLOWED_ORIGINS = config(

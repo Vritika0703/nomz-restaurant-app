@@ -10,10 +10,8 @@ services:
   - postgresql
 
 before_script:
-  # Escape $$ to prevent shell expansion to process ID
-  - psql -U postgres -v ON_ERROR_STOP=1 -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'travis') THEN CREATE ROLE travis LOGIN PASSWORD 'travis'; END IF; END \$\$;"
+  - psql -U postgres -c "CREATE ROLE travis LOGIN PASSWORD 'travis';" || true
   - psql -U postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE "nomz-db" OWNER travis;' || true
-  - psql -U postgres -v ON_ERROR_STOP=1 -c 'GRANT ALL PRIVILEGES ON DATABASE "nomz-db" TO travis;'
 
 install:
   - pip install --upgrade pip
@@ -44,33 +42,61 @@ script:
 # Send coverage to Coveralls
 after_success:
   - coverage xml
-  - coveralls 
+  - coveralls
 
 # IMPORTANT:
 # Do not build frontend in Travis deploy job. Building in CI mutates the working
 # tree and can produce oversized/corrupt EB bundles.
 
-# Deploy to AWS Elastic Beanstalk on production branch
+# Dual-deploy via a single deploy block with branch-dependent env vars.
+# Reason: Travis DPL v2 (2.0.5.x) silently collapses multiple deploy blocks
+# that share the same provider, keeping only the last one. A list of two
+# `provider: elasticbeanstalk` blocks therefore only ever deploys the final
+# entry. Using before_deploy to set credentials/env/bucket based on the
+# current branch gives us real branch isolation with a single deploy block.
+#   develop -> nomz-dev (AWS 709436855295, nomzdev.dpdns.org)
+#   production -> nomz-prod (AWS 554903866296, nomz.dpdns.org)
+before_deploy:
+  - |
+    if [ "$TRAVIS_BRANCH" = "develop" ]; then
+      echo "Travis: configuring deploy for nomz-dev (develop branch, AWS 709436855295)"
+      export EB_ACCESS_KEY_ID="$AWS_DEVELOP_ACCESS_KEY_ID"
+      export EB_SECRET_ACCESS_KEY="$AWS_DEVELOP_SECRET_ACCESS_KEY"
+      export EB_ENV="nomz-dev"
+      export EB_BUCKET="nomz-static-files-friend2-dev"
+    elif [ "$TRAVIS_BRANCH" = "production" ]; then
+      echo "Travis: configuring deploy for nomz-prod (production branch, AWS 554903866296)"
+      export EB_ACCESS_KEY_ID="$AWS_PRODUCTION_ACCESS_KEY_ID"
+      export EB_SECRET_ACCESS_KEY="$AWS_PRODUCTION_SECRET_ACCESS_KEY"
+      export EB_ENV="nomz-prod"
+      export EB_BUCKET="nomz-static-files-friend-2026"
+    else
+      echo "Travis: unexpected deploy branch $TRAVIS_BRANCH; aborting."
+      exit 1
+    fi
+
 deploy:
   provider: elasticbeanstalk
   skip_cleanup: true
-  access_key_id: $AWS_ACCESS_KEY_ID
-  secret_access_key: $AWS_SECRET_ACCESS_KEY
+  access_key_id: $EB_ACCESS_KEY_ID
+  secret_access_key: $EB_SECRET_ACCESS_KEY
   region: us-east-1
   app: nomz-app
-  env: nomz-prod
-  bucket_name: nomz-static-files-friend-2026
+  env: $EB_ENV
+  bucket_name: $EB_BUCKET
   bucket_path: deployments
   on:
-    branch: production
-    condition: $TRAVIS_TEST_RESULT = 0  # only deploy if tests pass
+    all_branches: true
+    condition: $TRAVIS_TEST_RESULT = 0
 
-# Branches to build
+# Branches to build (main is deprecated and intentionally excluded).
+# `branches.only` combined with `deploy.on.all_branches: true` means only
+# develop and production ever deploy — before_deploy guards against any other
+# branch slipping through.
 branches:
   only:
     - develop
     - production
-    - main
 
 # Notifications (optional)
 notifications:
