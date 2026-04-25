@@ -100,7 +100,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await apiFetch('/api/auth/register/', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                },
                 body: JSON.stringify({ username, email, role: accountType, password1: password, password2: confirmPassword })
             });
             const data = await response.json().catch(() => ({}));
