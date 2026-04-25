@@ -1,13 +1,13 @@
 <style>
     :root {
-        --premium-bg: linear-gradient(135deg, #FFF9F5 0%, #FFE8EC 50%, #FFF9F5 100%);
-        --premium-orb-1: rgba(224, 110, 127, 0.15);
-        --premium-orb-2: rgba(224, 110, 127, 0.1);
-        --premium-orb-3: rgba(224, 110, 127, 0.08);
-        --premium-accent: #E06E7F;
-        --premium-accent-hover: #C85A6D;
+        --premium-bg: linear-gradient(135deg, var(--paper) 0%, rgba(200,169,110,0.12) 50%, var(--paper) 100%);
+        --premium-orb-1: rgba(212, 43, 43, 0.15);
+        --premium-orb-2: rgba(212, 43, 43, 0.1);
+        --premium-orb-3: rgba(212, 43, 43, 0.08);
+        --premium-accent: var(--red);
+        --premium-accent-hover: #b82020;
         --premium-glass-bg: rgba(255, 255, 255, 0.7);
-        --premium-glass-border: rgba(224, 110, 127, 0.15);
+        --premium-glass-border: rgba(212, 43, 43, 0.15);
         --premium-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
     }
 
@@ -15,7 +15,7 @@
         margin: 0;
         padding: 0;
         background: var(--premium-bg) !important;
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--font-sans);
         min-height: 100vh;
         position: relative;
         overflow-x: hidden;

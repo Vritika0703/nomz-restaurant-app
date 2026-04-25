@@ -16,10 +16,7 @@
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
 
-    <!-- Montserrat Font -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'nomz/css/main.css' %}">
 
     <style>
         * {
@@ -28,40 +25,89 @@
             box-sizing: border-box;
         }
 
+        /* Allow the page to grow and scroll (flex+flex:1 on main was clipping past the viewport). */
+        html {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         body {
-            font-family: 'Montserrat', sans-serif;
-            background: linear-gradient(135deg, #FFF9F5 0%, #FFE8EC 50%, #FFF9F5 100%);
+            font-family: var(--font-sans);
+            background: linear-gradient(135deg, var(--paper) 0%, rgba(200,169,110,0.12) 50%, var(--paper) 100%);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            min-height: 100dvh;
+            overflow-y: auto;
         }
 
 
         .logo {
             font-size: 1.5rem;
             font-weight: 700;
-            color: #E06E7F;
-            font-family: 'Montserrat', sans-serif;
+            color: var(--red);
+            font-family: var(--font-sans);
         }
 
-        /* Main Content */
+        /* Main: holds one row — left panel (filters + results), right map */
         main {
             width: 100%;
-            padding: 1.25rem 2rem 2rem 2rem;
-            flex: 1;
+            max-width: 100%;
+            padding: 1rem 1.25rem 1.5rem 1.25rem;
+        }
+
+        .map-page-layout {
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+            gap: 1rem;
+            min-height: 320px;
+            height: clamp(320px, calc(100dvh - 6rem), 760px);
+        }
+
+        .sidebar-panel {
+            flex: 1 1 0;
+            min-width: 15rem;
+            max-width: min(22rem, 36vw);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .sidebar-panel .filter-grid {
+            grid-template-columns: 1fr;
+            gap: 0.65rem;
+            margin-bottom: 0.65rem;
+        }
+
+        .sidebar-panel .filter-grid-3 {
+            grid-template-columns: 1fr;
+            gap: 0.65rem;
+            align-items: stretch;
+        }
+
+        .sidebar-panel .button-group {
+            margin-top: 0.75rem;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .sidebar-panel .btn {
+            flex: none;
         }
 
         /* Filters Section - Glass Card */
         .filters-container {
             width: 100%;
-            padding: 1.5rem;
-            border-radius: 20px;
+            padding: 1rem 1.1rem;
+            border-radius: 16px;
             background: rgba(255,255,255,0.75);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(224,110,127,0.15);
+            border: 1px solid rgba(212, 43, 43,0.15);
             box-shadow: 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
-            margin-bottom: 1.25rem;
+            margin-bottom: 0;
+            flex-shrink: 0;
         }
 
         .filter-grid {
@@ -91,16 +137,16 @@
             color: #888;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
         }
 
         .filter-input, .filter-select {
             width: 100%;
             padding: 0.6rem 0.875rem;
-            border: 1px solid rgba(224,110,127,0.2);
+            border: 1px solid rgba(212, 43, 43,0.2);
             border-radius: 12px;
             font-size: 0.8125rem;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
             background: rgba(255,255,255,0.85);
             transition: all 0.2s;
             color: #333;
@@ -108,8 +154,8 @@
 
         .filter-input:focus, .filter-select:focus {
             outline: none;
-            border-color: #E06E7F;
-            box-shadow: 0 0 0 3px rgba(224,110,127,0.1);
+            border-color: var(--red);
+            box-shadow: 0 0 0 3px rgba(212, 43, 43,0.1);
             background: white;
         }
 
@@ -120,13 +166,13 @@
             font-size: 0.8125rem;
             color: #666;
             cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
             font-weight: 500;
         }
 
         .checkbox-input {
             cursor: pointer;
-            accent-color: #E06E7F;
+            accent-color: var(--red);
             width: 15px;
             height: 15px;
         }
@@ -135,7 +181,7 @@
             font-size: 0.75rem;
             margin-top: 0.5rem;
             color: #b91c1c;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
         }
 
         .button-group {
@@ -151,20 +197,20 @@
             font-size: 0.8125rem;
             font-weight: 600;
             border: none;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .btn-reset {
-            background: linear-gradient(135deg, rgba(224,110,127,0.7) 0%, rgba(224,110,127,0.85) 100%);
+            background: linear-gradient(135deg, rgba(212, 43, 43,0.7) 0%, rgba(212, 43, 43,0.85) 100%);
             color: white;
-            box-shadow: 0 4px 12px rgba(224,110,127,0.2);
+            box-shadow: 0 4px 12px rgba(212, 43, 43,0.2);
         }
         .btn-reset:hover {
-            background: linear-gradient(135deg, #E06E7F 0%, #C85A6D 100%);
+            background: linear-gradient(135deg, var(--red) 0%, #b82020 100%);
             transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(224,110,127,0.3);
+            box-shadow: 0 6px 16px rgba(212, 43, 43,0.3);
         }
 
         .btn-apply {
@@ -182,38 +228,42 @@
             opacity: 0.7;
         }
 
-        /* Map and List Container */
-        .map-list-container {
-            display: flex;
-            gap: 1.25rem;
-            height: 500px;
-        }
-
+        /* Map — right column */
         .map-container {
-            flex: 1;
+            flex: 1 1 0;
+            min-width: 0;
+            align-self: stretch;
             border-radius: 20px;
             overflow: hidden;
-            border: 1px solid rgba(224,110,127,0.15);
+            border: 1px solid rgba(212, 43, 43,0.15);
             box-shadow: 0 8px 32px rgba(0,0,0,0.08);
-            height: 100%;
+            min-height: 280px;
+            position: relative;
         }
 
         #map {
             width: 100%;
             height: 100%;
+            min-height: 280px;
         }
 
-        /* Restaurant List - Glass */
+        .map-container .leaflet-container {
+            height: 100%;
+            min-height: 280px;
+        }
+
+        /* Restaurant List — inside left sidebar */
         .restaurant-list-container {
-            width: 24rem;
-            border-radius: 20px;
+            width: 100%;
+            flex: 1 1 0;
+            min-height: 0;
+            border-radius: 16px;
             overflow: hidden;
             background: rgba(255,255,255,0.8);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(224,110,127,0.15);
+            border: 1px solid rgba(212, 43, 43,0.15);
             box-shadow: 0 8px 32px rgba(0,0,0,0.06);
-            height: 100%;
             display: flex;
             flex-direction: column;
         }
@@ -223,20 +273,20 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            border-bottom: 1px solid rgba(224,110,127,0.1);
+            border-bottom: 1px solid rgba(212, 43, 43,0.1);
             background: rgba(255,255,255,0.4);
         }
 
         .list-title {
             font-size: 0.875rem;
             font-weight: 700;
-            font-family: 'Montserrat', sans-serif;
-            color: #E06E7F;
+            font-family: var(--font-sans);
+            color: var(--red);
         }
 
         .list-count {
             font-size: 0.75rem;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
             color: #bbb;
             font-weight: 500;
         }
@@ -247,22 +297,23 @@
         }
         .list-scroll::-webkit-scrollbar { width: 4px; }
         .list-scroll::-webkit-scrollbar-track { background: transparent; }
-        .list-scroll::-webkit-scrollbar-thumb { background: rgba(224,110,127,0.2); border-radius: 4px; }
+        .list-scroll::-webkit-scrollbar-thumb { background: rgba(212, 43, 43,0.2); border-radius: 4px; }
 
         .list-help {
             padding: 0.5rem 1rem;
             font-size: 0.75rem;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
             color: #bbb;
         }
 
         .legend {
             padding: 0.5rem 1rem;
             display: flex;
-            gap: 0.75rem;
-            font-size: 0.75rem;
-            font-family: 'Montserrat', sans-serif;
-            border-top: 1px solid rgba(224,110,127,0.08);
+            flex-wrap: wrap;
+            gap: 0.5rem 0.75rem;
+            font-size: 0.7rem;
+            font-family: var(--font-sans);
+            border-top: 1px solid rgba(212, 43, 43,0.08);
         }
 
         .legend-item {
@@ -285,11 +336,11 @@
             padding: 0.75rem 1rem;
             cursor: pointer;
             transition: all 0.2s ease;
-            border-bottom: 1px solid rgba(224,110,127,0.07);
+            border-bottom: 1px solid rgba(212, 43, 43,0.07);
         }
 
         .restaurant-item:hover {
-            background: rgba(224,110,127,0.07);
+            background: rgba(212, 43, 43,0.07);
             padding-left: 1.25rem;
         }
 
@@ -303,50 +354,69 @@
         .restaurant-name {
             font-size: 0.8rem;
             font-weight: 600;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
             color: #333;
         }
 
         .restaurant-score {
             font-size: 0.75rem;
             font-weight: 700;
-            font-family: 'Montserrat', sans-serif;
-            color: #E06E7F;
+            font-family: var(--font-sans);
+            color: var(--red);
             white-space: nowrap;
             margin-left: 0.5rem;
         }
 
         .restaurant-address {
             font-size: 0.72rem;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
             color: #888;
             margin-bottom: 0.2rem;
         }
 
         .restaurant-info {
             font-size: 0.72rem;
-            font-family: 'Montserrat', sans-serif;
+            font-family: var(--font-sans);
             color: #bbb;
         }
 
-        /* Responsive */
+        /* Responsive: map on top, sidebar below */
         @media (max-width: 768px) {
-            .filter-grid {
-                grid-template-columns: 1fr;
+            main {
+                padding: 0.75rem;
             }
-            .filter-grid-3 {
-                grid-template-columns: 1fr;
-            }
-            .map-list-container {
-                flex-direction: column;
+            .map-page-layout {
+                flex-direction: column-reverse;
                 height: auto;
+                min-height: 0;
+            }
+            .sidebar-panel {
+                width: 100%;
+                min-width: 0;
+                max-width: none;
+            }
+            .sidebar-panel .filter-grid,
+            .sidebar-panel .filter-grid-3 {
+                grid-template-columns: 1fr;
+            }
+            .sidebar-panel .button-group {
+                flex-direction: row;
+            }
+            .sidebar-panel .btn {
+                flex: 1;
             }
             .map-container {
-                height: 400px;
+                width: 100%;
+                min-height: 300px;
+                height: min(48dvh, 420px);
+            }
+            #map,
+            .map-container .leaflet-container {
+                min-height: 300px;
             }
             .restaurant-list-container {
-                width: 100%;
-                height: 400px;
+                min-height: 200px;
+                max-height: min(42dvh, 380px);
             }
         }
     </style>
@@ -355,8 +425,10 @@
     <!-- Navigation Bar -->
     {% include 'nomz/components/premium_nav.html' %}
 
-    <!-- Main Content -->
+    <!-- Main: left = filters + results, right = map -->
     <main>
+        <div class="map-page-layout">
+        <aside class="sidebar-panel" aria-label="Filters and restaurant results">
         <!-- Filters Section -->
         <div class="filters-container">
             <div class="filter-grid">
@@ -455,13 +527,6 @@
             </div>
         </div>
 
-        <!-- Map and Restaurant List -->
-        <div class="map-list-container">
-            <!-- Map Area -->
-            <div class="map-container">
-                <div id="map"></div>
-            </div>
-
             <!-- Restaurant List -->
             <div class="restaurant-list-container">
                 <!-- Header -->
@@ -498,6 +563,12 @@
                     <div id="restaurantList"></div>
                 </div>
             </div>
+        </aside>
+
+            <!-- Map (right) -->
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
         </div>
     </main>
 
@@ -511,6 +582,18 @@
         }).addTo(map);
 
         let markersLayer = L.layerGroup().addTo(map);
+
+        function refreshMapSize() {
+            try {
+                map.invalidateSize({ animate: false });
+            } catch (e) { /* noop */ }
+        }
+        window.addEventListener('resize', refreshMapSize);
+        window.addEventListener('orientationchange', refreshMapSize);
+        map.whenReady(() => {
+            requestAnimationFrame(refreshMapSize);
+            setTimeout(refreshMapSize, 200);
+        });
 
         // Try to get user's location
         if (navigator.geolocation) {
@@ -598,6 +681,7 @@
 
                 updateMap();
                 updateRestaurantList();
+                requestAnimationFrame(refreshMapSize);
 
             } catch (error) {
                 errorMessage.textContent = error.message || 'Network error loading restaurants.';
@@ -605,6 +689,7 @@
                 restaurants = [];
                 updateMap();
                 updateRestaurantList();
+                requestAnimationFrame(refreshMapSize);
             } finally {
                 loading = false;
                 applyBtn.disabled = false;
@@ -636,7 +721,7 @@
                 const marker = L.marker([restaurant.latitude, restaurant.longitude], { icon });
 
                 const popupContent = `
-                    <div style="font-family:Montserrat,sans-serif;font-size:13px">
+                    <div style="font-family: var(--font-sans);font-size:13px">
                         <strong>${restaurant.name}</strong><br/>
                         ${restaurant.address}<br/>
                         ${restaurant.grade ? `Grade: ${restaurant.grade} · ` : ''}Score: ${restaurant.composite_score_label}<br/>
@@ -760,7 +845,9 @@
         // Load restaurants on page load
         window.addEventListener('DOMContentLoaded', () => {
             fetchRestaurants();
+            setTimeout(refreshMapSize, 400);
         });
+        window.addEventListener('load', () => setTimeout(refreshMapSize, 100));
     </script>
 </body>
 </html>

@@ -2,14 +2,13 @@
 {% load static %}
 
 {% block extra_css %}
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
     /* ── DEFINITIVE FULL-WIDTH OVERRIDES ── */
     body {
         margin: 0 !important;
         padding: 0 !important;
-        background: linear-gradient(135deg, #FFF9F5 0%, #FFE8EC 50%, #FFF9F5 100%) !important;
-        font-family: 'Montserrat', sans-serif;
+        background: linear-gradient(135deg, var(--paper) 0%, rgba(200,169,110,0.12) 50%, var(--paper) 100%) !important;
+        font-family: var(--font-sans);
         min-height: 100vh;
         overflow-x: hidden;
     }
@@ -31,9 +30,9 @@
         border-radius: 50%;
         pointer-events: none;
     }
-    .orb-1 { top: 10%; left: 5%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(224, 110, 127, 0.15) 0%, transparent 70%); animation: float 15s ease-in-out infinite; }
-    .orb-2 { bottom: 15%; right: 8%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(224, 110, 127, 0.1) 0%, transparent 70%); animation: float 20s ease-in-out infinite reverse; }
-    .orb-3 { top: 50%; left: 50%; width: 350px; height: 350px; background: radial-gradient(circle, rgba(224, 110, 127, 0.08) 0%, transparent 70%); animation: float 25s ease-in-out infinite; transform: translate(-50%, -50%); }
+    .orb-1 { top: 10%; left: 5%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(212, 43, 43, 0.15) 0%, transparent 70%); animation: float 15s ease-in-out infinite; }
+    .orb-2 { bottom: 15%; right: 8%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(212, 43, 43, 0.1) 0%, transparent 70%); animation: float 20s ease-in-out infinite reverse; }
+    .orb-3 { top: 50%; left: 50%; width: 350px; height: 350px; background: radial-gradient(circle, rgba(212, 43, 43, 0.08) 0%, transparent 70%); animation: float 25s ease-in-out infinite; transform: translate(-50%, -50%); }
 
     @keyframes float {
         0%, 100% { transform: translate(0, 0) rotate(0deg); }
@@ -45,10 +44,10 @@
     .main-body { display: flex; flex-direction: column; align-items: center; padding: 4rem 1rem; position: relative; z-index: 5; flex: 1; }
     .review-card {
         width: 100%; max-width: 800px; background: rgba(255, 255, 255, 0.75); 
-        backdrop-filter: blur(24px); border: 1px solid rgba(224, 110, 127, 0.2); 
+        backdrop-filter: blur(24px); border: 1px solid rgba(212, 43, 43, 0.2); 
         border-radius: 28px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.08); 
     }
-    .card-header { background: #E06E7F; padding: 30px 40px; color: white; }
+    .card-header { background: var(--red); padding: 30px 40px; color: white; }
     .card-header h2 { margin: 0; font-size: 1.5rem; font-weight: 700; }
     .card-body { padding: 40px; }
 
@@ -62,7 +61,7 @@
     /* Textarea & Buttons */
     .review-textarea {
         width: 100%; min-height: 160px; padding: 20px; border-radius: 16px;
-        border: 2px solid rgba(224, 110, 127, 0.15); background: rgba(255, 255, 255, 0.9); 
+        border: 2px solid rgba(212, 43, 43, 0.15); background: rgba(255, 255, 255, 0.9); 
         font-family: inherit; font-size: 1rem; resize: none; box-sizing: border-box;
     }
     .action-buttons { margin-top: 32px; display: flex; flex-direction: column; gap: 14px; }
@@ -71,11 +70,11 @@
         cursor: pointer; text-align: center; border: none; font-family: inherit;
     }
     .btn-post { 
-        background: linear-gradient(135deg, #E06E7F 0%, #FF8FA3 100%) !important; 
+        background: linear-gradient(135deg, var(--red) 0%, rgba(212,43,43,0.85) 100%) !important; 
         color: white !important; 
-        box-shadow: 0 4px 15px rgba(224, 110, 127, 0.3) !important;
+        box-shadow: 0 4px 15px rgba(212, 43, 43, 0.3) !important;
     }
-    .btn-cancel { background: rgba(255, 255, 255, 0.5); color: #E06E7F; border: 1px solid rgba(224, 110, 127, 0.2); }
+    .btn-cancel { background: rgba(255, 255, 255, 0.5); color: var(--red); border: 1px solid rgba(212, 43, 43, 0.2); }
 </style>
 {% endblock %}
 
@@ -114,7 +113,7 @@
     </div>
     <div style="flex-shrink: 0; padding: 20px; text-align: center;">
         <p style="font-size: 0.75rem; color: #666; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 4px; margin: 0;">
-            made with <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="#E06E7F"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> for food lovers 🍕
+            made with <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="var(--red)"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> for food lovers 🍕
         </p>
     </div>
 </div>

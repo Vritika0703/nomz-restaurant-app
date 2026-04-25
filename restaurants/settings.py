@@ -198,7 +198,8 @@ if USE_S3:
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_FILE_OVERWRITE = False
 
-    # S3 Static Settings
+    # S3 static: nomz.storage_backends.StaticStorage uses S3ManifestStaticStorage
+    # (content-hashed URLs) so CDN/browser caches do not keep stale CSS after deploy.
     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_STATIC_LOCATION}/"
     STATICFILES_STORAGE = "nomz.storage_backends.StaticStorage"
 
