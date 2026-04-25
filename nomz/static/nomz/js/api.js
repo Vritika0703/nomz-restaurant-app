@@ -49,6 +49,12 @@ function mapSortByToApi(uiValue) {
   const mapping = {
     'composite-high-low': 'composite_desc',
     'composite-low-high': 'composite_asc',
+    'rating-high-low': 'rating_desc',
+    'rating-low-high': 'rating_asc',
+    'price-low-high': 'price_asc',
+    'price-high-low': 'price_desc',
+    'popularity-high-low': 'popularity_desc',
+    'popularity-low-high': 'popularity_asc',
     'name-a-z': 'name_asc',
     'name-z-a': 'name_desc',
   };
