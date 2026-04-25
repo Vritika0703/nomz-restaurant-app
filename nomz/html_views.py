@@ -54,10 +54,16 @@ def password_reset_done(request):
     return render(request, "nomz/auth/password_reset_done.html")
 
 
-def password_reset_confirm(request):
-    """Password reset confirmation page (step 3/4)"""
-    # Extract uidb64 and token from URL if needed
-    return render(request, "nomz/auth/password_reset_confirm.html")
+def password_reset_confirm(request, uidb64=None, token=None):
+    """Password reset confirmation page (step 3/4)."""
+    # Support both legacy links (/reset/<uidb64>/<token>/) and query-based links.
+    uid = request.GET.get("uid") or uidb64 or ""
+    tok = request.GET.get("token") or token or ""
+    return render(
+        request,
+        "nomz/auth/password_reset_confirm.html",
+        {"reset_uid": uid, "reset_token": tok},
+    )
 
 
 def password_reset_complete(request):
