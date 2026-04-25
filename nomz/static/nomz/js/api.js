@@ -395,3 +395,22 @@ function removeQueryParam(param) {
   url.searchParams.delete(param);
   window.history.pushState({}, '', url);
 }
+/**
+ * Standard cuisine list used across all diner pages (search, dashboard, profile, map)
+ * Ensures consistency in cuisine filtering and selection
+ */
+const STANDARD_CUISINES = [
+  'Italian',
+  'Chinese',
+  'Mexican',
+  'Japanese',
+  'American',
+  'Indian',
+  'Thai',
+  'French',
+  'Asian',
+  'Mediterranean',
+  'Vegetarian',
+  'Vegan',
+  'Fusion',
+];

@@ -31,20 +31,15 @@
         <div style="display:flex;gap:8px;margin-top:8px;">
             <select id="cuisine-filter" style="flex:1;border:1px solid var(--rule);background:var(--paper);padding:10px 12px;font-family:var(--font-sans);font-size:13px;color:var(--ink);min-width:0;">
                 <option value="">All Cuisines</option>
-                <option value="American">American</option>
-                <option value="Asian">Asian</option>
-                <option value="Italian">Italian</option>
-                <option value="Mexican">Mexican</option>
-                <option value="Indian">Indian</option>
-                <option value="French">French</option>
-                <option value="Japanese">Japanese</option>
-                <option value="Chinese">Chinese</option>
-                <option value="Thai">Thai</option>
-                <option value="Mediterranean">Mediterranean</option>
-                <option value="Fusion">Fusion</option>
-                <option value="Vegetarian">Vegetarian</option>
-                <option value="Vegan">Vegan</option>
             </select>
+            <script>
+                STANDARD_CUISINES.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    document.getElementById('cuisine-filter').appendChild(opt);
+                });
+            </script>
             <select id="location-filter" style="flex:1;border:1px solid var(--rule);background:var(--paper);padding:10px 12px;font-family:var(--font-sans);font-size:13px;color:var(--ink);min-width:0;">
                 <option value="">All Locations</option>
                 <option value="Manhattan">Manhattan</option>
@@ -79,12 +74,18 @@
             <span class="editorial-label">Explore by</span>
             <h2 style="font-family:var(--font-serif);font-size:1.75rem;font-weight:900;color:var(--ink);">Popular Cuisines</h2>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);">
-            <button type="button" class="cuisine-btn" onclick="searchCuisine('Italian')">Italian</button>
-            <button type="button" class="cuisine-btn" onclick="searchCuisine('Japanese')">Japanese</button>
-            <button type="button" class="cuisine-btn" onclick="searchCuisine('Mexican')">Mexican</button>
-            <button type="button" class="cuisine-btn" onclick="searchCuisine('Indian')">Indian</button>
-        </div>
+        <div id="cuisine-buttons" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);"></div>
+        <script>
+            const grid = document.getElementById('cuisine-buttons');
+            STANDARD_CUISINES.slice(0, 4).forEach(c => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'cuisine-btn';
+                btn.textContent = c;
+                btn.onclick = () => searchCuisine(c);
+                grid.appendChild(btn);
+            });
+        </script>
     </section>
 
 </main>

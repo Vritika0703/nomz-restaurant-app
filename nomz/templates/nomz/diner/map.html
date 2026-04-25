@@ -17,6 +17,7 @@
             crossorigin=""></script>
 
     <link rel="stylesheet" href="{% static 'nomz/css/main.css' %}">
+    <script src="{% static 'nomz/js/api.js' %}"></script>
 
     <style>
         * {
@@ -555,12 +556,15 @@
                     <label class="filter-label">Cuisine</label>
                     <select id="cuisine" class="filter-select">
                         <option value="all">All cuisines</option>
-                        <option value="italian">Italian</option>
-                        <option value="chinese">Chinese</option>
-                        <option value="mexican">Mexican</option>
-                        <option value="japanese">Japanese</option>
-                        <option value="american">American</option>
                     </select>
+                    <script>
+                        STANDARD_CUISINES.forEach(c => {
+                            const opt = document.createElement('option');
+                            opt.value = c;
+                            opt.textContent = c;
+                            document.getElementById('cuisine').appendChild(opt);
+                        });
+                    </script>
                 </div>
 
                 <!-- Min Score -->
