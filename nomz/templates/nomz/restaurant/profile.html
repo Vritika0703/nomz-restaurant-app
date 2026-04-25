@@ -29,6 +29,8 @@
         font-family: var(--font-sans);
         position: relative;
         overflow-x: hidden;
+        display: flex;
+        flex-direction: column;
     }
 
     /* Floating Gradient Orbs */
@@ -67,6 +69,8 @@
         padding: 1.25rem 2rem 2rem;
         position: relative;
         z-index: 10;
+        width: 100%;
+        flex: 1 0 auto;
     }
 
     /* ── Glass card ─────────────────────────────────────────────────── */
@@ -1245,8 +1249,11 @@
 
         </div><!-- /#rest-main -->
 
-        <div class="rest-footer">made with ❤️ for food lovers 🍕</div>
     </div><!-- /.rest-container -->
+    <footer style="border-top:2px solid var(--ink);padding:20px 6vw;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--tan);">Good food, always.</span>
+        <span style="font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:var(--mid);">nomz</span>
+    </footer>
 </div><!-- /.rest-page-wrapper -->
 
 <!-- Toast notification -->
