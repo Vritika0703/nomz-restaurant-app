@@ -593,6 +593,12 @@
                     <select id="sortBy" class="filter-select">
                         <option value="composite-high-low">Composite: High → Low</option>
                         <option value="composite-low-high">Composite: Low → High</option>
+                        <option value="rating-high-low">Rating: High → Low</option>
+                        <option value="rating-low-high">Rating: Low → High</option>
+                        <option value="price-low-high">Price: Low → High</option>
+                        <option value="price-high-low">Price: High → Low</option>
+                        <option value="popularity-high-low">Popularity: High → Low</option>
+                        <option value="popularity-low-high">Popularity: Low → High</option>
                         <option value="name-a-z">Name: A → Z</option>
                         <option value="name-z-a">Name: Z → A</option>
                     </select>
@@ -721,12 +727,18 @@
         // Map sort by values to API format
         function mapSortByToApi(sortBy) {
             const mapping = {
-                'composite-high-low': '-composite_score',
-                'composite-low-high': 'composite_score',
-                'name-a-z': 'name',
-                'name-z-a': '-name'
+                'composite-high-low': 'composite_desc',
+                'composite-low-high': 'composite_asc',
+                'rating-high-low': 'rating_desc',
+                'rating-low-high': 'rating_asc',
+                'price-low-high': 'price_asc',
+                'price-high-low': 'price_desc',
+                'popularity-high-low': 'popularity_desc',
+                'popularity-low-high': 'popularity_asc',
+                'name-a-z': 'name_asc',
+                'name-z-a': 'name_desc'
             };
-            return mapping[sortBy] || '-composite_score';
+            return mapping[sortBy] || 'composite_desc';
         }
 
         // Fetch restaurants from API
