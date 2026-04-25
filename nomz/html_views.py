@@ -176,6 +176,12 @@ def recommendations(request):
 
 
 @login_required
+def compare_restaurants(request):
+    """Restaurant comparison page for selected restaurants"""
+    return render(request, "nomz/diner/compare.html")
+
+
+@login_required
 def friends_chat(request):
     """Friends chat and social discovery"""
     return render(request, "nomz/diner/friends_chat.html")
