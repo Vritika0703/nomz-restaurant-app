@@ -854,11 +854,18 @@ def seed_restaurants_v2(request):
         ("test_brooklyn_fire_noodle", "thai", "Brooklyn", "Bushwick"),
         ("test_queens_veg_harvest", "vegetarian", "Queens", "Flushing"),
         ("test_bronx_fusion_lab", "fusion", "Bronx", "Riverdale"),
-        ("test_staten_island_sunset_tapas", "mediterranean", "Staten Island", "Tottenville"),
+        (
+            "test_staten_island_sunset_tapas",
+            "mediterranean",
+            "Staten Island",
+            "Tottenville",
+        ),
     ]
 
     seeded_restaurants = []
-    for i, (name, cuisine_type, borough, neighborhood) in enumerate(seed_definitions, start=1):
+    for i, (name, cuisine_type, borough, neighborhood) in enumerate(
+        seed_definitions, start=1
+    ):
         seeded_restaurants.append(
             Restaurant.objects.create(
                 name=name,

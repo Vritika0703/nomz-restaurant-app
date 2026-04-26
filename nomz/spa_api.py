@@ -1265,7 +1265,9 @@ def _restaurant_cuisine_label(restaurant: Restaurant) -> str:
     if legacy_cuisine:
         return legacy_cuisine
 
-    tags = [str(tag).strip() for tag in (restaurant.cuisine_tags or []) if str(tag).strip()]
+    tags = [
+        str(tag).strip() for tag in (restaurant.cuisine_tags or []) if str(tag).strip()
+    ]
     if tags:
         return ", ".join(tags[:3])
 
