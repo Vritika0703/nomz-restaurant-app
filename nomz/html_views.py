@@ -18,7 +18,9 @@ def opening_screen(request):
 
 
 def home(request):
-    """Marketing/landing page"""
+    """Marketing/landing page — redirects authenticated users to their dashboard."""
+    if request.user.is_authenticated:
+        return redirect("/dashboard/")
     return render(request, "nomz/home.html")
 
 

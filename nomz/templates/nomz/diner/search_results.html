@@ -31,6 +31,12 @@
                 style="border:none;border-left:1px solid var(--rule);background:var(--paper);padding:13px 14px;font-family:var(--font-sans);font-size:13px;color:var(--ink);outline:none;">
                 <option value="composite-high-low">Score ↓</option>
                 <option value="composite-low-high">Score ↑</option>
+                <option value="rating-high-low">Rating ↓</option>
+                <option value="rating-low-high">Rating ↑</option>
+                <option value="price-low-high">Price $ → $$$$</option>
+                <option value="price-high-low">Price $$$$ → $</option>
+                <option value="popularity-high-low">Popularity ↓</option>
+                <option value="popularity-low-high">Popularity ↑</option>
                 <option value="name-a-z">Name A–Z</option>
                 <option value="name-z-a">Name Z–A</option>
             </select>
@@ -107,7 +113,18 @@ function getUrlParams() {
 }
 
 function mapSortByToApi(uiValue) {
-    const map = { 'composite-high-low': 'composite_desc', 'composite-low-high': 'composite_asc', 'name-a-z': 'name_asc', 'name-z-a': 'name_desc' };
+    const map = {
+        'composite-high-low': 'composite_desc',
+        'composite-low-high': 'composite_asc',
+        'rating-high-low': 'rating_desc',
+        'rating-low-high': 'rating_asc',
+        'price-low-high': 'price_asc',
+        'price-high-low': 'price_desc',
+        'popularity-high-low': 'popularity_desc',
+        'popularity-low-high': 'popularity_asc',
+        'name-a-z': 'name_asc',
+        'name-z-a': 'name_desc'
+    };
     return map[uiValue] || 'composite_desc';
 }
 

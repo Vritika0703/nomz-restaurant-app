@@ -49,6 +49,12 @@ function mapSortByToApi(uiValue) {
   const mapping = {
     'composite-high-low': 'composite_desc',
     'composite-low-high': 'composite_asc',
+    'rating-high-low': 'rating_desc',
+    'rating-low-high': 'rating_asc',
+    'price-low-high': 'price_asc',
+    'price-high-low': 'price_desc',
+    'popularity-high-low': 'popularity_desc',
+    'popularity-low-high': 'popularity_asc',
     'name-a-z': 'name_asc',
     'name-z-a': 'name_desc',
   };
@@ -395,3 +401,22 @@ function removeQueryParam(param) {
   url.searchParams.delete(param);
   window.history.pushState({}, '', url);
 }
+/**
+ * Standard cuisine list used across all diner pages (search, dashboard, profile, map)
+ * Ensures consistency in cuisine filtering and selection
+ */
+const STANDARD_CUISINES = [
+  'Italian',
+  'Chinese',
+  'Mexican',
+  'Japanese',
+  'American',
+  'Indian',
+  'Thai',
+  'French',
+  'Asian',
+  'Mediterranean',
+  'Vegetarian',
+  'Vegan',
+  'Fusion',
+];

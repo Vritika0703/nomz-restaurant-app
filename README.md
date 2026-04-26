@@ -69,7 +69,7 @@ Nomz is a full-stack web application for discovering, reviewing, and managing NY
 │   ├── filtering.py         # Restaurant filtering logic
 │   ├── restaurant_sorting.py# Sorting and recommendation engine
 │   ├── signals.py           # Django signals
-│   ├── urls.py              # All URL routing (API + SPA catch-all)
+│   ├── urls.py              # URL routing for HTML pages and JSON APIs
 │   ├── ingestion/           # NYC Open Data ingestion pipeline
 │   │   ├── runner.py        # Pipeline orchestrator
 │   │   ├── sources/         # Per-feed data sources
