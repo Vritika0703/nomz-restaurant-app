@@ -744,11 +744,14 @@
     <!-- Floating Gradient Orbs (Dashboard Style) -->
     <div style="position: absolute; top: 10%; left: 5%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(212, 43, 43, 0.15) 0%, transparent 70%); border-radius: 50%; opacity: 0.6; pointer-events: none;"></div>
     <div style="position: absolute; bottom: 15%; right: 8%; width: 500px; height: 500px; background: radial-gradient(circle, rgba(212, 43, 43, 0.1) 0%, transparent 70%); border-radius: 50%; opacity: 0.6; pointer-events: none;"></div>
-    <div style="min-height: 100vh; display: flex; flex-direction: column; position: relative; z-index: 1;">
+    <div style="display: flex; flex-direction: column; position: relative; z-index: 1; flex: 1 0 auto;">
     {% include 'nomz/components/premium_nav.html' %}
+    <div id="map-return-wrap" style="display:none;max-width:1200px;margin:0 auto;padding:0.75rem 6vw 0;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="goBackToMap()">← Back to map</button>
+    </div>
 
     <!-- Main Content Container -->
-    <div id="restaurant-content">
+    <div id="restaurant-content" style="flex: 1 0 auto;">
         <!-- Loading state shown initially, replaced by JavaScript -->
         <div class="loading-container">
             <p class="loading-text">Loading…</p>
@@ -1023,7 +1026,9 @@
     }
 
     function writeReview(restaurantId) {
-        window.location.href = `/restaurant/${restaurantId}/review/`;
+        const mapReturn = getMapReturnUrl();
+        const suffix = mapReturn ? `?map_return=${encodeURIComponent(mapReturn)}` : '';
+        window.location.href = `/restaurant/${restaurantId}/review/${suffix}`;
     }
 
     function reportReview(reviewId) {
@@ -1037,6 +1042,23 @@
 
     function reportOwner(ownerId) {
         window.location.href = `/report/user/${ownerId}/`;
+    }
+
+    function getMapReturnUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const mapReturn = params.get('map_return');
+        if (!mapReturn) return null;
+        let decoded = mapReturn;
+        try {
+            decoded = decodeURIComponent(mapReturn);
+        } catch (_) {}
+        if (!decoded.startsWith('/map/')) return null;
+        return decoded;
+    }
+
+    function goBackToMap() {
+        const mapReturn = getMapReturnUrl();
+        window.location.href = mapReturn || '/map/';
     }
 
     // Recommendation Modal Logic Removed
@@ -1056,6 +1078,10 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', async () => {
+        if (getMapReturnUrl()) {
+            const mapWrap = document.getElementById('map-return-wrap');
+            if (mapWrap) mapWrap.style.display = 'block';
+        }
         await getSessionUser();
         await loadRestaurant();
     });
