@@ -334,5 +334,3 @@ def manage_availability(request):
 def manage_communication_settings(request):
     """Communication settings page."""
     return render(request, "nomz/restaurant/profile.html")
-
-

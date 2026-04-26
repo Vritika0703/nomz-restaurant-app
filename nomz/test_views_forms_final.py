@@ -8,7 +8,6 @@ Smoke GET for every named route in `nomz.urls`, Django `Client` tests for wired
 from __future__ import annotations
 
 import uuid
-from io import BytesIO
 from unittest.mock import patch
 
 import pytest
@@ -18,8 +17,6 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import HttpResponse
 from django.test import Client, RequestFactory
 from django.urls import NoReverseMatch, URLPattern, reverse
-from PIL import Image
-
 from nomz import urls as nomz_urls
 from nomz import views as nomz_views
 from nomz.forms import (

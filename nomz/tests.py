@@ -8,9 +8,6 @@ from django.http import HttpResponseServerError
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.core.management import call_command
-from django.core.files.uploadedfile import SimpleUploadedFile
-from io import BytesIO
-from PIL import Image
 
 from django.test.utils import override_settings
 

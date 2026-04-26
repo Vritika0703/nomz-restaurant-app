@@ -350,8 +350,6 @@ class RestaurantActivationForm(forms.ModelForm):
         }
 
 
-
-
 class UserPreferenceForm(forms.ModelForm):
     # Defining choices manually or pulling from Restaurant.CUISINE_CHOICES
     CUISINE_OPTIONS = Restaurant.CUISINE_CHOICES
