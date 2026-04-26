@@ -1169,8 +1169,8 @@ def test_restaurant_communication_settings_form_valid_invalid(owner_user):
     f = RestaurantCommunicationSettingsForm(
         data={
             "messaging_enabled": True,
-            "response_hours_start": "9:00 AM",
-            "response_hours_end": "5:00 PM",
+            "response_hours_start": "09:00",
+            "response_hours_end": "17:00",
         },
         instance=rest,
     )
@@ -1179,8 +1179,8 @@ def test_restaurant_communication_settings_form_valid_invalid(owner_user):
     f2 = RestaurantCommunicationSettingsForm(
         data={
             "messaging_enabled": True,
-            "response_hours_start": "6:00 PM",
-            "response_hours_end": "9:00 AM",
+            "response_hours_start": "18:00",
+            "response_hours_end": "09:00",
         },
         instance=rest,
     )

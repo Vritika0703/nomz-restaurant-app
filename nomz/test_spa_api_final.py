@@ -992,8 +992,8 @@ def test_restaurant_communication_get_post_success(api_client, owner_user):
         "/api/restaurant/communication/",
         {
             "messaging_enabled": True,
-            "response_hours_start": "9:00 AM",
-            "response_hours_end": "5:00 PM",
+            "response_hours_start": "09:00",
+            "response_hours_end": "17:00",
         },
         format="json",
     )
@@ -1007,8 +1007,8 @@ def test_restaurant_communication_error_invalid_hours(api_client, owner_user):
         "/api/restaurant/communication/",
         {
             "messaging_enabled": True,
-            "response_hours_start": "6:00 PM",
-            "response_hours_end": "9:00 AM",
+            "response_hours_start": "18:00",
+            "response_hours_end": "09:00",
         },
         format="json",
     )
