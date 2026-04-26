@@ -1435,6 +1435,11 @@ def diner_recommendations_api(request):
                     "cuisine": _restaurant_cuisine_label(r),
                     "price_label": r.price_range,
                     "neighborhood": r.neighborhood,
+                    "composite_score": (
+                        float(r.composite_score)
+                        if r.composite_score is not None
+                        else None
+                    ),
                 }
                 for r in combined
             ],
