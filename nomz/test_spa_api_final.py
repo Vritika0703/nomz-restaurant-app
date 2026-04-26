@@ -32,7 +32,6 @@ from nomz.models import (
     ModerationReport,
     Restaurant,
     RestaurantOwnershipClaim,
-    RestaurantPhoto,
     Review,
     ReviewResponse,
     UserPreference,
@@ -313,96 +312,8 @@ def test_auth_password_reset_confirm_error_bad_token(api_client, diner_user):
 
 
 # ---------------------------------------------------------------------------
-# Restaurant photos & activation
+# Restaurant activation
 # ---------------------------------------------------------------------------
-
-
-def test_restaurant_photos_data_success(api_client, owner_user):
-    owner, rest = owner_user
-    RestaurantPhoto.objects.create(
-        restaurant=rest,
-        photo=_make_image_upload(),
-        caption="Dining room",
-        is_primary=True,
-    )
-    api_client.force_login(owner)
-    r = api_client.get("/api/restaurant/photos/data/")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["restaurant_id"] == rest.id
-    assert len(data["photos"]) == 1
-
-
-def test_restaurant_photos_data_error_forbidden_diner(api_client, diner_user):
-    api_client.force_login(diner_user)
-    r = api_client.get("/api/restaurant/photos/data/")
-    assert r.status_code == 403
-
-
-def test_restaurant_photo_upload_success(api_client, owner_user):
-    owner, _rest = owner_user
-    api_client.force_login(owner)
-    img = _make_image_upload()
-    # Checkbox values: omit `is_primary` for unchecked; the string "false" is truthy in HTML forms.
-    r = api_client.post(
-        "/api/restaurant/photos/upload/",
-        {"caption": "Kitchen", "photo": img},
-    )
-    assert r.status_code == 201, r.content
-    assert "id" in r.json()
-
-
-def test_restaurant_photo_upload_error_invalid_form(api_client, owner_user):
-    owner, _rest = owner_user
-    api_client.force_login(owner)
-    r = api_client.post(
-        "/api/restaurant/photos/upload/",
-        {"caption": "Missing file"},
-        format="multipart",
-    )
-    assert r.status_code == 400
-
-
-def test_restaurant_photo_delete_success(api_client, owner_user):
-    owner, rest = owner_user
-    ph = RestaurantPhoto.objects.create(
-        restaurant=rest, photo=_make_image_upload(), caption="x"
-    )
-    api_client.force_login(owner)
-    r = api_client.post(f"/api/restaurant/photos/{ph.id}/delete/", {}, format="json")
-    assert r.status_code == 200
-    assert not RestaurantPhoto.objects.filter(pk=ph.id).exists()
-
-
-def test_restaurant_photo_delete_error_wrong_owner(api_client, owner_user, diner_user):
-    _owner, rest = owner_user
-    ph = RestaurantPhoto.objects.create(
-        restaurant=rest, photo=_make_image_upload(), caption="x"
-    )
-    api_client.force_login(diner_user)
-    r = api_client.post(f"/api/restaurant/photos/{ph.id}/delete/", {}, format="json")
-    assert r.status_code == 403
-
-
-def test_restaurant_photo_set_primary_success(api_client, owner_user):
-    owner, rest = owner_user
-    ph = RestaurantPhoto.objects.create(
-        restaurant=rest, photo=_make_image_upload(), caption="x", is_primary=False
-    )
-    api_client.force_login(owner)
-    r = api_client.post(
-        f"/api/restaurant/photos/{ph.id}/set-primary/", {}, format="json"
-    )
-    assert r.status_code == 200
-    ph.refresh_from_db()
-    assert ph.is_primary is True
-
-
-def test_restaurant_photo_set_primary_error_not_found(api_client, owner_user):
-    owner, _rest = owner_user
-    api_client.force_login(owner)
-    r = api_client.post("/api/restaurant/photos/999999/set-primary/", {}, format="json")
-    assert r.status_code == 404
 
 
 def test_restaurant_activation_get_post_success(api_client, owner_user):
@@ -1393,19 +1304,6 @@ def test_review_respond_update_existing(api_client, owner_user, diner_user):
     )
     assert r.status_code == 200
     assert r.json()["created"] is False
-
-
-def test_restaurant_photos_data_empty_list_when_no_restaurant(api_client, db):
-    u = User.objects.create_user(
-        username=_unique("orphan_owner"),
-        email=f"{uuid.uuid4().hex}@o.com",
-        password="Str0ngPass!xyz",
-    )
-    UserProfile.objects.create(user=u, role="restaurant", is_approved=True)
-    api_client.force_login(u)
-    r = api_client.get("/api/restaurant/photos/data/")
-    assert r.status_code == 200
-    assert r.json()["photos"] == []
 
 
 def test_admin_resolve_report_flag_fraud_on_user(

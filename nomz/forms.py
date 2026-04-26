@@ -6,7 +6,6 @@ from .models import (
     UserProfile,
     Restaurant,
     RestaurantOwnershipClaim,
-    RestaurantPhoto,
     ReviewResponse,
     UserPreference,
     Review,
@@ -351,31 +350,6 @@ class RestaurantActivationForm(forms.ModelForm):
         }
 
 
-class RestaurantPhotoForm(forms.ModelForm):
-    """
-    Form for uploading restaurant photos.
-    """
-
-    class Meta:
-        model = RestaurantPhoto
-        fields = ["photo", "caption", "is_primary"]
-        labels = {
-            "photo": "Photo",
-            "caption": "Photo Caption",
-            "is_primary": "Set as Main Photo",
-        }
-        widgets = {
-            "photo": forms.FileInput(
-                attrs={"class": "form-control", "accept": "image/*"}
-            ),
-            "caption": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": 'e.g., "Dining Area", "Signature Dish"',
-                }
-            ),
-            "is_primary": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-        }
 
 
 class UserPreferenceForm(forms.ModelForm):

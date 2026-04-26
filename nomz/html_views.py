@@ -216,12 +216,6 @@ def restaurant_profile(request):
 
 
 @login_required
-def photo_management(request):
-    """Restaurant photo upload and management"""
-    return render(request, "nomz/restaurant_photos.html")
-
-
-@login_required
 def claim_restaurant(request):
     """Claim existing restaurant listing"""
     from nomz.models import Restaurant
@@ -342,7 +336,3 @@ def manage_communication_settings(request):
     return render(request, "nomz/restaurant/profile.html")
 
 
-@login_required
-def upload_photo(request):
-    """Photo upload page."""
-    return render(request, "nomz/restaurant_photos.html")
