@@ -8,7 +8,6 @@ Smoke GET for every named route in `nomz.urls`, Django `Client` tests for wired
 from __future__ import annotations
 
 import uuid
-from io import BytesIO
 from unittest.mock import patch
 
 import pytest
@@ -18,8 +17,6 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import HttpResponse
 from django.test import Client, RequestFactory
 from django.urls import NoReverseMatch, URLPattern, reverse
-from PIL import Image
-
 from nomz import urls as nomz_urls
 from nomz import views as nomz_views
 from nomz.forms import (
@@ -29,7 +26,6 @@ from nomz.forms import (
     RestaurantAvailabilityForm,
     RestaurantCommunicationSettingsForm,
     RestaurantOwnershipClaimForm,
-    RestaurantPhotoForm,
     RestaurantProfileForm,
     ReviewForm,
     ReviewResponseForm,
@@ -1029,24 +1025,6 @@ def test_restaurant_activation_form(owner_user):
     _o, rest = owner_user
     f = RestaurantActivationForm(data={"is_active": False}, instance=rest)
     assert f.is_valid()
-
-
-def test_restaurant_photo_form_valid(tmp_path, owner_user):
-    owner, rest = owner_user
-    buf = BytesIO()
-    Image.new("RGB", (4, 4), color=(10, 120, 200)).save(buf, format="PNG")
-    buf.seek(0)
-    from django.core.files.uploadedfile import SimpleUploadedFile
-
-    img = SimpleUploadedFile("a.png", buf.read(), content_type="image/png")
-    f = RestaurantPhotoForm(
-        data={"caption": "Front", "is_primary": False},
-        files={"photo": img},
-    )
-    assert f.is_valid(), f.errors
-
-    f2 = RestaurantPhotoForm(data={"caption": "x"}, files={})
-    assert not f2.is_valid()
 
 
 def test_user_preference_form_valid_invalid(diner_user):

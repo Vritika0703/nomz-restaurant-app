@@ -55,26 +55,6 @@ urlpatterns = [
         name="api_auth_password_reset_confirm",
     ),
     path(
-        "api/restaurant/photos/data/",
-        spa_api.restaurant_photos_data,
-        name="api_restaurant_photos_data",
-    ),
-    path(
-        "api/restaurant/photos/upload/",
-        spa_api.restaurant_photo_upload,
-        name="api_restaurant_photo_upload",
-    ),
-    path(
-        "api/restaurant/photos/<int:photo_id>/delete/",
-        spa_api.restaurant_photo_delete,
-        name="api_restaurant_photo_delete",
-    ),
-    path(
-        "api/restaurant/photos/<int:photo_id>/set-primary/",
-        spa_api.restaurant_photo_set_primary,
-        name="api_restaurant_photo_set_primary",
-    ),
-    path(
         "api/restaurant/activation/",
         spa_api.restaurant_activation_api,
         name="api_restaurant_activation",
@@ -385,8 +365,6 @@ urlpatterns += [
     path(
         "restaurant-profile/", html_views.restaurant_profile, name="restaurant_profile"
     ),
-    path("restaurant/photos/", html_views.photo_management, name="restaurant_photos"),
-    path("restaurant/photos/upload/", html_views.upload_photo, name="upload_photo"),
     path("restaurant/claim/", html_views.claim_restaurant, name="claim_restaurant"),
     path("restaurant/create/", html_views.create_restaurant, name="create_restaurant"),
     path("restaurant/edit/", html_views.edit_restaurant, name="edit_restaurant"),

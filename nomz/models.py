@@ -377,37 +377,6 @@ class RestaurantOwnershipClaim(models.Model):
         return self
 
 
-class RestaurantPhoto(models.Model):
-    """
-    Model to handle multiple photos for a restaurant.
-    """
-
-    restaurant = models.ForeignKey(
-        Restaurant, on_delete=models.CASCADE, related_name="photos"
-    )
-    photo = models.ImageField(upload_to="restaurant_photos/")
-    caption = models.CharField(max_length=255, blank=True, null=True)
-    is_primary = models.BooleanField(
-        default=False, help_text="Set as main photo for the restaurant"
-    )
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-is_primary", "-uploaded_at"]
-
-    def __str__(self):
-        return f"{self.restaurant.name} - {self.caption or 'Photo'}"
-
-    def save(self, *args, **kwargs):
-        """Ensure only one primary photo"""
-        if self.is_primary:
-            # Remove primary status from other photos
-            RestaurantPhoto.objects.filter(
-                restaurant=self.restaurant, is_primary=True
-            ).update(is_primary=False)
-        super().save(*args, **kwargs)
-
-
 class LoginLog(models.Model):
     """
     Tracks authentication events for simple login analytics and anti-abuse checks.

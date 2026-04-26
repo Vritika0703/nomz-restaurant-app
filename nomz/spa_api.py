@@ -18,7 +18,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from django.http import HttpResponseForbidden, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils.http import urlsafe_base64_decode
 from django.views.decorators.csrf import csrf_exempt
@@ -34,7 +34,6 @@ from .forms import (
     RestaurantActivationForm,
     RestaurantAvailabilityForm,
     RestaurantCommunicationSettingsForm,
-    RestaurantPhotoForm,
     RestaurantProfileForm,
     UserPreferenceForm,
     UserRegisterForm,
@@ -50,7 +49,6 @@ from .models import (
     ModerationReport,
     Restaurant,
     RestaurantOwnershipClaim,
-    RestaurantPhoto,
     Review,
     ReviewResponse,
     SystemAuditLog,
@@ -339,95 +337,6 @@ def auth_password_reset_confirm(request):
 
     errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
     return JsonResponse({"success": False, "errors": errors}, status=400)
-
-
-# --- Restaurant photos ---
-
-
-@login_required(login_url="landing")
-@require_GET
-def restaurant_photos_data(request):
-
-    if not _is_restaurant_owner(request.user):
-        return _json_error("Restaurant owners only.", status=403)
-
-    restaurant = Restaurant.objects.filter(owner=request.user).first()
-    if not restaurant:
-        return JsonResponse({"photos": []})
-
-    photos = []
-    for p in restaurant.photos.all():
-        url = p.photo.url if p.photo else ""
-        photos.append(
-            {
-                "id": p.id,
-                "url": url,
-                "caption": p.caption or "",
-                "is_primary": p.is_primary,
-            }
-        )
-    return JsonResponse({"restaurant_id": restaurant.id, "photos": photos})
-
-
-@csrf_exempt
-@login_required(login_url="landing")
-@require_http_methods(["POST"])
-def restaurant_photo_upload(request):
-
-    if not _is_restaurant_owner(request.user):
-        return HttpResponseForbidden("Restaurant owners only.")
-
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
-    form = RestaurantPhotoForm(request.POST, request.FILES)
-    if form.is_valid():
-        photo = form.save(commit=False)
-        photo.restaurant = restaurant
-        photo.save()
-        url = photo.photo.url if photo.photo else ""
-        return JsonResponse(
-            {
-                "id": photo.id,
-                "url": url,
-                "caption": photo.caption or "",
-                "is_primary": photo.is_primary,
-            },
-            status=201,
-        )
-    errors = {k: [str(e) for e in v] for k, v in form.errors.items()}
-    return JsonResponse({"errors": errors}, status=400)
-
-
-@csrf_exempt
-@login_required(login_url="landing")
-@require_http_methods(["POST"])
-def restaurant_photo_delete(request, photo_id):
-
-    if not _is_restaurant_owner(request.user):
-        return HttpResponseForbidden("Restaurant owners only.")
-
-    photo = get_object_or_404(RestaurantPhoto, id=photo_id)
-    if photo.restaurant.owner_id != request.user.id:
-        return HttpResponseForbidden("Permission denied.")
-
-    photo.delete()
-    return JsonResponse({"ok": True})
-
-
-@csrf_exempt
-@login_required(login_url="landing")
-@require_http_methods(["POST"])
-def restaurant_photo_set_primary(request, photo_id):
-
-    if not _is_restaurant_owner(request.user):
-        return HttpResponseForbidden("Restaurant owners only.")
-
-    photo = get_object_or_404(RestaurantPhoto, id=photo_id)
-    if photo.restaurant.owner_id != request.user.id:
-        return HttpResponseForbidden("Permission denied.")
-
-    photo.is_primary = True
-    photo.save()
-    return JsonResponse({"ok": True})
 
 
 # --- Profile activation ---
