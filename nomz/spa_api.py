@@ -1090,7 +1090,7 @@ def restaurant_detail_data(request, restaurant_id):
     data = {
         "id": restaurant.id,
         "name": restaurant.display_name or restaurant.name,
-        "cuisine": restaurant.cuisine or "",
+        "cuisine": _restaurant_cuisine_label(restaurant),
         "cuisine_tags": restaurant.cuisine_tags or [],
         "neighborhood": restaurant.neighborhood or "",
         "address": ", ".join(
@@ -1255,6 +1255,26 @@ def _cuisine_and_price_choices():
     }
 
 
+def _restaurant_cuisine_label(restaurant: Restaurant) -> str:
+    """Return a consistent cuisine label across SPA endpoints."""
+    cuisine_type = (restaurant.cuisine_type or "").strip().lower()
+    if cuisine_type and cuisine_type != "other":
+        return restaurant.get_cuisine_type_display()
+
+    legacy_cuisine = (restaurant.cuisine or "").strip()
+    if legacy_cuisine:
+        return legacy_cuisine
+
+    tags = [str(tag).strip() for tag in (restaurant.cuisine_tags or []) if str(tag).strip()]
+    if tags:
+        return ", ".join(tags[:3])
+
+    if cuisine_type:
+        return restaurant.get_cuisine_type_display()
+
+    return ""
+
+
 def _owner_visibility_rank(restaurant: Restaurant) -> tuple[int | None, int]:
     """Rank among active, visible restaurants by composite_score (1 = highest score)."""
     base = Restaurant.objects.filter(
@@ -1388,17 +1408,12 @@ def _search_results_payload(request):
 
     results = []
     for restaurant in base_restaurants:
-        fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
-        if not fallback_cuisine and restaurant.cuisine_tags:
-            fallback_cuisine = ", ".join(
-                str(tag) for tag in restaurant.cuisine_tags[:3]
-            )
         results.append(
             {
                 "id": restaurant.id,
                 "name": restaurant.name,
                 "description": restaurant.description or "",
-                "cuisine": fallback_cuisine,
+                "cuisine": _restaurant_cuisine_label(restaurant),
                 "neighborhood": restaurant.neighborhood or restaurant.borough or "",
                 "composite_score": restaurant.composite_score,
                 "price_label": restaurant.get_price_range_display(),
@@ -1430,14 +1445,11 @@ def _search_results_payload(request):
 
 
 def _recommendation_card(restaurant: Restaurant) -> dict:
-    fallback_cuisine = restaurant.cuisine or restaurant.cuisine_type or ""
-    if not fallback_cuisine and restaurant.cuisine_tags:
-        fallback_cuisine = ", ".join(str(tag) for tag in restaurant.cuisine_tags[:3])
     return {
         "id": restaurant.id,
         "name": restaurant.name,
         "description": (restaurant.description or "")[:280],
-        "cuisine": fallback_cuisine,
+        "cuisine": _restaurant_cuisine_label(restaurant),
         "neighborhood": restaurant.neighborhood or restaurant.borough or "",
         "composite_score": restaurant.composite_score,
         "price_label": restaurant.get_price_range_display(),
@@ -1509,7 +1521,7 @@ def diner_recommendations_api(request):
                 {
                     "id": r.id,
                     "name": r.name,
-                    "cuisine": r.cuisine_type,
+                    "cuisine": _restaurant_cuisine_label(r),
                     "price_label": r.price_range,
                     "neighborhood": r.neighborhood,
                 }

@@ -844,6 +844,39 @@ def test_restaurant_search_api_success(api_client, diner_user, public_restaurant
     assert public_restaurant.id in ids
 
 
+def test_restaurant_search_prefers_normalized_cuisine_type(
+    api_client, diner_user, public_restaurant
+):
+    public_restaurant.name = "Kings Kitchen"
+    public_restaurant.cuisine_type = "chinese"
+    public_restaurant.cuisine = "Indian"
+    public_restaurant.save(update_fields=["name", "cuisine_type", "cuisine"])
+
+    api_client.force_login(diner_user)
+    r = api_client.get("/api/search/?q=Kings Kitchen")
+    assert r.status_code == 200
+
+    payload = r.json()["results"]
+    match = next(row for row in payload if row["id"] == public_restaurant.id)
+    assert match["cuisine"] == "Chinese"
+
+
+def test_restaurant_search_uses_legacy_cuisine_when_type_is_other(
+    api_client, diner_user, public_restaurant
+):
+    public_restaurant.cuisine_type = "other"
+    public_restaurant.cuisine = "Italian"
+    public_restaurant.save(update_fields=["cuisine_type", "cuisine"])
+
+    api_client.force_login(diner_user)
+    r = api_client.get(f"/api/search/?q={public_restaurant.name}")
+    assert r.status_code == 200
+
+    payload = r.json()["results"]
+    match = next(row for row in payload if row["id"] == public_restaurant.id)
+    assert match["cuisine"] == "Italian"
+
+
 def test_restaurant_search_api_error_requires_login(api_client):
     r = api_client.get("/api/search/")
     assert r.status_code == 302
@@ -869,6 +902,21 @@ def test_diner_recommendations_success(
     assert r.status_code == 200
     assert r.json()["requires_preferences"] is False
     assert len(r.json()["restaurants"]) == 1
+
+
+@patch("nomz.spa_api.recommend_restaurants_for_user")
+def test_diner_recommendations_use_consistent_cuisine_label(
+    mock_rec, api_client, diner_user, diner_prefs, public_restaurant
+):
+    public_restaurant.cuisine_type = "other"
+    public_restaurant.cuisine = "Italian"
+    public_restaurant.save(update_fields=["cuisine_type", "cuisine"])
+    mock_rec.return_value = [public_restaurant]
+
+    api_client.force_login(diner_user)
+    r = api_client.get("/api/recommendations/")
+    assert r.status_code == 200
+    assert r.json()["restaurants"][0]["cuisine"] == "Italian"
 
 
 def test_diner_recommendations_error_forbidden_owner(api_client, owner_user):
