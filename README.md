@@ -1,7 +1,7 @@
 # Nomz — NYC Restaurant Discovery Platform
 
 [![Build Status](https://app.travis-ci.com/gcivil-nyu-org/team3-mon-spring26.svg?branch=develop)](https://app.travis-ci.com/gcivil-nyu-org/team3-mon-spring26)
-[![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team3-mon-spring26/badge.svg?branch=darsh)](https://coveralls.io/github/gcivil-nyu-org/team3-mon-spring26?branch=darsh)
+[![Coverage Status](https://coveralls.io/repos/github/gcivil-nyu-org/team3-mon-spring26/badge.svg?branch=production)](https://coveralls.io/github/gcivil-nyu-org/team3-mon-spring26?branch=production)
 
 Nomz is a full-stack web application for discovering, reviewing, and managing NYC restaurants. It combines real-time NYC Open Data ingestion, a multi-factor composite scoring system, personalized recommendations, and social features like friend chat and shared restaurant lists.
 
@@ -43,7 +43,7 @@ Nomz is a full-stack web application for discovering, reviewing, and managing NY
 | Layer | Technologies |
 |---|---|
 | **Backend** | Python 3.12, Django 5.1+, Django REST Framework, Gunicorn |
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS 4, Radix UI, MUI, React Router 7, Leaflet, Recharts |
+| **Frontend** | Django Templates, Bootstrap 5, WhiteNoise |
 | **Database** | SQLite (dev), PostgreSQL (prod via AWS RDS) |
 | **Auth** | Django sessions, django-otp, django-two-factor-auth |
 | **Storage** | WhiteNoise (static), AWS S3 + boto3 (optional) |
@@ -55,24 +55,21 @@ Nomz is a full-stack web application for discovering, reviewing, and managing NY
 ## Project Structure
 
 ```
-├── frontend/                # React SPA (Vite + TypeScript)
-│   ├── src/
-│   │   ├── main.tsx         # React entry point
-│   │   ├── app/
-│   │   │   └── components/  # All page components (Home, Search, Admin, etc.)
-│   │   └── styles/
-│   ├── package.json
-│   └── vite.config.ts
+├── templates/               # Django templates (HTML, Bootstrap 5)
+│   ├── base.html            # Base template with Bootstrap 5
+│   ├── auth/                # Authentication templates
+│   ├── nomz/                # Main app templates
+│   └── admin/               # Admin interface templates
 ├── nomz/                    # Main Django app
 │   ├── models.py            # 29 models (User, Restaurant, Review, Chat, etc.)
-│   ├── spa_api.py           # JSON API endpoints for the React SPA
+│   ├── spa_api.py           # JSON API endpoints for the web interface
 │   ├── api_views.py         # Additional API views (map, messaging, claims)
-│   ├── spa_shell_views.py   # Serves the built React app for browser navigation
+│   ├── views.py             # Django view functions
 │   ├── scoring.py           # Composite scoring algorithm
 │   ├── filtering.py         # Restaurant filtering logic
 │   ├── restaurant_sorting.py# Sorting and recommendation engine
 │   ├── signals.py           # Django signals
-│   ├── urls.py              # All URL routing (API + SPA catch-all)
+│   ├── urls.py              # URL routing for HTML pages and JSON APIs
 │   ├── ingestion/           # NYC Open Data ingestion pipeline
 │   │   ├── runner.py        # Pipeline orchestrator
 │   │   ├── sources/         # Per-feed data sources
@@ -100,7 +97,6 @@ Nomz is a full-stack web application for discovering, reviewing, and managing NY
 ### Prerequisites
 
 - Python 3.12+
-- Node.js 20+ and npm
 - Git
 
 ### 1. Clone the Repository
@@ -142,39 +138,16 @@ python manage.py createsuperuser   # optional — creates an admin account
 python manage.py seed_data         # optional — loads sample restaurants
 ```
 
-### 5. Set Up the React Frontend
+### 5. Run the App
 
-```bash
-cd frontend
-npm install
-cd ..
-```
+Start the Django development server:
 
-### 6. Run the App
-
-You need **two terminals** — one for the Django backend and one for the Vite dev server:
-
-**Terminal 1 — Django backend (port 8000):**
 ```bash
 source .venv/bin/activate
 python manage.py runserver
 ```
 
-**Terminal 2 — Vite dev server (port 5173):**
-```bash
-cd frontend
-npm run dev
-```
-
-Open **http://localhost:5173** in your browser. The Vite dev server proxies all `/api/*` requests to Django on port 8000.
-
-> **Production-style local test:** Instead of two servers, build the frontend and let Django serve it:
-> ```bash
-> cd frontend && npm run build && cd ..
-> python manage.py collectstatic --noinput
-> python manage.py runserver
-> ```
-> Then open **http://localhost:8000**.
+Open **http://localhost:8000** in your browser. Django serves both the API and the web interface.
 
 ---
 
@@ -197,6 +170,9 @@ All configuration is driven by environment variables (via `python-decouple`). De
 | `AWS_ACCESS_KEY_ID` | — | AWS credentials (when `USE_S3=True`) |
 | `AWS_SECRET_ACCESS_KEY` | — | AWS credentials |
 | `AWS_STORAGE_BUCKET_NAME` | — | S3 bucket name |
+| `AWS_S3_REGION_NAME` | `us-east-1` | S3 bucket region |
+| `AWS_S3_CUSTOM_DOMAIN` | `<bucket>.s3.amazonaws.com` | Optional CDN/custom S3 domain for static/media URLs |
+| `MAX_UPLOAD_IMAGE_MB` | `10` | Max image upload size used by Django upload limits |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,...` | Comma-separated CORS origins |
 | `CSRF_TRUSTED_ORIGINS` | `http://localhost:8000,...` | Comma-separated trusted CSRF origins |
 | `EMAIL_HOST_USER` | *(empty)* | SMTP user (e.g. Gmail address for password reset emails) |
@@ -237,7 +213,6 @@ The project uses **Travis CI** with the following stages:
    - Reports coverage to Coveralls
 
 2. **Deploy** (on `production` branch only):
-   - Builds the React frontend (`npm install && npm run build`)
    - Deploys to AWS Elastic Beanstalk (`nomz-app` / `nomz-prod`)
 
 ---
@@ -249,7 +224,7 @@ The app is deployed on **AWS Elastic Beanstalk** with:
 - **Web server:** Gunicorn via `Procfile`
 - **Instance type:** t3.micro
 - **Health check:** `/health/` endpoint
-- **Static files:** Nginx serves `/static/` from `staticfiles/` and `/assets/` from `frontend/dist/assets/`
+- **Static files:** Nginx serves `/static/` from `staticfiles/`
 - **Container commands** (run on deploy):
   1. `python scripts/create_db.py` — ensures the RDS database exists
   2. `python manage.py migrate --noinput`

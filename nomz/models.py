@@ -19,7 +19,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="diner")
     is_approved = models.BooleanField(
-        default=True,
+        default=False,
         help_text="Designates whether this business account has been approved by an administrator.",
     )
     is_rejected = models.BooleanField(
@@ -118,8 +118,12 @@ class Restaurant(models.Model):
     ]
 
     # Hours stored as JSONField for flexibility (optional: can use TimeField pairs)
-    hours_open = models.TimeField(default="09:00", help_text="Opening time")
-    hours_close = models.TimeField(default="21:00", help_text="Closing time")
+    hours_open = models.TimeField(
+        default="09:00", null=True, blank=True, help_text="Opening time"
+    )
+    hours_close = models.TimeField(
+        default="21:00", null=True, blank=True, help_text="Closing time"
+    )
 
     # Status and availability
     is_active = models.BooleanField(
@@ -371,37 +375,6 @@ class RestaurantOwnershipClaim(models.Model):
             ]
         )
         return self
-
-
-class RestaurantPhoto(models.Model):
-    """
-    Model to handle multiple photos for a restaurant.
-    """
-
-    restaurant = models.ForeignKey(
-        Restaurant, on_delete=models.CASCADE, related_name="photos"
-    )
-    photo = models.ImageField(upload_to="restaurant_photos/")
-    caption = models.CharField(max_length=255, blank=True, null=True)
-    is_primary = models.BooleanField(
-        default=False, help_text="Set as main photo for the restaurant"
-    )
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-is_primary", "-uploaded_at"]
-
-    def __str__(self):
-        return f"{self.restaurant.name} - {self.caption or 'Photo'}"
-
-    def save(self, *args, **kwargs):
-        """Ensure only one primary photo"""
-        if self.is_primary:
-            # Remove primary status from other photos
-            RestaurantPhoto.objects.filter(
-                restaurant=self.restaurant, is_primary=True
-            ).update(is_primary=False)
-        super().save(*args, **kwargs)
 
 
 class LoginLog(models.Model):

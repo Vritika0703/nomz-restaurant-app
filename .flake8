@@ -5,10 +5,13 @@ exclude =
     .git,
     __pycache__,
     .venv,
+    .venv-deploycheck,
     venv,
+    env,
     migrations,
     .eggs,
-    *.egg
+    *.egg,
+    node_modules
 
 per-file-ignores =
     __init__.py:F401

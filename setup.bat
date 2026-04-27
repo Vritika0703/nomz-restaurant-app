@@ -30,7 +30,7 @@ call venv\Scripts\activate.bat
 
 REM Install requirements
 echo 📦 Installing Python dependencies...
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 
 REM Run migrations
 echo 🗄️  Running database migrations...

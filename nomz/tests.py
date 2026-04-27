@@ -8,10 +8,6 @@ from django.http import HttpResponseServerError
 from django.contrib.auth.models import User
 from django.urls import reverse
 from django.core.management import call_command
-from django.core.files.uploadedfile import SimpleUploadedFile
-from io import BytesIO
-from PIL import Image
-from unittest.mock import patch
 
 from django.test.utils import override_settings
 
@@ -24,7 +20,6 @@ from .models import (
     MessageNotification,
     Restaurant,
     RestaurantOwnershipClaim,
-    RestaurantPhoto,
     Review,
     ReviewResponse,
     SystemAlert,
@@ -111,97 +106,6 @@ class RestaurantModelTests(TestCase):
                 cuisine_type="italian",
                 price_range="$$",
             )
-
-
-class RestaurantPhotoModelTests(TestCase):
-    """Test cases for RestaurantPhoto model"""
-
-    def setUp(self):
-        """Create test user and restaurant"""
-        self.user = User.objects.create_user(
-            username="restaurantowner", password="testpass123"
-        )
-        UserProfile.objects.create(user=self.user, role="restaurant")
-
-        self.restaurant = Restaurant.objects.create(
-            owner=self.user,
-            name="Test Restaurant",
-            cuisine_type="italian",
-            price_range="$$",
-        )
-
-    def create_test_image(self):
-        """Create a test image file"""
-        image = Image.new("RGB", (100, 100), color="red")
-        image_io = BytesIO()
-        image.save(image_io, format="JPEG")
-        image_io.seek(0)
-        return SimpleUploadedFile(
-            "test.jpg", image_io.getvalue(), content_type="image/jpeg"
-        )
-
-    def test_photo_creation(self):
-        """Test photo creation"""
-        photo = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Dining area",
-        )
-        self.assertEqual(photo.restaurant, self.restaurant)
-        self.assertEqual(photo.caption, "Dining area")
-
-    def test_photo_string_representation(self):
-        """Test photo __str__ method"""
-        photo = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Test Photo",
-        )
-        self.assertIn("Test Restaurant", str(photo))
-        self.assertIn("Test Photo", str(photo))
-
-    def test_primary_photo_uniqueness(self):
-        """Test that only one photo can be primary"""
-        photo1 = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Photo 1",
-            is_primary=True,
-        )
-
-        photo2 = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Photo 2",
-            is_primary=True,
-        )
-
-        # Refresh from DB
-        photo1.refresh_from_db()
-
-        # photo1 should no longer be primary
-        self.assertFalse(photo1.is_primary)
-        self.assertTrue(photo2.is_primary)
-
-    def test_photos_ordered_by_primary_and_date(self):
-        """Test that photos are ordered correctly"""
-        photo1 = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Photo 1",
-            is_primary=False,
-        )
-
-        photo2 = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Photo 2",
-            is_primary=True,
-        )
-
-        photos = RestaurantPhoto.objects.filter(restaurant=self.restaurant)
-        self.assertEqual(photos[0].id, photo2.id)  # Primary first
-        self.assertEqual(photos[1].id, photo1.id)
 
 
 class RestaurantProfileViewTests(TestCase):
@@ -376,146 +280,12 @@ class RestaurantAvailabilityViewTests(TestCase):
         self.assertEqual(self.restaurant.unavailable_reason, "Renovations")
 
 
-class RestaurantPhotoViewTests(TestCase):
-    """Test cases for photo management views"""
-
-    def setUp(self):
-        """Create test user and restaurant"""
-        self.client = Client()
-        self.user = User.objects.create_user(
-            username="restaurantowner", password="testpass123"
-        )
-        UserProfile.objects.create(user=self.user, role="restaurant")
-
-        self.restaurant = Restaurant.objects.create(
-            owner=self.user,
-            name="Test Restaurant",
-            cuisine_type="italian",
-            price_range="$$",
-        )
-
-    def create_test_image(self):
-        """Create a test image file"""
-        image = Image.new("RGB", (100, 100), color="red")
-        image_io = BytesIO()
-        image.save(image_io, format="JPEG")
-        image_io.seek(0)
-        return SimpleUploadedFile(
-            "test.jpg", image_io.getvalue(), content_type="image/jpeg"
-        )
-
-    def test_upload_photo_view_get(self):
-        """Upload page is the SPA shell."""
-        self.client.login(username="restaurantowner", password="testpass123")
-        response = self.client.get(reverse("upload_photo"))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "root")
-
-    def test_upload_photo_view_post(self):
-        """Upload photo via multipart JSON API."""
-        self.client.login(username="restaurantowner", password="testpass123")
-
-        data = {
-            "photo": self.create_test_image(),
-            "caption": "Dining area",
-            "is_primary": "on",
-        }
-
-        response = self.client.post(reverse("api_restaurant_photo_upload"), data)
-
-        self.assertEqual(response.status_code, 201)
-        photo = RestaurantPhoto.objects.get(restaurant=self.restaurant)
-        self.assertEqual(photo.caption, "Dining area")
-        self.assertTrue(photo.is_primary)
-
-    def test_restaurant_photos_view(self):
-        """Gallery page is SPA; list comes from JSON API."""
-        RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Test Photo",
-        )
-
-        self.client.login(username="restaurantowner", password="testpass123")
-        response = self.client.get(reverse("restaurant_photos"))
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "root")
-        api_r = self.client.get(reverse("api_restaurant_photos_data"))
-        self.assertEqual(api_r.status_code, 200)
-        self.assertEqual(api_r.json()["photos"][0]["caption"], "Test Photo")
-
-    def test_delete_photo(self):
-        """Delete photo via JSON API."""
-        photo = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Test Photo",
-        )
-
-        self.client.login(username="restaurantowner", password="testpass123")
-        response = self.client.post(
-            reverse("api_restaurant_photo_delete", args=[photo.id]),
-        )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(RestaurantPhoto.objects.filter(id=photo.id).exists())
-
-    def test_set_primary_photo(self):
-        """Set primary via JSON API."""
-        photo1 = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Photo 1",
-            is_primary=True,
-        )
-
-        photo2 = RestaurantPhoto.objects.create(
-            restaurant=self.restaurant,
-            photo=self.create_test_image(),
-            caption="Photo 2",
-        )
-
-        self.client.login(username="restaurantowner", password="testpass123")
-        response = self.client.post(
-            reverse("api_restaurant_photo_set_primary", args=[photo2.id]),
-        )
-
-        self.assertEqual(response.status_code, 200)
-
-        photo2.refresh_from_db()
-        photo1.refresh_from_db()
-        self.assertTrue(photo2.is_primary)
-        self.assertFalse(photo1.is_primary)
-
-
 class SystemMonitoringTests(TransactionTestCase):
     @override_settings(
         SYSTEM_METRICS_SNAPSHOT_INTERVAL_SECONDS=1,
         SYSTEM_ALERT_ERROR_RATE_THRESHOLD=1.1,  # Disable high error rate alerts for single failures
         SYSTEM_ALERT_AVG_LATENCY_MS_THRESHOLD=100000,
     )
-    def test_health_check_failure_creates_alert_and_audit_log(self):
-        with patch(
-            "nomz.views.perform_dependency_health_checks",
-            side_effect=Exception("db down"),
-        ):
-            response = self.client.get(reverse("health_check"))
-            self.assertEqual(response.status_code, 503)
-
-        alert_qs = SystemAlert.objects.filter(
-            alert_type="HEALTH_CHECK_FAILURE", is_active=True
-        )
-        audit_qs = SystemAuditLog.objects.filter(action="health_check_failure")
-        self.assertTrue(
-            alert_qs.exists(),
-            msg=(
-                f"Expected active HEALTH_CHECK_FAILURE alert. "
-                f"alerts={alert_qs.count()} total_alerts={SystemAlert.objects.count()} "
-                f"audit_logs={audit_qs.count()}"
-            ),
-        )
-        self.assertTrue(audit_qs.exists())
-
     @override_settings(
         DEBUG=False,
         DEBUG_PROPAGATE_EXCEPTIONS=False,

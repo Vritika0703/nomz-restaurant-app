@@ -6,7 +6,6 @@ from .models import (
     UserProfile,
     Restaurant,
     RestaurantOwnershipClaim,
-    RestaurantPhoto,
     ReviewResponse,
     UserPreference,
     Review,
@@ -168,6 +167,21 @@ class RestaurantProfileForm(forms.ModelForm):
     Handles description, hours, cuisine type, and price range.
     """
 
+    hours_open = forms.TimeField(
+        required=False,
+        widget=forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
+    )
+    hours_close = forms.TimeField(
+        required=False,
+        widget=forms.TimeInput(attrs={"class": "form-control", "type": "time"}),
+    )
+    email = forms.CharField(
+        required=False,
+        widget=forms.EmailInput(
+            attrs={"class": "form-control", "placeholder": "contact@restaurant.com"}
+        ),
+    )
+
     class Meta:
         model = Restaurant
         fields = [
@@ -236,6 +250,55 @@ class RestaurantProfileForm(forms.ModelForm):
             ),
         }
 
+    def clean_phone(self):
+        phone = self.cleaned_data.get("phone", "")
+        if phone:
+            if any(char.isalpha() for char in phone):
+                raise forms.ValidationError(
+                    "Alphabets are not allowed in the phone number."
+                )
+            digits_only = "".join(filter(str.isdigit, phone))
+            if len(digits_only) < 10:
+                raise forms.ValidationError(
+                    "The phone number must contain at least 10 digits."
+                )
+        return phone
+
+    def clean_email(self):
+        raw_email = self.data.get("email", "")
+        if raw_email:
+            if "@" not in raw_email:
+                if "email" in self.errors:
+                    del self.errors["email"]
+                raise forms.ValidationError(
+                    f"Please include an '@' in the email address. '{raw_email}' is missing an '@'."
+                )
+
+            parts = raw_email.split("@")
+            if len(parts[0]) == 0:
+                if "email" in self.errors:
+                    del self.errors["email"]
+                raise forms.ValidationError("Please enter any letter before @.")
+
+            if len(parts) < 2 or len(parts[1]) == 0:
+                if "email" in self.errors:
+                    del self.errors["email"]
+                raise forms.ValidationError("Please enter a part following '@'.")
+
+            domain_parts = parts[1].split(".")
+            if (
+                len(domain_parts) < 2
+                or len(domain_parts[0]) == 0
+                or len(domain_parts[1]) == 0
+            ):
+                if "email" in self.errors:
+                    del self.errors["email"]
+                raise forms.ValidationError(
+                    "Email must be in a valid format (e.g. name@example.com)."
+                )
+
+        return self.cleaned_data.get("email", raw_email)
+
 
 class RestaurantAvailabilityForm(forms.ModelForm):
     """
@@ -284,33 +347,6 @@ class RestaurantActivationForm(forms.ModelForm):
         }
         widgets = {
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-        }
-
-
-class RestaurantPhotoForm(forms.ModelForm):
-    """
-    Form for uploading restaurant photos.
-    """
-
-    class Meta:
-        model = RestaurantPhoto
-        fields = ["photo", "caption", "is_primary"]
-        labels = {
-            "photo": "Photo",
-            "caption": "Photo Caption",
-            "is_primary": "Set as Main Photo",
-        }
-        widgets = {
-            "photo": forms.FileInput(
-                attrs={"class": "form-control", "accept": "image/*"}
-            ),
-            "caption": forms.TextInput(
-                attrs={
-                    "class": "form-control",
-                    "placeholder": 'e.g., "Dining Area", "Signature Dish"',
-                }
-            ),
-            "is_primary": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
 
@@ -569,55 +605,6 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
     Controls the messaging on/off toggle and available response hours.
     """
 
-    response_hours_start = forms.TimeField(
-        required=False,
-        input_formats=[
-            "%H:%M:%S",
-            "%H:%M",
-            "%H",
-            "%I:%M %p",
-            "%I:%M%p",
-            "%I %p",
-            "%I%p",
-            "%I:%M %P",
-            "%I:%M%P",
-            "%I %P",
-            "%I%P",
-        ],
-        label="Response Hours Start",
-        help_text="Earliest time you typically respond to messages (optional).",
-        widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. 11:00 AM or 11pm",
-            }
-        ),
-    )
-    response_hours_end = forms.TimeField(
-        required=False,
-        input_formats=[
-            "%H:%M:%S",
-            "%H:%M",
-            "%H",
-            "%I:%M %p",
-            "%I:%M%p",
-            "%I %p",
-            "%I%p",
-            "%I:%M %P",
-            "%I:%M%P",
-            "%I %P",
-            "%I%P",
-        ],
-        label="Response Hours End",
-        help_text="Latest time you typically respond to messages (optional).",
-        widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "placeholder": "e.g. 4:00 PM or 4pm",
-            }
-        ),
-    )
-
     class Meta:
         model = Restaurant
         fields = [
@@ -627,13 +614,18 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
         ]
         labels = {
             "messaging_enabled": "Enable Messaging",
-        }
-        help_texts = {
-            "messaging_enabled": "When disabled, diners will not be able to send you new messages.",
+            "response_hours_start": "Response Hours Start",
+            "response_hours_end": "Response Hours End",
         }
         widgets = {
             "messaging_enabled": forms.CheckboxInput(
                 attrs={"class": "form-check-input"}
+            ),
+            "response_hours_start": forms.TimeInput(
+                attrs={"class": "form-control", "type": "time"}
+            ),
+            "response_hours_end": forms.TimeInput(
+                attrs={"class": "form-control", "type": "time"}
             ),
         }
 
@@ -654,8 +646,8 @@ class RestaurantCommunicationSettingsForm(forms.ModelForm):
         cleaned_data = super().clean()
         start = cleaned_data.get("response_hours_start")
         end = cleaned_data.get("response_hours_end")
+
         if start and end and start >= end:
-            raise forms.ValidationError(
-                "Response hours start time must be before end time."
-            )
+            raise forms.ValidationError("Response hours start must be before end.")
+
         return cleaned_data

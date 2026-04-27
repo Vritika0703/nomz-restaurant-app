@@ -117,5 +117,9 @@ def seed_restaurants():
     print("Done! Your local database is ready for testing.")
 
 
-if __name__ == "__main__":
+def main():
     seed_restaurants()
+
+
+if __name__ == "__main__":
+    main()
