@@ -728,6 +728,61 @@
         let restaurants = [];
         let loading = false;
 
+        function getMapReturnParams() {
+            const params = new URLSearchParams();
+            const search = document.getElementById('search').value.trim();
+            const borough = document.getElementById('borough').value;
+            const cuisine = document.getElementById('cuisine').value;
+            const minScore = document.getElementById('minScore').value.trim();
+            const maxScore = document.getElementById('maxScore').value.trim();
+            const sortBy = document.getElementById('sortBy').value;
+            const onlyVisibleArea = document.getElementById('onlyVisibleArea').checked;
+
+            if (search) params.set('ms_search', search);
+            if (borough && borough !== 'all') params.set('ms_borough', borough);
+            if (cuisine && cuisine !== 'all') params.set('ms_cuisine', cuisine);
+            if (minScore) params.set('ms_min', minScore);
+            if (maxScore) params.set('ms_max', maxScore);
+            if (sortBy) params.set('ms_sort', sortBy);
+            if (onlyVisibleArea) params.set('ms_visible', '1');
+
+            const center = map.getCenter();
+            params.set('ms_lat', center.lat.toFixed(6));
+            params.set('ms_lng', center.lng.toFixed(6));
+            params.set('ms_zoom', String(map.getZoom()));
+            return params;
+        }
+
+        function applyInitialMapParams() {
+            const params = new URLSearchParams(window.location.search);
+            const search = params.get('ms_search');
+            const borough = params.get('ms_borough');
+            const cuisine = params.get('ms_cuisine');
+            const minScore = params.get('ms_min');
+            const maxScore = params.get('ms_max');
+            const sort = params.get('ms_sort');
+            const visible = params.get('ms_visible');
+            const lat = params.get('ms_lat');
+            const lng = params.get('ms_lng');
+            const zoom = params.get('ms_zoom');
+
+            if (search) document.getElementById('search').value = search;
+            if (borough) document.getElementById('borough').value = borough;
+            if (cuisine) document.getElementById('cuisine').value = cuisine;
+            if (minScore) document.getElementById('minScore').value = minScore;
+            if (maxScore) document.getElementById('maxScore').value = maxScore;
+            if (sort) document.getElementById('sortBy').value = sort;
+            if (visible === '1') document.getElementById('onlyVisibleArea').checked = true;
+            if (lat && lng && zoom) {
+                const parsedLat = parseFloat(lat);
+                const parsedLng = parseFloat(lng);
+                const parsedZoom = parseInt(zoom, 10);
+                if (!Number.isNaN(parsedLat) && !Number.isNaN(parsedLng) && !Number.isNaN(parsedZoom)) {
+                    map.setView([parsedLat, parsedLng], parsedZoom);
+                }
+            }
+        }
+
         // Map sort by values to API format
         function mapSortByToApi(sortBy) {
             const mapping = {
@@ -979,11 +1034,13 @@
         }
 
         function goToRestaurantDetail(id) {
-            window.location.href = `/restaurant/${id}/`;
+            const mapReturn = `/map/?${getMapReturnParams().toString()}`;
+            window.location.href = `/restaurant/${id}/?map_return=${encodeURIComponent(mapReturn)}`;
         }
 
         // Load restaurants on page load
         window.addEventListener('DOMContentLoaded', () => {
+            applyInitialMapParams();
             fetchRestaurants();
             setTimeout(refreshMapSize, 400);
         });

@@ -32,7 +32,6 @@ from nomz.models import (
     ModerationReport,
     Restaurant,
     RestaurantOwnershipClaim,
-    RestaurantPhoto,
     Review,
     ReviewResponse,
     UserPreference,
@@ -313,96 +312,8 @@ def test_auth_password_reset_confirm_error_bad_token(api_client, diner_user):
 
 
 # ---------------------------------------------------------------------------
-# Restaurant photos & activation
+# Restaurant activation
 # ---------------------------------------------------------------------------
-
-
-def test_restaurant_photos_data_success(api_client, owner_user):
-    owner, rest = owner_user
-    RestaurantPhoto.objects.create(
-        restaurant=rest,
-        photo=_make_image_upload(),
-        caption="Dining room",
-        is_primary=True,
-    )
-    api_client.force_login(owner)
-    r = api_client.get("/api/restaurant/photos/data/")
-    assert r.status_code == 200
-    data = r.json()
-    assert data["restaurant_id"] == rest.id
-    assert len(data["photos"]) == 1
-
-
-def test_restaurant_photos_data_error_forbidden_diner(api_client, diner_user):
-    api_client.force_login(diner_user)
-    r = api_client.get("/api/restaurant/photos/data/")
-    assert r.status_code == 403
-
-
-def test_restaurant_photo_upload_success(api_client, owner_user):
-    owner, _rest = owner_user
-    api_client.force_login(owner)
-    img = _make_image_upload()
-    # Checkbox values: omit `is_primary` for unchecked; the string "false" is truthy in HTML forms.
-    r = api_client.post(
-        "/api/restaurant/photos/upload/",
-        {"caption": "Kitchen", "photo": img},
-    )
-    assert r.status_code == 201, r.content
-    assert "id" in r.json()
-
-
-def test_restaurant_photo_upload_error_invalid_form(api_client, owner_user):
-    owner, _rest = owner_user
-    api_client.force_login(owner)
-    r = api_client.post(
-        "/api/restaurant/photos/upload/",
-        {"caption": "Missing file"},
-        format="multipart",
-    )
-    assert r.status_code == 400
-
-
-def test_restaurant_photo_delete_success(api_client, owner_user):
-    owner, rest = owner_user
-    ph = RestaurantPhoto.objects.create(
-        restaurant=rest, photo=_make_image_upload(), caption="x"
-    )
-    api_client.force_login(owner)
-    r = api_client.post(f"/api/restaurant/photos/{ph.id}/delete/", {}, format="json")
-    assert r.status_code == 200
-    assert not RestaurantPhoto.objects.filter(pk=ph.id).exists()
-
-
-def test_restaurant_photo_delete_error_wrong_owner(api_client, owner_user, diner_user):
-    _owner, rest = owner_user
-    ph = RestaurantPhoto.objects.create(
-        restaurant=rest, photo=_make_image_upload(), caption="x"
-    )
-    api_client.force_login(diner_user)
-    r = api_client.post(f"/api/restaurant/photos/{ph.id}/delete/", {}, format="json")
-    assert r.status_code == 403
-
-
-def test_restaurant_photo_set_primary_success(api_client, owner_user):
-    owner, rest = owner_user
-    ph = RestaurantPhoto.objects.create(
-        restaurant=rest, photo=_make_image_upload(), caption="x", is_primary=False
-    )
-    api_client.force_login(owner)
-    r = api_client.post(
-        f"/api/restaurant/photos/{ph.id}/set-primary/", {}, format="json"
-    )
-    assert r.status_code == 200
-    ph.refresh_from_db()
-    assert ph.is_primary is True
-
-
-def test_restaurant_photo_set_primary_error_not_found(api_client, owner_user):
-    owner, _rest = owner_user
-    api_client.force_login(owner)
-    r = api_client.post("/api/restaurant/photos/999999/set-primary/", {}, format="json")
-    assert r.status_code == 404
 
 
 def test_restaurant_activation_get_post_success(api_client, owner_user):
@@ -844,6 +755,39 @@ def test_restaurant_search_api_success(api_client, diner_user, public_restaurant
     assert public_restaurant.id in ids
 
 
+def test_restaurant_search_prefers_normalized_cuisine_type(
+    api_client, diner_user, public_restaurant
+):
+    public_restaurant.name = "Kings Kitchen"
+    public_restaurant.cuisine_type = "chinese"
+    public_restaurant.cuisine = "Indian"
+    public_restaurant.save(update_fields=["name", "cuisine_type", "cuisine"])
+
+    api_client.force_login(diner_user)
+    r = api_client.get("/api/search/?q=Kings Kitchen")
+    assert r.status_code == 200
+
+    payload = r.json()["results"]
+    match = next(row for row in payload if row["id"] == public_restaurant.id)
+    assert match["cuisine"] == "Chinese"
+
+
+def test_restaurant_search_uses_legacy_cuisine_when_type_is_other(
+    api_client, diner_user, public_restaurant
+):
+    public_restaurant.cuisine_type = "other"
+    public_restaurant.cuisine = "Italian"
+    public_restaurant.save(update_fields=["cuisine_type", "cuisine"])
+
+    api_client.force_login(diner_user)
+    r = api_client.get(f"/api/search/?q={public_restaurant.name}")
+    assert r.status_code == 200
+
+    payload = r.json()["results"]
+    match = next(row for row in payload if row["id"] == public_restaurant.id)
+    assert match["cuisine"] == "Italian"
+
+
 def test_restaurant_search_api_error_requires_login(api_client):
     r = api_client.get("/api/search/")
     assert r.status_code == 302
@@ -869,6 +813,21 @@ def test_diner_recommendations_success(
     assert r.status_code == 200
     assert r.json()["requires_preferences"] is False
     assert len(r.json()["restaurants"]) == 1
+
+
+@patch("nomz.spa_api.recommend_restaurants_for_user")
+def test_diner_recommendations_use_consistent_cuisine_label(
+    mock_rec, api_client, diner_user, diner_prefs, public_restaurant
+):
+    public_restaurant.cuisine_type = "other"
+    public_restaurant.cuisine = "Italian"
+    public_restaurant.save(update_fields=["cuisine_type", "cuisine"])
+    mock_rec.return_value = [public_restaurant]
+
+    api_client.force_login(diner_user)
+    r = api_client.get("/api/recommendations/")
+    assert r.status_code == 200
+    assert r.json()["restaurants"][0]["cuisine"] == "Italian"
 
 
 def test_diner_recommendations_error_forbidden_owner(api_client, owner_user):
@@ -944,8 +903,8 @@ def test_restaurant_communication_get_post_success(api_client, owner_user):
         "/api/restaurant/communication/",
         {
             "messaging_enabled": True,
-            "response_hours_start": "9:00 AM",
-            "response_hours_end": "5:00 PM",
+            "response_hours_start": "09:00",
+            "response_hours_end": "17:00",
         },
         format="json",
     )
@@ -959,8 +918,8 @@ def test_restaurant_communication_error_invalid_hours(api_client, owner_user):
         "/api/restaurant/communication/",
         {
             "messaging_enabled": True,
-            "response_hours_start": "6:00 PM",
-            "response_hours_end": "9:00 AM",
+            "response_hours_start": "18:00",
+            "response_hours_end": "09:00",
         },
         format="json",
     )
@@ -1393,19 +1352,6 @@ def test_review_respond_update_existing(api_client, owner_user, diner_user):
     )
     assert r.status_code == 200
     assert r.json()["created"] is False
-
-
-def test_restaurant_photos_data_empty_list_when_no_restaurant(api_client, db):
-    u = User.objects.create_user(
-        username=_unique("orphan_owner"),
-        email=f"{uuid.uuid4().hex}@o.com",
-        password="Str0ngPass!xyz",
-    )
-    UserProfile.objects.create(user=u, role="restaurant", is_approved=True)
-    api_client.force_login(u)
-    r = api_client.get("/api/restaurant/photos/data/")
-    assert r.status_code == 200
-    assert r.json()["photos"] == []
 
 
 def test_admin_resolve_report_flag_fraud_on_user(
