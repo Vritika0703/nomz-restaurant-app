@@ -18,18 +18,15 @@ from __future__ import annotations
 
 import json
 import socket
-import time as _time
 import urllib.error
 import urllib.request
 import uuid
-from datetime import time as dtime
 from io import StringIO
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.contrib.auth.models import User
 from django.core.management import call_command
-from django.http import QueryDict
 from django.test import RequestFactory
 
 pytestmark = pytest.mark.django_db
@@ -104,12 +101,18 @@ class TestSocrataClientSuccess:
     def test_fetch_page_with_app_token_and_fields(self):
         from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataResource
 
-        resource = SocrataResource(dataset_id="abc123", name="Test", fields=["id", "name"])
-        client = SocrataClient(domain="data.example.com", app_token="mytoken", max_retries=0)
+        resource = SocrataResource(
+            dataset_id="abc123", name="Test", fields=["id", "name"]
+        )
+        client = SocrataClient(
+            domain="data.example.com", app_token="mytoken", max_retries=0
+        )
         rows = [{"id": "1"}]
 
-        with patch("urllib.request.urlopen", return_value=_fake_response(rows)) as mock_open:
-            result = client.fetch_page(resource, where="id>0", limit=5, offset=0, order_by="id")
+        with patch("urllib.request.urlopen", return_value=_fake_response(rows)):
+            result = client.fetch_page(
+                resource, where="id>0", limit=5, offset=0, order_by="id"
+            )
         assert result == rows
 
     def test_fetch_page_with_where_and_order(self):
@@ -119,7 +122,9 @@ class TestSocrataClientSuccess:
         client = SocrataClient(domain="data.example.com", max_retries=0)
 
         with patch("urllib.request.urlopen", return_value=_fake_response([{"a": 1}])):
-            result = client.fetch_page(resource, where="a>0", limit=100, offset=0, order_by="a")
+            result = client.fetch_page(
+                resource, where="a>0", limit=100, offset=0, order_by="a"
+            )
         assert result[0]["a"] == 1
 
     def test_fetch_all_single_page(self):
@@ -157,7 +162,11 @@ class TestSocrataClientSuccess:
         assert result == []
 
     def test_fetch_page_api_error_in_json(self):
-        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError, SocrataResource
+        from nomz.ingestion.sources.socrata_client import (
+            SocrataClient,
+            SocrataError,
+            SocrataResource,
+        )
 
         resource = SocrataResource(dataset_id="abc", name="R")
         client = SocrataClient(domain="data.example.com", max_retries=0)
@@ -168,12 +177,18 @@ class TestSocrataClientSuccess:
                 client.fetch_page(resource, where=None, limit=10, offset=0)
 
     def test_fetch_page_non_list_response(self):
-        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError, SocrataResource
+        from nomz.ingestion.sources.socrata_client import (
+            SocrataClient,
+            SocrataError,
+            SocrataResource,
+        )
 
         resource = SocrataResource(dataset_id="abc", name="R")
         client = SocrataClient(domain="data.example.com", max_retries=0)
 
-        with patch("urllib.request.urlopen", return_value=_fake_response({"not": "list"})):
+        with patch(
+            "urllib.request.urlopen", return_value=_fake_response({"not": "list"})
+        ):
             with pytest.raises(SocrataError, match="Unexpected response shape"):
                 client.fetch_page(resource, where=None, limit=10, offset=0)
 
@@ -191,13 +206,19 @@ class TestSocrataClientHTTPErrors:
         http_err = urllib.error.HTTPError(
             url="http://x", code=503, msg="Service Unavailable", hdrs={}, fp=None
         )
-        with patch("urllib.request.urlopen", side_effect=[http_err, _fake_response(rows)]):
+        with patch(
+            "urllib.request.urlopen", side_effect=[http_err, _fake_response(rows)]
+        ):
             with patch("time.sleep"):
                 result = client.fetch_page(resource, where=None, limit=10, offset=0)
         assert result == rows
 
     def test_http_error_non_retryable_raises(self):
-        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError, SocrataResource
+        from nomz.ingestion.sources.socrata_client import (
+            SocrataClient,
+            SocrataError,
+            SocrataResource,
+        )
 
         resource = SocrataResource(dataset_id="abc", name="R")
         client = SocrataClient(domain="data.example.com", max_retries=0)
@@ -209,7 +230,7 @@ class TestSocrataClientHTTPErrors:
                 client.fetch_page(resource, where=None, limit=10, offset=0)
 
     def test_http_403_non_tabular_breaks_to_second_base_url(self):
-        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError, SocrataResource
+        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataResource
 
         resource = SocrataResource(dataset_id="abc", name="R")
         client = SocrataClient(domain="data.example.com", max_retries=0)
@@ -227,7 +248,11 @@ class TestSocrataClientHTTPErrors:
         assert result == rows
 
     def test_http_error_with_fp_reads_body(self):
-        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError, SocrataResource
+        from nomz.ingestion.sources.socrata_client import (
+            SocrataClient,
+            SocrataError,
+            SocrataResource,
+        )
 
         resource = SocrataResource(dataset_id="abc", name="R")
         client = SocrataClient(domain="data.example.com", max_retries=0)
@@ -260,7 +285,11 @@ class TestSocrataClientNetworkErrors:
         assert result == rows
 
     def test_url_error_non_timeout_raises_immediately(self):
-        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError, SocrataResource
+        from nomz.ingestion.sources.socrata_client import (
+            SocrataClient,
+            SocrataError,
+            SocrataResource,
+        )
 
         resource = SocrataResource(dataset_id="abc", name="R")
         client = SocrataClient(domain="data.example.com", max_retries=2)
@@ -318,7 +347,11 @@ class TestSocrataClientNetworkErrors:
         assert result == rows
 
     def test_generic_exception_raises_socrata_error(self):
-        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError, SocrataResource
+        from nomz.ingestion.sources.socrata_client import (
+            SocrataClient,
+            SocrataError,
+            SocrataResource,
+        )
 
         resource = SocrataResource(dataset_id="abc", name="R")
         client = SocrataClient(domain="data.example.com", max_retries=0)
@@ -327,7 +360,11 @@ class TestSocrataClientNetworkErrors:
                 client.fetch_page(resource, where=None, limit=10, offset=0)
 
     def test_fetch_all_pagination_guard(self):
-        from nomz.ingestion.sources.socrata_client import SocrataClient, SocrataError, SocrataResource
+        from nomz.ingestion.sources.socrata_client import (
+            SocrataClient,
+            SocrataError,
+            SocrataResource,
+        )
 
         resource = SocrataResource(dataset_id="abc", name="R")
         client = SocrataClient(domain="data.example.com", max_retries=0)
@@ -377,7 +414,9 @@ class TestDiningOutHelpers:
     def test_extract_coordinates_lat_lon_direct(self):
         from nomz.ingestion.sources.dining_out_feed import _extract_coordinates
 
-        lat, lon = _extract_coordinates({"latitude": "40.7128", "longitude": "-74.0060"})
+        lat, lon = _extract_coordinates(
+            {"latitude": "40.7128", "longitude": "-74.0060"}
+        )
         assert lat is not None
         assert lon is not None
 
@@ -455,7 +494,11 @@ class TestDiningOutHelpers:
         client = MagicMock()
         client.fetch_all.return_value = [
             {},  # no name → skip
-            {"business_legal_name": "Valid Place", "street": "1 St", "postcode": "10001"},
+            {
+                "business_legal_name": "Valid Place",
+                "street": "1 St",
+                "postcode": "10001",
+            },
         ]
         results = list(stream_dining_out_rows(client))
         assert len(results) == 1
@@ -595,9 +638,7 @@ class TestRunIngestion:
         with patch(
             "nomz.ingestion.runner.stream_dining_out_rows",
             side_effect=ConnectionError("network"),
-        ), patch(
-            "nomz.ingestion.runner.stream_eateries_rows", return_value=[]
-        ), patch(
+        ), patch("nomz.ingestion.runner.stream_eateries_rows", return_value=[]), patch(
             "nomz.ingestion.runner.stream_inspection_rows", return_value=[]
         ):
             summary = run_ingestion(skip_sources={"EATERIES", "DOHMH"})
@@ -746,7 +787,9 @@ class TestContextProcessorsAuthenticated:
         owner = _make_user("restaurant")
         rest = _make_restaurant(owner=owner)
         conv = Conversation.objects.create(restaurant=rest, diner=diner)
-        Message.objects.create(conversation=conv, sender=owner, body="Hi", is_read=False)
+        Message.objects.create(
+            conversation=conv, sender=owner, body="Hi", is_read=False
+        )
 
         rf = RequestFactory()
         req = rf.get("/")
@@ -762,7 +805,9 @@ class TestContextProcessorsAuthenticated:
         owner = _make_user("restaurant")
         rest = _make_restaurant(owner=owner)
         conv = Conversation.objects.create(restaurant=rest, diner=diner)
-        Message.objects.create(conversation=conv, sender=owner, body="Hey", is_read=False)
+        Message.objects.create(
+            conversation=conv, sender=owner, body="Hey", is_read=False
+        )
 
         rf = RequestFactory()
         req = rf.get("/")
@@ -791,8 +836,13 @@ class TestFetchNycSourcesCommand:
 
         received = []
         cmd = Command()
-        w1 = lambda r: received.append(("w1", r))
-        w2 = lambda r: received.append(("w2", r))
+
+        def w1(r):
+            received.append(("w1", r))
+
+        def w2(r):
+            received.append(("w2", r))
+
         writer = cmd._compose_writers([w1, w2])
         writer({"k": "v"})
         assert ("w1", {"k": "v"}) in received
@@ -818,7 +868,9 @@ class TestFetchNycSourcesCommand:
             counts={}, total=0, failures=0, errors={}
         )
         out = StringIO()
-        call_command("fetch_nyc_sources", "--no-db", "--skip-source", "EATERIES", stdout=out)
+        call_command(
+            "fetch_nyc_sources", "--no-db", "--skip-source", "EATERIES", stdout=out
+        )
         assert "Ingestion finished" in out.getvalue()
 
     @patch("nomz.management.commands.fetch_nyc_sources.run_ingestion")
@@ -842,7 +894,9 @@ class TestFetchNycSourcesCommand:
 
 
 class TestSeedSyntheticReviewsGaps:
-    @patch("nomz.management.commands.seed_synthetic_reviews.refresh_restaurant_composite")
+    @patch(
+        "nomz.management.commands.seed_synthetic_reviews.refresh_restaurant_composite"
+    )
     def test_include_inactive_flag(self, mock_refresh):
         from nomz.models import Restaurant
 
@@ -859,15 +913,20 @@ class TestSeedSyntheticReviewsGaps:
             "seed_synthetic_reviews",
             "--apply",
             "--include-inactive",
-            "--reviewer-pool-size", "3",
-            "--min-reviews", "1",
-            "--max-reviews", "1",
+            "--reviewer-pool-size",
+            "3",
+            "--min-reviews",
+            "1",
+            "--max-reviews",
+            "1",
             stdout=out,
         )
         assert "seeded successfully" in out.getvalue().lower()
         mock_refresh.assert_called()
 
-    @patch("nomz.management.commands.seed_synthetic_reviews.refresh_restaurant_composite")
+    @patch(
+        "nomz.management.commands.seed_synthetic_reviews.refresh_restaurant_composite"
+    )
     def test_all_price_ranges_covered(self, mock_refresh):
         from nomz.models import Restaurant
 
@@ -884,18 +943,30 @@ class TestSeedSyntheticReviewsGaps:
         call_command(
             "seed_synthetic_reviews",
             "--apply",
-            "--reviewer-pool-size", "5",
-            "--min-reviews", "1",
-            "--max-reviews", "1",
+            "--reviewer-pool-size",
+            "5",
+            "--min-reviews",
+            "1",
+            "--max-reviews",
+            "1",
             stdout=out,
         )
         assert "seeded successfully" in out.getvalue().lower()
 
-    @patch("nomz.management.commands.seed_synthetic_reviews.refresh_restaurant_composite")
+    @patch(
+        "nomz.management.commands.seed_synthetic_reviews.refresh_restaurant_composite"
+    )
     def test_all_borough_biases(self, mock_refresh):
         from nomz.models import Restaurant
 
-        for borough in ("Manhattan", "Brooklyn", "Queens", "Bronx", "Staten Island", "Unknown"):
+        for borough in (
+            "Manhattan",
+            "Brooklyn",
+            "Queens",
+            "Bronx",
+            "Staten Island",
+            "Unknown",
+        ):
             Restaurant.objects.create(
                 owner=None,
                 name=_uid("BoroughR"),
@@ -908,9 +979,12 @@ class TestSeedSyntheticReviewsGaps:
         call_command(
             "seed_synthetic_reviews",
             "--apply",
-            "--reviewer-pool-size", "3",
-            "--min-reviews", "1",
-            "--max-reviews", "1",
+            "--reviewer-pool-size",
+            "3",
+            "--min-reviews",
+            "1",
+            "--max-reviews",
+            "1",
             stdout=out,
         )
         assert "seeded successfully" in out.getvalue().lower()
