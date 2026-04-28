@@ -18,7 +18,6 @@ import json
 import socket
 import urllib.error
 import uuid
-from io import BytesIO
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -33,12 +32,14 @@ pytestmark = pytest.mark.django_db
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _uid(prefix: str = "u") -> str:
     return f"{prefix}_{uuid.uuid4().hex[:10]}"
 
 
 def _make_user(role: str = "diner", *, is_staff: bool = False, **kw):
     from nomz.models import UserProfile
+
     u = User.objects.create_user(
         username=_uid(role),
         email=f"{uuid.uuid4().hex}@test.example.com",
@@ -51,6 +52,7 @@ def _make_user(role: str = "diner", *, is_staff: bool = False, **kw):
 
 def _make_restaurant(owner=None, **kw):
     from nomz.models import Restaurant
+
     defaults = dict(
         owner=owner,
         name=_uid("Rest"),
@@ -69,6 +71,7 @@ def _make_restaurant(owner=None, **kw):
 # 1. storage_backends — import covers all 9 class-level statements
 # ---------------------------------------------------------------------------
 
+
 def test_storage_backends_importable():
     from nomz.storage_backends import PublicMediaStorage, StaticStorage
 
@@ -83,6 +86,7 @@ def test_storage_backends_importable():
 # ---------------------------------------------------------------------------
 # 2. context_processors — authenticated + unauthenticated paths
 # ---------------------------------------------------------------------------
+
 
 def test_context_processor_unread_counts_authenticated():
     from django.test import RequestFactory
@@ -128,6 +132,7 @@ def test_context_processor_unread_messages_count_unauthenticated():
 # 3. scoring — _safe_float with unconvertable value + refresh_restaurants_composite
 # ---------------------------------------------------------------------------
 
+
 def test_safe_float_invalid_returns_none():
     from nomz.scoring import _safe_float
 
@@ -155,6 +160,7 @@ def test_refresh_restaurants_composite_one_restaurant():
 # 4. signals — delete signal handlers + raw=True branches
 # ---------------------------------------------------------------------------
 
+
 def test_signal_review_delete_triggers_score_refresh():
     from nomz.models import Review
     from nomz.signals import refresh_score_on_review_delete
@@ -180,7 +186,7 @@ def test_signal_review_delete_triggers_score_refresh():
 
 
 def test_signal_inspection_save_raw_true_skips():
-    from nomz.models import InspectionRecord, Restaurant
+    from nomz.models import InspectionRecord
     from nomz.signals import refresh_score_on_inspection_save
 
     owner = _make_user("restaurant")
@@ -228,7 +234,7 @@ def test_signal_review_save_raw_true_skips():
 
 
 def test_signal_message_notification_not_created():
-    from nomz.models import Conversation, Message, Restaurant
+    from nomz.models import Conversation, Message
     from nomz.signals import create_message_notification
 
     owner = _make_user("restaurant")
@@ -260,7 +266,7 @@ def test_signal_get_client_ip_with_forwarded():
 
 def test_recalculate_model_total_count_zero():
     """Covers the total_count == 0 early-return in recalculate_user_recommendation_model."""
-    from nomz.models import RecalculatedRecommendation, UserPreference
+    from nomz.models import UserPreference
     from nomz.signals import recalculate_user_recommendation_model
 
     user = _make_user("diner")
@@ -272,8 +278,7 @@ def test_recalculate_model_total_count_zero():
     # Patch has_enough_data_for_learning to return True so we reach the queryset
     with patch.object(type(prefs), "has_enough_data_for_learning", return_value=True):
         with patch(
-            "nomz.models.UserPreference.objects.get",
-            side_effect=lambda **kw: prefs
+            "nomz.models.UserPreference.objects.get", side_effect=lambda **kw: prefs
         ):
             # No RecalculatedRecommendation rows → function returns early
             recalculate_user_recommendation_model(user.id)
@@ -282,6 +287,7 @@ def test_recalculate_model_total_count_zero():
 # ---------------------------------------------------------------------------
 # 5. spa_api: restaurant_performance_api — owner with NO restaurant
 # ---------------------------------------------------------------------------
+
 
 def test_restaurant_performance_api_no_restaurant():
     """Owner role but no Restaurant object → returns empty-shell JSON (lines 1662-1703)."""
@@ -307,13 +313,12 @@ def test_restaurant_performance_api_no_restaurant():
 # 5b. spa_api: restaurant_performance_api — owner WITH restaurant
 # ---------------------------------------------------------------------------
 
+
 def test_restaurant_performance_api_with_restaurant_no_history():
     """Owner has a Restaurant but no CompositeScoreHistory yet (lines 1705-1810)."""
-    from nomz.models import CompositeScoreHistory
-
     api = APIClient()
     owner = _make_user("restaurant")
-    rest = _make_restaurant(owner=owner, composite_score=None)
+    _make_restaurant(owner=owner, composite_score=None)
     api.force_login(owner)
 
     r = api.get("/api/restaurant/performance/")
@@ -368,6 +373,7 @@ def test_restaurant_performance_api_with_history_and_reviews():
 # 6. spa_api: 2FA verify edge cases
 # ---------------------------------------------------------------------------
 
+
 def test_2fa_verify_no_pending_session():
     api = APIClient()
     # POST without a _2fa_user_id in session
@@ -402,6 +408,7 @@ def test_2fa_verify_user_not_found():
 # ---------------------------------------------------------------------------
 # 7. spa_api: password-reset confirm edge cases
 # ---------------------------------------------------------------------------
+
 
 def test_password_reset_confirm_missing_uid():
     api = APIClient()
@@ -461,6 +468,7 @@ def test_password_reset_confirm_password_mismatch():
 # 8. spa_api: diner account edge cases
 # ---------------------------------------------------------------------------
 
+
 def test_diner_account_post_invalid_json():
     api = APIClient()
     diner = _make_user("diner")
@@ -514,6 +522,7 @@ def test_diner_account_username_taken():
 # 9. spa_api: diner preferences form errors
 # ---------------------------------------------------------------------------
 
+
 def test_diner_preferences_post_invalid_json():
     api = APIClient()
     diner = _make_user("diner")
@@ -529,6 +538,7 @@ def test_diner_preferences_post_invalid_json():
 # ---------------------------------------------------------------------------
 # 10. spa_api: restaurant activation invalid JSON
 # ---------------------------------------------------------------------------
+
 
 def test_restaurant_activation_post_invalid_json():
     api = APIClient()
@@ -547,6 +557,7 @@ def test_restaurant_activation_post_invalid_json():
 # 11. spa_api: restaurant availability form errors
 # ---------------------------------------------------------------------------
 
+
 def test_restaurant_availability_post_invalid_json():
     api = APIClient()
     owner = _make_user("restaurant")
@@ -564,6 +575,7 @@ def test_restaurant_availability_post_invalid_json():
 # 12. spa_api: restaurant communication invalid JSON
 # ---------------------------------------------------------------------------
 
+
 def test_restaurant_communication_post_invalid_json():
     api = APIClient()
     owner = _make_user("restaurant")
@@ -580,6 +592,7 @@ def test_restaurant_communication_post_invalid_json():
 # ---------------------------------------------------------------------------
 # 13. spa_api: report content edge cases
 # ---------------------------------------------------------------------------
+
 
 def test_report_content_invalid_json():
     api = APIClient()
@@ -662,6 +675,7 @@ def test_report_content_form_errors():
 # 14. spa_api: restaurant add review invalid JSON
 # ---------------------------------------------------------------------------
 
+
 def test_restaurant_add_review_invalid_json():
     api = APIClient()
     owner = _make_user("restaurant")
@@ -680,26 +694,14 @@ def test_restaurant_add_review_invalid_json():
 # 15. spa_api: admin resolve report — flag_fraud with reported_user
 # ---------------------------------------------------------------------------
 
+
 def test_admin_resolve_report_flag_fraud_user():
-    from nomz.models import ModerationReport, Review
+    from nomz.models import ModerationReport
 
     api = APIClient()
     staff = _make_user("diner", is_staff=True)
     owner = _make_user("restaurant")
-    rest = _make_restaurant(owner=owner)
     diner = _make_user("diner")
-    review = Review.objects.create(
-        restaurant=rest,
-        user=diner,
-        rating=5,
-        food_quality_rating=5,
-        service_quality_rating=5,
-        ambience_rating=5,
-        location_rating=5,
-        value_rating=5,
-        dietary_accommodation_rating=5,
-        cleanliness_rating=5,
-    )
 
     # Report with reported_user (not a review)
     report = ModerationReport.objects.create(
@@ -721,12 +723,11 @@ def test_admin_resolve_report_flag_fraud_user():
 
 
 def test_admin_resolve_report_unflag_user():
-    from nomz.models import ModerationReport, UserProfile
+    from nomz.models import ModerationReport
 
     api = APIClient()
     staff = _make_user("diner", is_staff=True)
     owner = _make_user("restaurant")
-    rest = _make_restaurant(owner=owner)
     diner = _make_user("diner")
     report = ModerationReport.objects.create(
         reporter=diner,
@@ -748,6 +749,7 @@ def test_admin_resolve_report_unflag_user():
 # 16. spa_api: review respond edge cases
 # ---------------------------------------------------------------------------
 
+
 def test_review_respond_wrong_owner():
     from nomz.models import Review
 
@@ -757,10 +759,16 @@ def test_review_respond_wrong_owner():
     rest = _make_restaurant(owner=owner)
     diner = _make_user("diner")
     review = Review.objects.create(
-        restaurant=rest, user=diner, rating=4,
-        food_quality_rating=4, service_quality_rating=4,
-        ambience_rating=4, location_rating=4, value_rating=4,
-        dietary_accommodation_rating=4, cleanliness_rating=4,
+        restaurant=rest,
+        user=diner,
+        rating=4,
+        food_quality_rating=4,
+        service_quality_rating=4,
+        ambience_rating=4,
+        location_rating=4,
+        value_rating=4,
+        dietary_accommodation_rating=4,
+        cleanliness_rating=4,
     )
     api.force_login(other_owner)
     r = api.post(
@@ -779,10 +787,17 @@ def test_review_respond_deleted_review():
     rest = _make_restaurant(owner=owner)
     diner = _make_user("diner")
     review = Review.objects.create(
-        restaurant=rest, user=diner, rating=4, is_deleted=True,
-        food_quality_rating=4, service_quality_rating=4,
-        ambience_rating=4, location_rating=4, value_rating=4,
-        dietary_accommodation_rating=4, cleanliness_rating=4,
+        restaurant=rest,
+        user=diner,
+        rating=4,
+        is_deleted=True,
+        food_quality_rating=4,
+        service_quality_rating=4,
+        ambience_rating=4,
+        location_rating=4,
+        value_rating=4,
+        dietary_accommodation_rating=4,
+        cleanliness_rating=4,
     )
     api.force_login(owner)
     r = api.post(
@@ -801,10 +816,16 @@ def test_review_respond_empty_response_text():
     rest = _make_restaurant(owner=owner)
     diner = _make_user("diner")
     review = Review.objects.create(
-        restaurant=rest, user=diner, rating=4,
-        food_quality_rating=4, service_quality_rating=4,
-        ambience_rating=4, location_rating=4, value_rating=4,
-        dietary_accommodation_rating=4, cleanliness_rating=4,
+        restaurant=rest,
+        user=diner,
+        rating=4,
+        food_quality_rating=4,
+        service_quality_rating=4,
+        ambience_rating=4,
+        location_rating=4,
+        value_rating=4,
+        dietary_accommodation_rating=4,
+        cleanliness_rating=4,
     )
     api.force_login(owner)
     r = api.post(
@@ -818,6 +839,7 @@ def test_review_respond_empty_response_text():
 # ---------------------------------------------------------------------------
 # 17. spa_api: admin recalculate scores by name
 # ---------------------------------------------------------------------------
+
 
 def test_admin_recalculate_scores_by_name_multiple_match():
     api = APIClient()
@@ -876,6 +898,7 @@ def test_admin_recalculate_scores_by_name_exact_match():
 # 18. spa_api: admin resolve score anomaly — already resolved
 # ---------------------------------------------------------------------------
 
+
 def test_admin_resolve_score_anomaly_already_resolved():
     from nomz.models import CompositeScoreAnomaly, CompositeScoreHistory
 
@@ -907,6 +930,7 @@ def test_admin_resolve_score_anomaly_already_resolved():
 # ---------------------------------------------------------------------------
 # 19. spa_api: group chat APIs
 # ---------------------------------------------------------------------------
+
 
 def test_group_create_too_few_valid_members():
     api = APIClient()
@@ -1053,6 +1077,7 @@ def test_group_leave_creator_invalid_new_admin():
 # 20. spa_api: friends recommend by restaurant name
 # ---------------------------------------------------------------------------
 
+
 def test_friends_recommend_by_restaurant_name():
     from nomz.models import FriendConversation
 
@@ -1062,9 +1087,7 @@ def test_friends_recommend_by_restaurant_name():
     owner = _make_user("restaurant")
     rest = _make_restaurant(owner=owner)
 
-    conv = FriendConversation.objects.create(
-        name="", is_group=False, creator=diner1
-    )
+    conv = FriendConversation.objects.create(name="", is_group=False, creator=diner1)
     conv.participants.add(diner1, diner2)
 
     api.force_login(diner1)
@@ -1082,9 +1105,7 @@ def test_friends_recommend_restaurant_not_found():
     api = APIClient()
     diner1 = _make_user("diner")
     diner2 = _make_user("diner")
-    conv = FriendConversation.objects.create(
-        name="", is_group=False, creator=diner1
-    )
+    conv = FriendConversation.objects.create(name="", is_group=False, creator=diner1)
     conv.participants.add(diner1, diner2)
 
     api.force_login(diner1)
@@ -1100,8 +1121,9 @@ def test_friends_recommend_restaurant_not_found():
 # 21. spa_api: toggle shared list
 # ---------------------------------------------------------------------------
 
+
 def test_toggle_shared_add_and_remove():
-    from nomz.models import FriendConversation, FriendSharedRestaurant
+    from nomz.models import FriendConversation
 
     api = APIClient()
     diner1 = _make_user("diner")
@@ -1109,9 +1131,7 @@ def test_toggle_shared_add_and_remove():
     owner = _make_user("restaurant")
     rest = _make_restaurant(owner=owner)
 
-    conv = FriendConversation.objects.create(
-        name="", is_group=False, creator=diner1
-    )
+    conv = FriendConversation.objects.create(name="", is_group=False, creator=diner1)
     conv.participants.add(diner1, diner2)
 
     api.force_login(diner1)
@@ -1139,9 +1159,7 @@ def test_toggle_shared_invalid_action():
     owner = _make_user("restaurant")
     rest = _make_restaurant(owner=owner)
 
-    conv = FriendConversation.objects.create(
-        name="", is_group=False, creator=diner1
-    )
+    conv = FriendConversation.objects.create(name="", is_group=False, creator=diner1)
     conv.participants.add(diner1, diner2)
 
     api.force_login(diner1)
@@ -1159,9 +1177,7 @@ def test_toggle_shared_restaurant_not_found():
     api = APIClient()
     diner1 = _make_user("diner")
     diner2 = _make_user("diner")
-    conv = FriendConversation.objects.create(
-        name="", is_group=False, creator=diner1
-    )
+    conv = FriendConversation.objects.create(name="", is_group=False, creator=diner1)
     conv.participants.add(diner1, diner2)
 
     api.force_login(diner1)
@@ -1176,6 +1192,7 @@ def test_toggle_shared_restaurant_not_found():
 # ---------------------------------------------------------------------------
 # 22. spa_api: unread counts API
 # ---------------------------------------------------------------------------
+
 
 def test_unread_counts_api():
     api = APIClient()
@@ -1193,6 +1210,7 @@ def test_unread_counts_api():
     req.user = diner
     resp = unread_counts_api(req)
     import json as _json
+
     data = _json.loads(resp.content)
     assert "total_unread" in data
 
@@ -1201,15 +1219,18 @@ def test_unread_counts_api():
 # 23. ingestion: SocrataClient — various error and retry paths
 # ---------------------------------------------------------------------------
 
+
 class TestSocrataClient:
     def _make_client(self, **kw):
         from nomz.ingestion.sources.socrata_client import SocrataClient
+
         kw.setdefault("max_retries", 0)
         kw.setdefault("retry_backoff_seconds", 0)
         return SocrataClient(**kw)
 
     def _make_resource(self, fields=None):
         from nomz.ingestion.sources.socrata_client import SocrataResource
+
         return SocrataResource(dataset_id="test-id-1", name="TestSet", fields=fields)
 
     def test_fetch_all_single_page(self):
@@ -1267,6 +1288,7 @@ class TestSocrataClient:
 
     def test_fetch_page_socrata_error_response(self):
         from nomz.ingestion.sources.socrata_client import SocrataError
+
         resource = self._make_resource()
         client = self._make_client()
         error_payload = {"error": True, "message": "Bad request"}
@@ -1282,6 +1304,7 @@ class TestSocrataClient:
 
     def test_fetch_page_non_list_response(self):
         from nomz.ingestion.sources.socrata_client import SocrataError
+
         resource = self._make_resource()
         client = self._make_client()
         with patch("urllib.request.urlopen") as mock_open:
@@ -1296,11 +1319,11 @@ class TestSocrataClient:
 
     def test_fetch_page_http_error_non_retryable(self):
         from nomz.ingestion.sources.socrata_client import SocrataError
+
         resource = self._make_resource()
         client = self._make_client()
         http_err = urllib.error.HTTPError(
-            url="http://x", code=404, msg="Not found",
-            hdrs=MagicMock(), fp=None
+            url="http://x", code=404, msg="Not found", hdrs=MagicMock(), fp=None
         )
         with patch("urllib.request.urlopen", side_effect=http_err):
             with pytest.raises(SocrataError):
@@ -1309,6 +1332,7 @@ class TestSocrataClient:
     def test_fetch_page_http_error_non_tabular_forbidden(self):
         """403 with 'non-tabular' body switches to second base URL."""
         from nomz.ingestion.sources.socrata_client import SocrataError
+
         resource = self._make_resource()
         client = self._make_client()
 
@@ -1326,6 +1350,7 @@ class TestSocrataClient:
 
     def test_fetch_page_url_error_non_timeout(self):
         from nomz.ingestion.sources.socrata_client import SocrataError
+
         resource = self._make_resource()
         client = self._make_client()
         url_err = urllib.error.URLError(reason="Connection refused")
@@ -1335,6 +1360,7 @@ class TestSocrataClient:
 
     def test_fetch_page_url_error_timeout(self):
         from nomz.ingestion.sources.socrata_client import SocrataError
+
         resource = self._make_resource()
         client = self._make_client(max_retries=1, retry_backoff_seconds=0)
         timeout_reason = socket.timeout("timed out")
@@ -1342,31 +1368,27 @@ class TestSocrataClient:
         with patch("urllib.request.urlopen", side_effect=url_err):
             with patch("time.sleep"):
                 with pytest.raises(SocrataError):
-                    client.fetch_page(
-                        resource=resource, where=None, limit=10, offset=0
-                    )
+                    client.fetch_page(resource=resource, where=None, limit=10, offset=0)
 
     def test_fetch_page_timeout_error_direct(self):
         from nomz.ingestion.sources.socrata_client import SocrataError
+
         resource = self._make_resource()
         client = self._make_client(max_retries=1, retry_backoff_seconds=0)
         with patch("urllib.request.urlopen", side_effect=TimeoutError("timeout")):
             with patch("time.sleep"):
                 with pytest.raises(SocrataError):
-                    client.fetch_page(
-                        resource=resource, where=None, limit=10, offset=0
-                    )
+                    client.fetch_page(resource=resource, where=None, limit=10, offset=0)
 
     def test_fetch_page_socket_timeout_direct(self):
         from nomz.ingestion.sources.socrata_client import SocrataError
+
         resource = self._make_resource()
         client = self._make_client(max_retries=1, retry_backoff_seconds=0)
         with patch("urllib.request.urlopen", side_effect=socket.timeout("timed out")):
             with patch("time.sleep"):
                 with pytest.raises(SocrataError):
-                    client.fetch_page(
-                        resource=resource, where=None, limit=10, offset=0
-                    )
+                    client.fetch_page(resource=resource, where=None, limit=10, offset=0)
 
     def test_fetch_page_with_app_token(self):
         resource = self._make_resource()
@@ -1389,9 +1411,11 @@ class TestSocrataClient:
 # 24. ingestion: dining_out_feed normalize helpers
 # ---------------------------------------------------------------------------
 
+
 class TestDiningOutFeed:
     def test_normalize_basic(self):
         from nomz.ingestion.sources.dining_out_feed import normalize_dining_out_row
+
         row = {
             "business_legal_name": "Joe's Diner",
             "street": "Main St",
@@ -1408,6 +1432,7 @@ class TestDiningOutFeed:
 
     def test_normalize_location_point_string(self):
         from nomz.ingestion.sources.dining_out_feed import normalize_dining_out_row
+
         row = {
             "business_legal_name": "Point Café",
             "street": "Side St",
@@ -1420,6 +1445,7 @@ class TestDiningOutFeed:
 
     def test_normalize_location_dict(self):
         from nomz.ingestion.sources.dining_out_feed import normalize_dining_out_row
+
         row = {
             "business_legal_name": "Dict Café",
             "street": "Ave B",
@@ -1432,6 +1458,7 @@ class TestDiningOutFeed:
 
     def test_normalize_city_as_borough(self):
         from nomz.ingestion.sources.dining_out_feed import normalize_dining_out_row
+
         row = {
             "business_legal_name": "City Bistro",
             "street": "Central Ave",
@@ -1443,6 +1470,7 @@ class TestDiningOutFeed:
 
     def test_parse_date_iso(self):
         from nomz.ingestion.sources.dining_out_feed import _parse_date
+
         # exercise the loop body for coverage regardless of return value
         _parse_date("2022-03-15T00:00:00.000")
         _parse_date("2022-03-15")
@@ -1452,6 +1480,7 @@ class TestDiningOutFeed:
 
     def test_parse_int(self):
         from nomz.ingestion.sources.dining_out_feed import _parse_int
+
         assert _parse_int("50") == 50
         assert _parse_int("25.7") == 25
         assert _parse_int(None) is None
@@ -1460,6 +1489,7 @@ class TestDiningOutFeed:
 
     def test_coerce_phone(self):
         from nomz.ingestion.sources.dining_out_feed import _coerce_phone
+
         assert _coerce_phone("212 555-1234") == "2125551234"
         assert _coerce_phone(None) == ""
         assert _coerce_phone("") == ""
@@ -1469,7 +1499,11 @@ class TestDiningOutFeed:
 
         rows = [
             {"business_legal_name": "", "street": "Ave A", "postcode": "10001"},
-            {"business_legal_name": "Good Café", "street": "Ave B", "postcode": "10002"},
+            {
+                "business_legal_name": "Good Café",
+                "street": "Ave B",
+                "postcode": "10002",
+            },
         ]
         mock_client = MagicMock()
         mock_client.fetch_all.return_value = iter(rows)
@@ -1482,9 +1516,11 @@ class TestDiningOutFeed:
 # 25. ingestion: eateries_feed normalize
 # ---------------------------------------------------------------------------
 
+
 class TestEateriesFeed:
     def test_normalize_basic(self):
         from nomz.ingestion.sources.eateries_feed import normalize_eateries_row
+
         row = {
             "dba": "Pizza Palace",
             "street": "Broadway",
@@ -1505,12 +1541,14 @@ class TestEateriesFeed:
 
     def test_normalize_no_camis_uses_dba(self):
         from nomz.ingestion.sources.eateries_feed import normalize_eateries_row
+
         row = {"dba": "No Camis Place", "zipcode": "10001"}
         result = normalize_eateries_row(row)
         assert result["source_external_id"] == "No Camis Place"
 
     def test_normalize_missing_fields(self):
         from nomz.ingestion.sources.eateries_feed import normalize_eateries_row
+
         row = {"dba": "Minimal"}
         result = normalize_eateries_row(row)
         assert result["name"] == "Minimal"
@@ -1531,6 +1569,7 @@ class TestEateriesFeed:
 
     def test_stream_eateries_uses_zip_fallback(self):
         from nomz.ingestion.sources.eateries_feed import normalize_eateries_row
+
         row = {"dba": "Alt Zip", "zip": "10005"}
         result = normalize_eateries_row(row)
         assert result["zip_code"] == "10005"
