@@ -41,6 +41,7 @@ script:
 
 # Send coverage to Coveralls
 after_success:
+  - git symbolic-ref HEAD refs/heads/$TRAVIS_BRANCH 2>/dev/null || true
   - coveralls --service=travis-ci
 
 # IMPORTANT:
