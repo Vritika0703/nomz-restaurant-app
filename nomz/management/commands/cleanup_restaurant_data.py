@@ -22,7 +22,6 @@ class Command(BaseCommand):
             owner__isnull=True,
             sources__isnull=True,
             reviews__isnull=True,
-            photos__isnull=True,
         ).distinct()
 
         orphan_count = orphan_qs.count()

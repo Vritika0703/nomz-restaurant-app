@@ -35,13 +35,12 @@ env:
 script:
   - python manage.py check
   - python manage.py migrate --no-input
-  - coverage run --source='nomz' manage.py test --no-input --verbosity=2
+  - python -m pytest nomz/ --cov=nomz --cov-report=xml -q
   - black --check .
   - flake8 .
 
 # Send coverage to Coveralls
 after_success:
-  - coverage xml
   - coveralls
 
 # IMPORTANT:
