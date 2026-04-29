@@ -733,8 +733,12 @@ def admin_moderation_data(request):
         return deny
 
     pending = ModerationReport.objects.filter(status="PENDING").order_by("-created_at")
-    resolved = ModerationReport.objects.filter(status="RESOLVED").order_by("-created_at")[:25]
-    rejected = ModerationReport.objects.filter(status="DISMISSED").order_by("-created_at")[:25]
+    resolved = ModerationReport.objects.filter(status="RESOLVED").order_by(
+        "-created_at"
+    )[:25]
+    rejected = ModerationReport.objects.filter(status="DISMISSED").order_by(
+        "-created_at"
+    )[:25]
 
     def row(r: ModerationReport):
         target_name = "Unknown"
