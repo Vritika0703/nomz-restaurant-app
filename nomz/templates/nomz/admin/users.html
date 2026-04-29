@@ -256,9 +256,31 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilter = btn.dataset.filter;
+        
+        // Update URL
+        const url = new URL(window.location);
+        if (currentFilter === 'all') {
+            url.searchParams.delete('filter');
+        } else {
+            url.searchParams.set('filter', currentFilter);
+        }
+        window.history.replaceState({}, '', url);
+        
         load();
     };
 });
+
+// Parse URL param on load
+const urlParams = new URLSearchParams(window.location.search);
+const initialFilter = urlParams.get('filter');
+if (initialFilter) {
+    const btn = document.querySelector(`.filter-btn[data-filter="${initialFilter}"]`);
+    if (btn) {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = initialFilter;
+    }
+}
 
 setInterval(load, 5000);
 load();

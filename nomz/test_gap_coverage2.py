@@ -708,7 +708,7 @@ class TestFilteringGaps:
         r = Restaurant.objects.create(
             name=_uid("R"),
             cuisine="SushiCuisineUnique",
-            cuisine_type="japanese",
+            cuisine_type="other",
             price_range="$$",
             is_active=True,
         )
