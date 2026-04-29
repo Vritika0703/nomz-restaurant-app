@@ -11,6 +11,12 @@ from django.views.decorators.http import require_GET, require_http_methods
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 
+from .cuisine import (
+    cuisine_filter_q,
+    cuisine_search_q,
+    restaurant_cuisine_label,
+    restaurant_cuisine_tags_for_display,
+)
 from .forms import RestaurantOwnershipClaimForm
 from .models import (
     Conversation,
@@ -76,7 +82,7 @@ def map_restaurant_data(request):
             | Q(street__icontains=search)
             | Q(zip_code__icontains=search)
             | Q(borough__iexact=search)
-            | Q(cuisine_tags__icontains=search)
+            | cuisine_search_q(search)
         )
 
     borough = request.GET.get("borough", "").strip()
@@ -85,7 +91,7 @@ def map_restaurant_data(request):
 
     cuisine = request.GET.get("cuisine", "").strip()
     if cuisine:
-        queryset = queryset.filter(cuisine_tags__icontains=cuisine)
+        queryset = queryset.filter(cuisine_filter_q(cuisine))
 
     min_score_raw = request.GET.get("min_score", "").strip()
     if min_score_raw:
@@ -127,6 +133,7 @@ def map_restaurant_data(request):
         if lat is None or lon is None:
             continue
 
+        cuisine_tags = restaurant_cuisine_tags_for_display(restaurant)
         points.append(
             {
                 "id": restaurant.id,
@@ -144,7 +151,8 @@ def map_restaurant_data(request):
                 "borough": restaurant.borough,
                 "zip_code": restaurant.zip_code,
                 "phone": restaurant.phone,
-                "cuisine_tags": restaurant.cuisine_tags or [],
+                "cuisine": restaurant_cuisine_label(restaurant),
+                "cuisine_tags": cuisine_tags,
                 "latitude": lat,
                 "longitude": lon,
                 "composite_score": _safe_decimal_to_float(restaurant.composite_score),

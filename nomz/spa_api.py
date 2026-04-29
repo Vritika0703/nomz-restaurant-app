@@ -56,6 +56,7 @@ from .models import (
     UserProfile,
 )
 from .scoring import refresh_restaurant_composite
+from .cuisine import cuisine_search_q, restaurant_cuisine_label
 from .restaurant_sorting import (
     normalize_sort_key,
     recommend_restaurants_for_user,
@@ -1015,7 +1016,7 @@ def restaurant_detail_data(request, restaurant_id):
     data = {
         "id": restaurant.id,
         "name": restaurant.display_name or restaurant.name,
-        "cuisine": _restaurant_cuisine_label(restaurant),
+        "cuisine": restaurant_cuisine_label(restaurant),
         "cuisine_tags": restaurant.cuisine_tags or [],
         "neighborhood": restaurant.neighborhood or "",
         "address": ", ".join(
@@ -1187,28 +1188,6 @@ def _cuisine_and_price_choices():
     }
 
 
-def _restaurant_cuisine_label(restaurant: Restaurant) -> str:
-    """Return a consistent cuisine label across SPA endpoints."""
-    cuisine_type = (restaurant.cuisine_type or "").strip().lower()
-    if cuisine_type and cuisine_type != "other":
-        return restaurant.get_cuisine_type_display()
-
-    legacy_cuisine = (restaurant.cuisine or "").strip()
-    if legacy_cuisine:
-        return legacy_cuisine
-
-    tags = [
-        str(tag).strip() for tag in (restaurant.cuisine_tags or []) if str(tag).strip()
-    ]
-    if tags:
-        return ", ".join(tags[:3])
-
-    if cuisine_type:
-        return restaurant.get_cuisine_type_display()
-
-    return ""
-
-
 def _owner_visibility_rank(restaurant: Restaurant) -> tuple[int | None, int]:
     """Rank among active, visible restaurants by composite_score (1 = highest score)."""
     base = Restaurant.objects.filter(
@@ -1329,9 +1308,7 @@ def _search_results_payload(request):
         base_restaurants = base_restaurants.filter(
             Q(name__icontains=query)
             | Q(description__icontains=query)
-            | Q(cuisine__icontains=query)
-            | Q(cuisine_type__icontains=query)
-            | Q(cuisine_tags__icontains=query)
+            | cuisine_search_q(query)
         )
     if neighborhood:
         base_restaurants = base_restaurants.filter(
@@ -1347,7 +1324,7 @@ def _search_results_payload(request):
                 "id": restaurant.id,
                 "name": restaurant.name,
                 "description": restaurant.description or "",
-                "cuisine": _restaurant_cuisine_label(restaurant),
+                "cuisine": restaurant_cuisine_label(restaurant),
                 "neighborhood": restaurant.neighborhood or restaurant.borough or "",
                 "composite_score": restaurant.composite_score,
                 "price_label": restaurant.get_price_range_display(),
@@ -1383,7 +1360,7 @@ def _recommendation_card(restaurant: Restaurant) -> dict:
         "id": restaurant.id,
         "name": restaurant.name,
         "description": (restaurant.description or "")[:280],
-        "cuisine": _restaurant_cuisine_label(restaurant),
+        "cuisine": restaurant_cuisine_label(restaurant),
         "neighborhood": restaurant.neighborhood or restaurant.borough or "",
         "composite_score": restaurant.composite_score,
         "price_label": restaurant.get_price_range_display(),
@@ -1455,7 +1432,7 @@ def diner_recommendations_api(request):
                 {
                     "id": r.id,
                     "name": r.name,
-                    "cuisine": _restaurant_cuisine_label(r),
+                    "cuisine": restaurant_cuisine_label(r),
                     "price_label": r.price_range,
                     "neighborhood": r.neighborhood,
                     "composite_score": (
@@ -1727,6 +1704,14 @@ def restaurant_performance_api(request):
                 ],
                 "history": [],
                 "review_params": {},
+                "neighborhood_comparison": {
+                    "location_scope": "citywide",
+                    "peer_count": 0,
+                    "rank": None,
+                    "percentile": None,
+                    "average_score": None,
+                    "delta_vs_average": None,
+                },
             }
         )
 
@@ -1819,6 +1804,74 @@ def restaurant_performance_api(request):
     if rank and total and total > 0:
         approx_percentile = round(((total - rank) / total) * 100)
 
+    location_scope = "citywide"
+    peers = Restaurant.objects.filter(is_active=True, composite_score__isnull=False)
+    if restaurant.neighborhood:
+        peers = peers.filter(neighborhood__iexact=restaurant.neighborhood)
+        location_scope = restaurant.neighborhood
+    elif restaurant.borough:
+        peers = peers.filter(borough__iexact=restaurant.borough)
+        location_scope = restaurant.borough
+    elif restaurant.zip_code:
+        peers = peers.filter(zip_code__startswith=(restaurant.zip_code or "")[:5])
+        location_scope = (restaurant.zip_code or "")[:5]
+
+    peer_rows = list(peers.values("id", "composite_score"))
+    peer_count = len(peer_rows)
+    neighborhood_comparison = {
+        "location_scope": location_scope,
+        "peer_count": peer_count,
+        "rank": None,
+        "percentile": None,
+        "average_score": None,
+        "delta_vs_average": None,
+    }
+    restaurant_composite = (
+        float(restaurant.composite_score)
+        if restaurant.composite_score is not None
+        else None
+    )
+    if restaurant_composite is not None and peer_count > 0:
+        sorted_rows = sorted(
+            peer_rows,
+            key=lambda item: float(item["composite_score"]),
+            reverse=True,
+        )
+        neighborhood_rank = next(
+            (
+                index + 1
+                for index, item in enumerate(sorted_rows)
+                if item["id"] == restaurant.id
+            ),
+            None,
+        )
+        if neighborhood_rank is None:
+            neighborhood_rank = (
+                sum(
+                    1
+                    for item in sorted_rows
+                    if float(item["composite_score"]) > restaurant_composite
+                )
+                + 1
+            )
+
+        average_score = round(
+            sum(float(item["composite_score"]) for item in peer_rows) / peer_count,
+            2,
+        )
+        percentile = round(((peer_count - neighborhood_rank + 1) / peer_count) * 100, 1)
+        neighborhood_comparison.update(
+            {
+                "rank": neighborhood_rank,
+                "percentile": percentile,
+                "average_score": average_score,
+                "delta_vs_average": round(
+                    restaurant_composite - average_score,
+                    2,
+                ),
+            }
+        )
+
     reviews = restaurant.reviews.filter(is_deleted=False)
     review_count_real = reviews.count()
     review_params = None
@@ -1855,6 +1908,7 @@ def restaurant_performance_api(request):
             "breakdown": breakdown,
             "history": history_data,
             "review_params": review_params,
+            "neighborhood_comparison": neighborhood_comparison,
         }
     )
 

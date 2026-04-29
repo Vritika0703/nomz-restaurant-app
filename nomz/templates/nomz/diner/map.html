@@ -882,6 +882,7 @@
             restaurants.forEach(restaurant => {
                 const score = restaurant.composite_score;
                 let color = '#D3D3D3';
+                const cuisineText = restaurant.cuisine || (restaurant.cuisine_tags?.join(', ') || '');
 
                 if (score !== null) {
                     if (score >= 90) color = '#22c55e';
@@ -903,7 +904,7 @@
                         <strong>${restaurant.name}</strong><br/>
                         ${restaurant.address}<br/>
                         ${restaurant.grade ? `Grade: ${restaurant.grade} · ` : ''}Score: ${restaurant.composite_score_label}<br/>
-                        ${restaurant.cuisine_tags?.join(', ') || ''}<br/>
+                        ${cuisineText}<br/>
                         ${restaurant.phone || ''}
                     </div>
                 `;
@@ -926,9 +927,10 @@
             restaurantList.innerHTML = '';
 
             restaurants.forEach(restaurant => {
-                const cuisineStr = restaurant.borough && restaurant.cuisine_tags?.length
-                    ? `${restaurant.borough} · ${restaurant.cuisine_tags.join(', ')}`
-                    : restaurant.cuisine_tags?.join(', ') || '';
+                const cuisineText = restaurant.cuisine || (restaurant.cuisine_tags?.join(', ') || '');
+                const cuisineStr = restaurant.borough && cuisineText
+                    ? `${restaurant.borough} · ${cuisineText}`
+                    : (cuisineText || restaurant.borough || '');
 
                 const item = document.createElement('div');
                 item.className = 'restaurant-item';

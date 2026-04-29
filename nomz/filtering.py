@@ -4,6 +4,7 @@ from typing import Iterable
 
 from django.db.models import Q, QuerySet
 
+from .cuisine import cuisine_filter_q, cuisine_search_q
 from .models import Restaurant
 
 DIETARY_OPTIONS = [
@@ -82,9 +83,7 @@ def apply_restaurant_filters(
             | Q(street__icontains=search)
             | Q(zip_code__icontains=search)
             | Q(borough__iexact=search)
-            | Q(cuisine__icontains=search)
-            | Q(cuisine_type__icontains=search)
-            | Q(cuisine_tags__icontains=search)
+            | cuisine_search_q(search)
         )
 
     neighborhood = (params.get("neighborhood") or params.get("borough") or "").strip()
@@ -95,11 +94,7 @@ def apply_restaurant_filters(
 
     cuisine = (params.get("cuisine") or "").strip()
     if cuisine:
-        queryset = queryset.filter(
-            Q(cuisine__iexact=cuisine)
-            | Q(cuisine_type__icontains=cuisine)
-            | Q(cuisine_tags__icontains=cuisine)
-        )
+        queryset = queryset.filter(cuisine_filter_q(cuisine))
 
     price_range = (params.get("price_range") or "").strip()
     valid_price_ranges = {value for value, _ in Restaurant.PRICE_CHOICES}
