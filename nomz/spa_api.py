@@ -734,11 +734,24 @@ def admin_moderation_data(request):
         return deny
 
     pending = ModerationReport.objects.filter(status="PENDING").order_by("-created_at")
-    resolved = ModerationReport.objects.exclude(status="PENDING").order_by(
+    resolved = ModerationReport.objects.filter(status="RESOLVED").order_by(
+        "-created_at"
+    )[:25]
+    rejected = ModerationReport.objects.filter(status="DISMISSED").order_by(
         "-created_at"
     )[:25]
 
     def row(r: ModerationReport):
+        target_name = "Unknown"
+        if r.review_id and r.review:
+            target_name = f"{r.review.restaurant.name} (Review)"
+        elif r.reported_user_id and r.reported_user:
+            restaurant = Restaurant.objects.filter(owner=r.reported_user).first()
+            if restaurant:
+                target_name = restaurant.name
+            else:
+                target_name = r.reported_user.username
+
         return {
             "id": r.id,
             "reason": r.reason,
@@ -748,12 +761,15 @@ def admin_moderation_data(request):
             "created_at": r.created_at.isoformat(),
             "review_id": r.review_id,
             "reported_user_id": r.reported_user_id,
+            "content_type": "Review" if r.review_id else "User Profile",
+            "reported_target_name": target_name,
         }
 
     return JsonResponse(
         {
             "pending": [row(r) for r in pending],
             "resolved": [row(r) for r in resolved],
+            "rejected": [row(r) for r in rejected],
         }
     )
 
@@ -1033,6 +1049,13 @@ def restaurant_detail_data(request, restaurant_id):
             else None
         ),
         "grade": restaurant.grade_latest or "",
+        "is_temporarily_unavailable": restaurant.is_temporarily_unavailable,
+        "unavailable_reason": restaurant.unavailable_reason or "",
+        "unavailable_until": (
+            restaurant.unavailable_until.isoformat()
+            if restaurant.unavailable_until
+            else None
+        ),
         "reviews": reviews_list,
     }
     return JsonResponse(data)
@@ -1437,9 +1460,14 @@ def restaurant_profile_api(request):
 
     if request.method == "GET":
         profile = getattr(request.user, "userprofile", None)
+        pending_reports_count = ModerationReport.objects.filter(
+            reported_user=request.user, status="PENDING"
+        ).count()
         account_status = {
             "is_approved": getattr(profile, "is_approved", False),
             "is_rejected": getattr(profile, "is_rejected", False),
+            "is_flagged": getattr(profile, "is_flagged", False),
+            "pending_reports": pending_reports_count,
             "date_joined": request.user.date_joined.isoformat(),
         }
         if not existing:
