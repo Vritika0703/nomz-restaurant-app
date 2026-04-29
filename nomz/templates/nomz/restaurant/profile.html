@@ -1005,13 +1005,33 @@
                             </div>
                         </div>
                         <div class="glass-card" style="margin-bottom:0;">
-                            <h2 class="rest-section-title">Citywide comparison</h2>
+                            <h2 class="rest-section-title">Neighborhood comparison</h2>
                             <p style="font-size:13px;color:#888;line-height:1.55;margin-bottom:1rem;">
-                                Among active listings visible in search (same pool as map/search APIs).
+                                Compared against active listings in your local area (falls back to citywide when area data is missing).
                             </p>
                             <div style="height:1px;background:rgba(212, 43, 43,0.25);margin-bottom:1rem;"></div>
                             <div class="rest-perf-row">
-                                <span>Approx. percentile (by score rank):</span>
+                                <span>Comparison scope:</span>
+                                <span class="rest-perf-num" id="perf-loc">—</span>
+                            </div>
+                            <div class="rest-perf-row">
+                                <span>Peer listings:</span>
+                                <span class="rest-perf-num" id="perf-peer-count">0</span>
+                            </div>
+                            <div class="rest-perf-row">
+                                <span>Rank in scope:</span>
+                                <span class="rest-perf-num" id="perf-nbh-rank">—</span>
+                            </div>
+                            <div class="rest-perf-row">
+                                <span>Scope percentile:</span>
+                                <span class="rest-perf-num" id="perf-nbh-pct">—</span>
+                            </div>
+                            <div class="rest-perf-row">
+                                <span>vs. scope average:</span>
+                                <span class="rest-perf-num" id="perf-vs-avg">—</span>
+                            </div>
+                            <div class="rest-perf-row">
+                                <span>Citywide percentile (search pool):</span>
                                 <span class="rest-perf-num" id="perf-pct">—</span>
                             </div>
                         </div>
@@ -1666,6 +1686,20 @@
 
         const pct = data.approx_percentile;
         document.getElementById('perf-pct').textContent = pct != null ? pct + 'th' : '—';
+
+        const cmp = data.neighborhood_comparison || {};
+        const loc = cmp.location_scope || 'citywide';
+        document.getElementById('perf-loc').textContent = loc;
+        document.getElementById('perf-peer-count').textContent = cmp.peer_count || 0;
+        document.getElementById('perf-nbh-rank').textContent = cmp.rank != null ? cmp.rank : '—';
+        document.getElementById('perf-nbh-pct').textContent = cmp.percentile != null ? (cmp.percentile + 'th') : '—';
+        if (cmp.delta_vs_average != null) {
+            const delta = Number(cmp.delta_vs_average);
+            const signed = delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
+            document.getElementById('perf-vs-avg').textContent = signed;
+        } else {
+            document.getElementById('perf-vs-avg').textContent = '—';
+        }
 
         // Factor breakdown
         const brkEl = document.getElementById('perf-breakdown');

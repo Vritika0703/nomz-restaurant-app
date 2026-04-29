@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from decimal import Decimal
 from io import BytesIO
 from unittest.mock import patch
 
@@ -846,6 +847,11 @@ def test_restaurant_profile_get_success(api_client, owner_user):
 
 def test_restaurant_profile_post_success(api_client, owner_user):
     owner, rest = owner_user
+    Restaurant.objects.filter(pk=rest.pk).update(
+        cuisine="Chinese",
+        cuisine_tags=["Chinese", "Family Style"],
+    )
+
     api_client.force_login(owner)
     payload = {
         "name": rest.name,
@@ -861,6 +867,48 @@ def test_restaurant_profile_post_success(api_client, owner_user):
     }
     r = api_client.post("/api/restaurant/profile/", payload, format="json")
     assert r.status_code == 200
+    rest.refresh_from_db()
+    assert rest.cuisine == "Italian"
+    assert "Italian" in rest.cuisine_tags
+    assert "Family Style" in rest.cuisine_tags
+    assert "chinese" not in {str(tag).strip().lower() for tag in rest.cuisine_tags}
+
+
+def test_search_and_map_filters_ignore_stale_conflicting_cuisine_tags(
+    api_client, diner_user, public_restaurant
+):
+    Restaurant.objects.filter(pk=public_restaurant.pk).update(
+        cuisine_type="italian",
+        cuisine="Italian",
+        cuisine_tags=["Chinese", "Noodles"],
+        latitude=Decimal("40.761000"),
+        longitude=Decimal("-73.982000"),
+    )
+
+    api_client.force_login(diner_user)
+    search_italian = api_client.get(f"/api/search/?q={public_restaurant.name}")
+    assert search_italian.status_code == 200
+    row = next(
+        item
+        for item in search_italian.json()["results"]
+        if item["id"] == public_restaurant.id
+    )
+    assert row["cuisine"] == "Italian"
+
+    search_wrong = api_client.get("/api/search/?q=Chinese")
+    assert search_wrong.status_code == 200
+    wrong_ids = {item["id"] for item in search_wrong.json()["results"]}
+    assert public_restaurant.id not in wrong_ids
+
+    map_italian = api_client.get("/api/restaurants/map-data/?cuisine=Italian")
+    assert map_italian.status_code == 200
+    italian_ids = {item["id"] for item in map_italian.json()["results"]}
+    assert public_restaurant.id in italian_ids
+
+    map_wrong = api_client.get("/api/restaurants/map-data/?cuisine=Chinese")
+    assert map_wrong.status_code == 200
+    wrong_map_ids = {item["id"] for item in map_wrong.json()["results"]}
+    assert public_restaurant.id not in wrong_map_ids
 
 
 def test_restaurant_profile_error_forbidden_diner(api_client, diner_user):
@@ -924,6 +972,50 @@ def test_restaurant_communication_error_invalid_hours(api_client, owner_user):
         format="json",
     )
     assert r.status_code == 400
+
+
+def test_restaurant_performance_includes_neighborhood_comparison(
+    api_client, owner_user
+):
+    owner, rest = owner_user
+    Restaurant.objects.create(
+        name=_unique("Peer A"),
+        neighborhood=rest.neighborhood,
+        borough=rest.borough,
+        is_active=True,
+        composite_score=60,
+    )
+    Restaurant.objects.create(
+        name=_unique("Peer B"),
+        neighborhood=rest.neighborhood,
+        borough=rest.borough,
+        is_active=True,
+        composite_score=90,
+    )
+
+    api_client.force_login(owner)
+    r = api_client.get("/api/restaurant/performance/")
+    assert r.status_code == 200
+
+    body = r.json()
+    assert "composite_score" in body
+    assert "breakdown" in body
+    assert "history" in body
+    assert "neighborhood_comparison" in body
+
+    cmp = body["neighborhood_comparison"]
+    assert cmp["location_scope"] == rest.neighborhood
+    assert cmp["peer_count"] == 3
+    assert cmp["rank"] is not None
+    assert cmp["percentile"] is not None
+    assert cmp["average_score"] is not None
+    assert cmp["delta_vs_average"] is not None
+
+
+def test_restaurant_performance_error_forbidden_diner(api_client, diner_user):
+    api_client.force_login(diner_user)
+    r = api_client.get("/api/restaurant/performance/")
+    assert r.status_code == 403
 
 
 def test_review_respond_api_success(api_client, owner_user, diner_user):
