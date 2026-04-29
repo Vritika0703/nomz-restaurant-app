@@ -172,6 +172,22 @@ def test_apply_filters_cuisine(restaurant_set):
     assert restaurant_set["b"].id in set(mex.values_list("id", flat=True))
 
 
+def test_apply_filters_cuisine_ignores_stale_conflicting_tags(restaurant_set):
+    qs = Restaurant.objects.all()
+    target = restaurant_set["b"]
+    Restaurant.objects.filter(pk=target.pk).update(
+        cuisine_type="italian",
+        cuisine="Italian",
+        cuisine_tags=["mexican", "vegan"],
+    )
+
+    italian = apply_restaurant_filters(qs, params=QueryDict("cuisine=italian"))
+    assert target.id in set(italian.values_list("id", flat=True))
+
+    mexican = apply_restaurant_filters(qs, params=QueryDict("cuisine=mexican"))
+    assert target.id not in set(mexican.values_list("id", flat=True))
+
+
 def test_apply_filters_price_range_valid_and_invalid(restaurant_set):
     qs = Restaurant.objects.all()
     cheap = apply_restaurant_filters(qs, params=QueryDict("price_range=$"))

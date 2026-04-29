@@ -7,16 +7,31 @@ from .models import (
     LoginLog,
     Message,
     MessageNotification,
+    Restaurant,
     Review,
     UserInteractionHistory,
     RecalculatedRecommendation,
     UserPreference,
 )
+from .cuisine import synchronize_restaurant_cuisine_fields, sync_restaurant_search_index
 from .scoring import refresh_restaurant_composite
 
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
+
+RESTAURANT_CUISINE_FIELDS = {
+    "cuisine_type",
+    "cuisine",
+    "cuisine_tags",
+}
+RESTAURANT_SEARCH_FIELDS = {
+    "name",
+    "description",
+    "neighborhood",
+    "borough",
+    *RESTAURANT_CUISINE_FIELDS,
+}
 
 
 def get_client_ip(request):
@@ -328,6 +343,38 @@ def refresh_score_on_inspection_delete(sender, instance, **kwargs):
         instance.restaurant,
         trigger_source="signal_inspection_delete",
     )
+
+
+@receiver(post_save, sender=Restaurant)
+def sync_restaurant_cuisine_and_search_index(
+    sender, instance, raw=False, update_fields=None, **kwargs
+):
+    if raw:
+        return
+
+    updated = set(update_fields or [])
+    should_sync_cuisine = update_fields is None or bool(
+        updated.intersection(RESTAURANT_CUISINE_FIELDS)
+    )
+    should_sync_search = update_fields is None or bool(
+        updated.intersection(RESTAURANT_SEARCH_FIELDS)
+    )
+
+    if should_sync_cuisine:
+        synced_cuisine, synced_tags = synchronize_restaurant_cuisine_fields(instance)
+        cuisine_changed = (instance.cuisine or "") != synced_cuisine
+        tags_changed = list(instance.cuisine_tags or []) != list(synced_tags)
+        if cuisine_changed or tags_changed:
+            sender.objects.filter(pk=instance.pk).update(
+                cuisine=synced_cuisine,
+                cuisine_tags=synced_tags,
+            )
+            instance.cuisine = synced_cuisine
+            instance.cuisine_tags = synced_tags
+            should_sync_search = True
+
+    if should_sync_search:
+        sync_restaurant_search_index(instance)
 
 
 @receiver(post_save, sender=Message)
