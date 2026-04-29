@@ -169,6 +169,12 @@
         background: linear-gradient(135deg, rgba(234, 179, 8, 0.08) 0%, rgba(234, 179, 8, 0.12) 100%);
     }
 
+    .alert-unavailable {
+        border: 1px solid rgba(156, 163, 175, 0.5);
+        color: #374151;
+        background: linear-gradient(135deg, rgba(243, 244, 246, 0.8) 0%, rgba(229, 231, 235, 0.8) 100%);
+    }
+
     .alert-banner p {
         margin: 0;
         font-weight: 500;
@@ -828,6 +834,21 @@
             html += `
                 <div class="alert-banner alert-restaurant-flagged">
                     <p>⚠️ <strong>Profile Flagged</strong> — This restaurant has been flagged for suspicious activity. Proceed with caution.</p>
+                </div>
+            `;
+        }
+
+        if (data.is_temporarily_unavailable) {
+            let availDateStr = '';
+            if (data.unavailable_until) {
+                const availDate = new Date(data.unavailable_until);
+                availDateStr = availDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+            }
+            html += `
+                <div class="alert-banner alert-unavailable" style="margin-top: 1rem;">
+                    <p>🚫 <strong>Temporarily Unavailable</strong> — This restaurant is currently not accepting reservations or orders.</p>
+                    ${data.unavailable_reason ? `<p style="margin-top:0.5rem; font-size:0.875rem; color:#6b7280;">Reason: ${escapeHtml(data.unavailable_reason)}</p>` : ''}
+                    ${availDateStr ? `<p style="margin-top:0.5rem; font-size:0.875rem; color:#6b7280; font-weight:600;">Available again on: ${availDateStr}</p>` : ''}
                 </div>
             `;
         }
