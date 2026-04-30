@@ -1825,6 +1825,11 @@
 
             el.innerHTML = reviews.map(rv => {
                 const stars = Math.round(rv.rating || 0);
+                const existingResponse = rv.owner_response || null;
+                const responseValue = existingResponse ? (existingResponse.response_text || '') : '';
+                const responseMeta = existingResponse
+                    ? `<p style="font-size:12px;color:#777;margin:6px 0 0;">— @${esc(existingResponse.responder_username || '')}, ${fmtDate(existingResponse.updated_at || existingResponse.created_at || '')}</p>`
+                    : '';
                 return `<div class="rest-review-card">
                 <div class="rest-review-header">
                     <span class="rest-review-user">@${esc(rv.username)}</span>
@@ -1834,10 +1839,69 @@
                     <span style="font-size:13px;color:#888;margin-left:4px;">${(rv.rating || 0).toFixed(1)}/5</span>
                 </div>
                 <p class="rest-review-text">${esc(rv.comment || '(No comment left)')}</p>
+
+                ${existingResponse ? `
+                <div style="margin-top:10px;padding:10px 12px;border:1px solid rgba(212, 43, 43,0.16);border-radius:10px;background:rgba(212, 43, 43,0.04);">
+                    <p style="font-size:12px;font-weight:700;color:var(--red);margin:0;">Owner Response</p>
+                    <p style="font-size:13px;color:#333;margin:6px 0 0;line-height:1.5;">${esc(existingResponse.response_text || '')}</p>
+                    ${responseMeta}
+                </div>
+                ` : ''}
+
+                <div style="margin-top:12px;padding:12px;border:1px dashed rgba(0,0,0,0.12);border-radius:10px;background:#fff;">
+                    <label style="display:block;font-size:12px;font-weight:600;color:#555;margin-bottom:6px;">
+                        ${existingResponse ? 'Edit public response' : 'Post public response'}
+                    </label>
+                    <textarea id="rest-owner-response-${rv.id}" rows="3"
+                        style="width:100%;padding:10px;border:1px solid rgba(0,0,0,0.16);border-radius:8px;font-size:13px;resize:vertical;"
+                        placeholder="Thank the diner, clarify details, or address concerns...">${esc(responseValue)}</textarea>
+                    <div style="display:flex;justify-content:flex-end;margin-top:8px;">
+                        <button type="button"
+                            onclick="submitReviewResponse(${rv.id})"
+                            style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;">
+                            ${existingResponse ? 'Update Response' : 'Post Response'}
+                        </button>
+                    </div>
+                </div>
             </div>`;
             }).join('');
         } catch (err) {
             console.error('[restaurant-dashboard] reviews error:', err);
+        }
+    }
+
+    async function submitReviewResponse(reviewId) {
+        const input = document.getElementById(`rest-owner-response-${reviewId}`);
+        if (!input) return;
+        const responseText = (input.value || '').trim();
+        if (!responseText) {
+            showToast('Response text is required.');
+            return;
+        }
+
+        try {
+            const resp = await apiFetch(`/api/reviews/${reviewId}/respond/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken(),
+                },
+                body: JSON.stringify({ response_text: responseText }),
+            });
+
+            const data = await resp.json();
+            if (!resp.ok) {
+                throw new Error(data.error || 'Failed to save response.');
+            }
+
+            showToast(data.created ? 'Public response posted.' : 'Public response updated.');
+            const restaurantId = (_profileData && _profileData.restaurant)
+                ? _profileData.restaurant.id
+                : null;
+            if (restaurantId) await loadReviews(restaurantId);
+        } catch (err) {
+            console.error('[restaurant-dashboard] response save error:', err);
+            showToast(err.message || 'Failed to save response.');
         }
     }
 
