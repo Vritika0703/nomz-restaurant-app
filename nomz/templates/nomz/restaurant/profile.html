@@ -13,6 +13,7 @@
     }
 
     @keyframes float {
+
         0%,
         100% {
             transform: translate(0, 0) scale(1);
@@ -875,6 +876,17 @@
                     listing</a>
             </div>
 
+            <!-- ── Report Alert ──────────────────────────────────────── -->
+            <div id="rest-report-alert" class="rest-alert" style="background: rgba(254, 243, 199, 0.6); border-color: #FDE68A;">
+                <div class="rest-alert-header">
+                    <span>⚠️</span>
+                    <span class="rest-alert-title" id="rest-report-title" style="color: #d97706;">Account Notice</span>
+                </div>
+                <p class="rest-alert-body" id="rest-report-body" style="color: #92400e;">
+                    <!-- Message goes here -->
+                </p>
+            </div>
+
             <!-- ── Restaurant Info Card ────────────────────────────── -->
             <div class="glass-card">
                 <h1 class="rest-name" id="rest-name">Your Restaurant</h1>
@@ -917,26 +929,46 @@
 
                 <!-- Quick-action cards -->
                 <style>
-                    .rest-action-icon svg { width: 32px; height: 32px; color: var(--red); }
-                    #availability-status-icon { font-size: 28px; line-height: 1; }
+                    .rest-action-icon svg {
+                        width: 32px;
+                        height: 32px;
+                        color: var(--red);
+                    }
+
+                    #availability-status-icon {
+                        font-size: 28px;
+                        line-height: 1;
+                    }
                 </style>
                 <div class="rest-actions-grid">
-                    <a class="rest-action-card" href="javascript:void(0)" onclick="openAvailModal()" id="btn-availability">
+                    <a class="rest-action-card" href="javascript:void(0)" onclick="openAvailModal()"
+                        id="btn-availability">
                         <span class="rest-action-icon" id="availability-status-icon" aria-label="availability status">
                             🟢
                         </span>
                         <span class="rest-action-label">Availability</span>
                     </a>
-                    <a class="rest-action-card" href="javascript:void(0)" onclick="openSettingsModal()" id="btn-settings">
+                    <a class="rest-action-card" href="javascript:void(0)" onclick="openSettingsModal()"
+                        id="btn-settings">
                         <span class="rest-action-icon">
-                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                                </path>
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
                         </span>
                         <span class="rest-action-label">Settings</span>
                         <span class="rest-tooltip">Messaging settings</span>
                     </a>
-                    <a class="rest-action-card" href="javascript:void(0)" onclick="openActivationModal()" id="btn-activation">
+                    <a class="rest-action-card" href="javascript:void(0)" onclick="openActivationModal()"
+                        id="btn-activation">
                         <span class="rest-action-icon">
-                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z">
+                                </path>
+                            </svg>
                         </span>
                         <span class="rest-action-label">Activation</span>
                     </a>
@@ -1037,9 +1069,9 @@
                         </div>
                     </div>
 
-                    <!-- Composite Score Breakdown -->
+                    <!-- Composite Factor Breakdown -->
                     <div class="glass-card">
-                        <h2 class="rest-section-title">Composite Score Breakdown</h2>
+                        <h2 class="rest-section-title">Composite Factor Breakdown</h2>
                         <div id="perf-breakdown">
                             <p style="font-size:13px;color:#bbb;">
                                 Score breakdown will appear after the first composite-score calculation.
@@ -1082,8 +1114,6 @@
                             <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
                                 <button type="button" class="rest-btn-primary" onclick="toggleInlineEdit(true)"
                                     id="btn-edit-info">Edit Information</button>
-                                <a href="/restaurant/edit/" class="rest-btn-outline" id="btn-full-form">Full profile
-                                    form</a>
                             </div>
                         </div>
                         <div class="rest-info-grid">
@@ -1166,20 +1196,46 @@
                                 <label class="form-label">Email</label>
                                 <input type="email" id="inp-email" class="form-input" placeholder="Email Address" />
                                 <div id="err-email"
-                                    style="font-size:12px; color:var(--red); margin-top:4px; display:none;">Please include
+                                    style="font-size:12px; color:var(--red); margin-top:4px; display:none;">Please
+                                    include
                                     an '@' in the email address.</div>
                             </div>
                             <div>
                                 <label class="form-label">Phone</label>
                                 <input type="text" id="inp-phone" class="form-input" placeholder="Enter phone number" />
                                 <div id="err-phone"
-                                    style="font-size:12px; color:var(--red); margin-top:4px; display:none;">Alphabets are
+                                    style="font-size:12px; color:var(--red); margin-top:4px; display:none;">Alphabets
+                                    are
                                     not allowed in the phone number.</div>
                             </div>
                             <div class="form-group-full">
                                 <label class="form-label">Address</label>
                                 <input type="text" id="inp-address" class="form-input"
                                     placeholder="Enter business address" />
+                            </div>
+                            <div>
+                                <label class="form-label">Neighborhood</label>
+                                <input type="text" id="inp-neighborhood" class="form-input" placeholder="e.g. West Village" />
+                            </div>
+                            <div>
+                                <label class="form-label">Borough</label>
+                                <select id="inp-borough" class="form-select">
+                                    <option value="">Select a borough...</option>
+                                    <option value="Manhattan">Manhattan</option>
+                                    <option value="Brooklyn">Brooklyn</option>
+                                    <option value="Queens">Queens</option>
+                                    <option value="Bronx">Bronx</option>
+                                    <option value="Staten Island">Staten Island</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label">Zip Code</label>
+                                <input type="text" id="inp-zipcode" class="form-input" placeholder="e.g. 10014" oninput="this.value = this.value.replace(/[^0-9]/g, '');" maxlength="5" />
+                            </div>
+                            <div>
+                                <label class="form-label">Website</label>
+                                <input type="url" id="inp-website" class="form-input" placeholder="https://..." />
+                                <div id="err-website" style="font-size:12px; color:var(--red); margin-top:4px; display:none;">Please enter a valid URL starting with http:// or https://</div>
                             </div>
                             <div class="form-group-full">
                                 <label class="form-label">Member Since</label>
@@ -1193,6 +1249,10 @@
                     <div class="glass-card">
                         <h2 class="rest-section-title" style="margin-top:0;">Restaurant Details</h2>
                         <div class="form-grid">
+                            <div class="form-group-full">
+                                <label class="form-label">Description</label>
+                                <textarea id="inp-desc" class="form-input" style="min-height:80px;resize:vertical;" placeholder="Describe your restaurant..."></textarea>
+                            </div>
                             <div>
                                 <label class="form-label">Cuisine Type</label>
                                 <select id="inp-cuisine" class="form-select" required></select>
@@ -1265,8 +1325,10 @@
         </div><!-- /#rest-main -->
 
     </div><!-- /.rest-container -->
-    <footer style="border-top:2px solid var(--ink);padding:20px 6vw;display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--tan);">Good food, always.</span>
+    <footer
+        style="border-top:2px solid var(--ink);padding:20px 6vw;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:var(--font-serif);font-style:italic;font-size:13px;color:var(--tan);">Good food,
+            always.</span>
         <span style="font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:var(--mid);">nomz</span>
     </footer>
 </div><!-- /.rest-page-wrapper -->
@@ -1343,6 +1405,22 @@
         const isRejected = acct.is_rejected;
         if (!isApproved && !isRejected) {
             document.getElementById('rest-pending-alert').classList.add('visible');
+        }
+
+        // ── Report alert ─────────────────────────────────────────────────────
+        const reportAlert = document.getElementById('rest-report-alert');
+        if (acct.is_flagged) {
+            document.getElementById('rest-report-title').textContent = "Account Flagged";
+            document.getElementById('rest-report-title').style.color = "#dc2626";
+            reportAlert.style.background = "rgba(254, 226, 226, 0.6)";
+            reportAlert.style.borderColor = "#fca5a5";
+            document.getElementById('rest-report-body').textContent = "Your account has been flagged by our moderation team for violating our community guidelines. Please review your account or contact support.";
+            document.getElementById('rest-report-body').style.color = "#991b1b";
+            reportAlert.classList.add('visible');
+        } else if (acct.pending_reports > 0) {
+            document.getElementById('rest-report-title').textContent = "Report Under Review";
+            document.getElementById('rest-report-body').textContent = `We've received ${acct.pending_reports} report(s) from diners regarding your profile. Our team is currently reviewing the situation.`;
+            reportAlert.classList.add('visible');
         }
 
         // ── Verification badge ───────────────────────────────────────────────
@@ -1452,6 +1530,11 @@
             document.getElementById('inp-email').value = r.email || '';
             document.getElementById('inp-phone').value = r.phone || '';
             document.getElementById('inp-address').value = r.address || '';
+            document.getElementById('inp-neighborhood').value = r.neighborhood || '';
+            document.getElementById('inp-borough').value = r.borough || '';
+            document.getElementById('inp-zipcode').value = r.zip_code || '';
+            document.getElementById('inp-website').value = r.website || '';
+            document.getElementById('inp-desc').value = r.description || '';
             document.getElementById('inp-cuisine').value = r.cuisine_type || 'AM'; // Default American
             document.getElementById('inp-price').value = r.price_range || '$$';
 
@@ -1481,6 +1564,8 @@
             document.getElementById('inline-error-msg').style.opacity = '0';
             document.getElementById('err-email').style.display = 'none';
             document.getElementById('err-phone').style.display = 'none';
+            const errWeb = document.getElementById('err-website');
+            if (errWeb) errWeb.style.display = 'none';
         } else {
             viewMode.style.display = 'block';
             editMode.style.display = 'none';
@@ -1497,10 +1582,13 @@
         document.getElementById('inline-error-msg').style.opacity = '0';
         document.getElementById('err-email').style.display = 'none';
         document.getElementById('err-phone').style.display = 'none';
+        const errWeb = document.getElementById('err-website');
+        if (errWeb) errWeb.style.display = 'none';
 
         // Simple format checks for mock validation experience
         const emailStr = document.getElementById('inp-email').value || '';
         const phoneStr = document.getElementById('inp-phone').value || '';
+        const websiteStr = document.getElementById('inp-website').value || '';
         let hasErr = false;
 
         if (emailStr && !emailStr.includes('@')) {
@@ -1509,6 +1597,10 @@
         }
         if (/[a-zA-Z]/.test(phoneStr)) {
             document.getElementById('err-phone').style.display = 'block';
+            hasErr = true;
+        }
+        if (websiteStr && !/^https?:\/\//i.test(websiteStr)) {
+            if (errWeb) errWeb.style.display = 'block';
             hasErr = true;
         }
 
@@ -1529,9 +1621,11 @@
             email: emailStr,
             hours_open: document.getElementById('inp-open').value || r.hours_open,
             hours_close: document.getElementById('inp-close').value || r.hours_close,
-            // Include fields not in this inline form but required/expected by the backend form
-            description: r.description,
-            website: r.website
+            neighborhood: document.getElementById('inp-neighborhood').value,
+            borough: document.getElementById('inp-borough').value,
+            zip_code: document.getElementById('inp-zipcode').value,
+            description: document.getElementById('inp-desc').value,
+            website: document.getElementById('inp-website').value
         };
 
         try {
@@ -1849,10 +1943,10 @@
     async function openAvailModal() {
         const modal = document.getElementById('avail-modal');
         modal.style.display = 'flex';
-        
+
         // Show loading state or clear previous values
         document.getElementById('mod-avail-reason').placeholder = "Loading...";
-        
+
         try {
             const r = await apiFetch('/api/restaurant/availability/');
             if (!r.ok) throw new Error('Failed to fetch availability');
@@ -1861,7 +1955,7 @@
             document.getElementById('mod-avail-reason').value = data.unavailable_reason || '';
             document.getElementById('mod-avail-reason').placeholder = "e.g., Renovations, Special Event, Staffing Issues...";
             document.getElementById('mod-avail-until').value = data.unavailable_until ? data.unavailable_until.slice(0, 16) : '';
-        } catch(e) { 
+        } catch (e) {
             console.error(e);
             showToast("Failed to load availability data.");
         }
@@ -1877,10 +1971,10 @@
             unavailable_until: document.getElementById('mod-avail-until').value
         };
         try {
-            const resp = await apiFetch('/api/restaurant/availability/', { 
-                method: 'POST', 
+            const resp = await apiFetch('/api/restaurant/availability/', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-                body: JSON.stringify(payload) 
+                body: JSON.stringify(payload)
             });
 
             if (!resp.ok) {
@@ -1890,8 +1984,8 @@
 
             document.getElementById('avail-modal').style.display = 'none';
             showToast("Availability status updated.");
-            await init(); 
-        } catch(e) {
+            await init();
+        } catch (e) {
             showToast(e.message || "Failed to update availability.");
         } finally { btn.innerHTML = originalText; btn.disabled = false; }
     }
@@ -1900,9 +1994,9 @@
         const enabled = document.getElementById('mod-comm-enabled').checked;
         document.getElementById('mod-comm-toggle-slider').style.backgroundColor = enabled ? 'var(--red)' : '#ccc';
         document.getElementById('mod-comm-toggle-knob').style.transform = enabled ? 'translateX(20px)' : 'translateX(0)';
-        
+
         const box = document.getElementById('mod-comm-status-box');
-        if(enabled) {
+        if (enabled) {
             box.style.background = '#F0FDF4'; box.style.borderColor = '#BBF7D0'; box.style.color = '#166534';
             box.innerHTML = `<svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink:0"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg><span>Messaging is currently <strong>Enabled</strong> — diners can send you messages.</span>`;
         } else {
@@ -1920,11 +2014,11 @@
             if (!r.ok) throw new Error('Failed to fetch communication settings');
             const data = await r.json();
             document.getElementById('mod-comm-enabled').checked = !!data.messaging_enabled;
-            const fmtTime = (t) => t ? t.substring(0,5) : '';
+            const fmtTime = (t) => t ? t.substring(0, 5) : '';
             document.getElementById('mod-comm-start').value = fmtTime(data.response_hours_start);
             document.getElementById('mod-comm-end').value = fmtTime(data.response_hours_end);
             updateCommStatusBox();
-        } catch(e) { 
+        } catch (e) {
             console.error(e);
             showToast("Failed to load settings.");
         }
@@ -1941,12 +2035,12 @@
             messaging_unavailable_message: ''
         };
         try {
-            const resp = await apiFetch('/api/restaurant/communication/', { 
-                method: 'POST', 
+            const resp = await apiFetch('/api/restaurant/communication/', {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
-                body: JSON.stringify(payload) 
+                body: JSON.stringify(payload)
             });
-            
+
             const resData = await resp.json();
             if (!resp.ok) {
                 let msg = resData.error || "Failed to save settings.";
@@ -1959,8 +2053,8 @@
 
             document.getElementById('settings-modal').style.display = 'none';
             showToast("Communication settings updated.");
-            await init(); 
-        } catch(e) {
+            await init();
+        } catch (e) {
             showToast(e.message || "Failed to save settings.");
         } finally { btn.innerHTML = originalText; btn.disabled = false; }
     }
@@ -1970,7 +2064,7 @@
         document.getElementById('mod-act-toggle-slider').style.backgroundColor = enabled ? '#22C55E' : '#ccc';
         document.getElementById('mod-act-toggle-knob').style.transform = enabled ? 'translateX(20px)' : 'translateX(0)';
         document.getElementById('mod-act-text').textContent = enabled ? 'Your profile is currently active' : 'Your profile is currently inactive';
-        
+
         const btn = document.getElementById('btn-save-act');
         if (enabled) {
             btn.textContent = 'Activate Profile';
@@ -1991,7 +2085,7 @@
             const data = await r.json();
             document.getElementById('mod-act-enabled').checked = !!data.is_active;
             updateActStatusBox();
-        } catch(e) { 
+        } catch (e) {
             console.error(e);
             showToast("Failed to load activation status.");
         }
@@ -2003,7 +2097,7 @@
         const isActive = document.getElementById('mod-act-enabled').checked;
         btn.innerHTML = 'Updating...'; btn.disabled = true;
         try {
-            const resp = await apiFetch('/api/restaurant/activation/', { 
+            const resp = await apiFetch('/api/restaurant/activation/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRFToken() },
                 body: JSON.stringify({ is_active: isActive })
@@ -2016,8 +2110,8 @@
 
             document.getElementById('activation-modal').style.display = 'none';
             showToast(isActive ? "Profile activated!" : "Profile deactivated.");
-            await init(); 
-        } catch(e) {
+            await init();
+        } catch (e) {
             showToast(e.message || "Failed to update status.");
         } finally { btn.innerHTML = originalText; btn.disabled = false; }
     }
@@ -2047,32 +2141,47 @@
 </script>
 
 <!-- Availability Modal -->
-<div id="avail-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
-    <div style="background:#fff; width:100%; max-width:640px; border-radius:12px; overflow:hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
+<div id="avail-modal"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+    <div
+        style="background:#fff; width:100%; max-width:640px; border-radius:12px; overflow:hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
         <div style="background:var(--red); color:white; padding:20px 24px; font-size:18px; font-weight:400;">
             Manage Restaurant Availability
         </div>
         <div style="padding:24px;">
-            <p style="color:#666; margin-bottom:24px; font-size:14px; line-height:1.5;">Use this page to temporarily mark your restaurant as unavailable for a period of time. This allows you to inform customers of closures, renovations, or special events.</p>
-            <div style="border:1px solid #f2cfd4; padding:16px; border-radius:8px; margin-bottom:24px; display:flex; align-items:flex-start; gap:12px;">
-                <input type="checkbox" id="mod-avail-is-unavailable" style="margin-top:4px; width:18px; height:18px; accent-color:var(--red);" />
+            <p style="color:#666; margin-bottom:24px; font-size:14px; line-height:1.5;">Use this page to temporarily
+                mark your restaurant as unavailable for a period of time. This allows you to inform customers of
+                closures, renovations, or special events.</p>
+            <div
+                style="border:1px solid #f2cfd4; padding:16px; border-radius:8px; margin-bottom:24px; display:flex; align-items:flex-start; gap:12px;">
+                <input type="checkbox" id="mod-avail-is-unavailable"
+                    style="margin-top:4px; width:18px; height:18px; accent-color:var(--red);" />
                 <div>
-                    <label for="mod-avail-is-unavailable" style="font-weight:400; color:#333; display:block; margin-bottom:4px;">Mark as Temporarily Unavailable</label>
-                    <div style="color:#888; font-size:12px;">Check this box if your restaurant is temporarily closed or unavailable.</div>
+                    <label for="mod-avail-is-unavailable"
+                        style="font-weight:400; color:#333; display:block; margin-bottom:4px;">Mark as Temporarily
+                        Unavailable</label>
+                    <div style="color:#888; font-size:12px;">Check this box if your restaurant is temporarily closed or
+                        unavailable.</div>
                 </div>
             </div>
             <div style="margin-bottom:24px;">
-                <label style="display:block; font-weight:400; margin-bottom:8px; color:#333; font-size:14px;">Reason for Unavailability</label>
-                <textarea id="mod-avail-reason" class="form-input" style="height:100px; resize:none;" placeholder="e.g., Renovations, Special Event, Staffing Issues..."></textarea>
-                <div style="color:#888; font-size:12px; margin-top:6px;">This message will be displayed to customers.</div>
+                <label style="display:block; font-weight:400; margin-bottom:8px; color:#333; font-size:14px;">Reason for
+                    Unavailability</label>
+                <textarea id="mod-avail-reason" class="form-input" style="height:100px; resize:none;"
+                    placeholder="e.g., Renovations, Special Event, Staffing Issues..."></textarea>
+                <div style="color:#888; font-size:12px; margin-top:6px;">This message will be displayed to customers.
+                </div>
             </div>
             <div style="margin-bottom:24px;">
-                <label style="display:block; font-weight:400; margin-bottom:8px; color:#333; font-size:14px;">Available Again On</label>
+                <label style="display:block; font-weight:400; margin-bottom:8px; color:#333; font-size:14px;">Available
+                    Again On</label>
                 <input type="datetime-local" id="mod-avail-until" class="form-input" />
-                <div style="color:#888; font-size:12px; margin-top:6px;">Select when your restaurant will be available again.</div>
+                <div style="color:#888; font-size:12px; margin-top:6px;">Select when your restaurant will be available
+                    again.</div>
             </div>
             <div style="border:1px solid #eee; padding:16px; border-radius:8px; margin-bottom:24px;">
-                <div style="font-weight:400; margin-bottom:12px; font-size:14px; color:#333;">Common Reasons for Unavailability:</div>
+                <div style="font-weight:400; margin-bottom:12px; font-size:14px; color:#333;">Common Reasons for
+                    Unavailability:</div>
                 <ul style="color:#777; font-size:13px; margin:0; padding-left:16px; line-height:1.6;">
                     <li>Renovations and maintenance</li>
                     <li>Equipment repairs or replacement</li>
@@ -2084,43 +2193,69 @@
                 </ul>
             </div>
             <div style="display:flex; gap:12px;">
-                <button onclick="saveAvailModal()" id="btn-save-avail" style="background:var(--red); color:white; border:none; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Save Changes</button>
-                <button onclick="document.getElementById('avail-modal').style.display='none'" style="background:white; color:var(--red); border:1px solid #f2cfd4; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Back to Profile</button>
+                <button onclick="saveAvailModal()" id="btn-save-avail"
+                    style="background:var(--red); color:white; border:none; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Save
+                    Changes</button>
+                <button onclick="document.getElementById('avail-modal').style.display='none'"
+                    style="background:white; color:var(--red); border:1px solid #f2cfd4; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Back
+                    to Profile</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Settings Modal -->
-<div id="settings-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
-    <div style="background:#fff; width:100%; max-width:640px; border-radius:12px; overflow:hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
-        <div style="background:var(--red); color:white; padding:20px 24px; font-size:18px; font-weight:400; display:flex; align-items:center; gap:8px;">
-            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+<div id="settings-modal"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+    <div
+        style="background:#fff; width:100%; max-width:640px; border-radius:12px; overflow:hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05);">
+        <div
+            style="background:var(--red); color:white; padding:20px 24px; font-size:18px; font-weight:400; display:flex; align-items:center; gap:8px;">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+                </path>
+            </svg>
             Communication Settings
         </div>
         <div style="padding:24px;">
-            <p style="color:#666; margin-bottom:24px; font-size:14px; line-height:1.5;">Control when and how diners can reach you through the Nomz messaging system.</p>
-            
-            <div id="mod-comm-status-box" style="background:#F0FDF4; border:1px solid #BBF7D0; padding:16px; border-radius:8px; margin-bottom:24px; display:flex; align-items:center; gap:12px; color:#166534; font-size:14px;">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink:0"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+            <p style="color:#666; margin-bottom:24px; font-size:14px; line-height:1.5;">Control when and how diners can
+                reach you through the Nomz messaging system.</p>
+
+            <div id="mod-comm-status-box"
+                style="background:#F0FDF4; border:1px solid #BBF7D0; padding:16px; border-radius:8px; margin-bottom:24px; display:flex; align-items:center; gap:12px; color:#166534; font-size:14px;">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink:0">
+                    <path fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clip-rule="evenodd"></path>
+                </svg>
                 <span>Messaging is currently <strong>Enabled</strong> — diners can send you messages.</span>
             </div>
-            
-            <div style="border:1px solid #f2cfd4; padding:20px; border-radius:8px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
+
+            <div
+                style="border:1px solid #f2cfd4; padding:20px; border-radius:8px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <div style="font-weight:400; color:#333; margin-bottom:8px;">Messaging Toggle</div>
-                    <div style="color:#888; font-size:12px;">When disabled, diners will not be able to send you new messages.</div>
+                    <div style="color:#888; font-size:12px;">When disabled, diners will not be able to send you new
+                        messages.</div>
                 </div>
                 <label style="position:relative; display:inline-block; width:44px; height:24px;">
-                    <input type="checkbox" id="mod-comm-enabled" onchange="updateCommStatusBox()" style="opacity:0; width:0; height:0;" />
-                    <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:24px;" id="mod-comm-toggle-slider"></span>
-                    <span style="position:absolute; content:''; height:18px; width:18px; left:3px; bottom:3px; background-color:white; transition:.4s; border-radius:50%;" id="mod-comm-toggle-knob"></span>
+                    <input type="checkbox" id="mod-comm-enabled" onchange="updateCommStatusBox()"
+                        style="opacity:0; width:0; height:0;" />
+                    <span
+                        style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:24px;"
+                        id="mod-comm-toggle-slider"></span>
+                    <span
+                        style="position:absolute; content:''; height:18px; width:18px; left:3px; bottom:3px; background-color:white; transition:.4s; border-radius:50%;"
+                        id="mod-comm-toggle-knob"></span>
                 </label>
             </div>
-            
+
             <div style="margin-bottom:24px;">
-                <label style="display:block; font-weight:400; margin-bottom:4px; color:#333; font-size:14px;">Response Hours (optional)</label>
-                <div style="color:#888; font-size:12px; margin-bottom:12px;">Let diners know what time window you typically respond. This is informational only.</div>
+                <label style="display:block; font-weight:400; margin-bottom:4px; color:#333; font-size:14px;">Response
+                    Hours (optional)</label>
+                <div style="color:#888; font-size:12px; margin-bottom:12px;">Let diners know what time window you
+                    typically respond. This is informational only.</div>
                 <div style="display:flex; align-items:center; gap:0.75rem;">
                     <div style="flex:1;">
                         <div style="font-size:12px; color:#666; margin-bottom:4px;">Response Hours Start</div>
@@ -2132,39 +2267,56 @@
                     </div>
                 </div>
                 <div style="display:flex; gap:0.75rem; margin-top:4px;">
-                    <div style="flex:1; font-size:11px; color:#aaa;">Earliest time you typically respond to messages (optional).</div>
-                    <div style="flex:1; font-size:11px; color:#aaa;">Latest time you typically respond to messages (optional).</div>
+                    <div style="flex:1; font-size:11px; color:#aaa;">Earliest time you typically respond to messages
+                        (optional).</div>
+                    <div style="flex:1; font-size:11px; color:#aaa;">Latest time you typically respond to messages
+                        (optional).</div>
                 </div>
             </div>
-            
+
             <div style="display:flex; gap:12px; margin-top: 30px;">
-                <button onclick="saveSettingsModal()" id="btn-save-comm" style="background:var(--red); color:white; border:none; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Save Settings</button>
-                <button onclick="document.getElementById('settings-modal').style.display='none'" style="background:white; color:#666; border:1px solid #ddd; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Cancel</button>
+                <button onclick="saveSettingsModal()" id="btn-save-comm"
+                    style="background:var(--red); color:white; border:none; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Save
+                    Settings</button>
+                <button onclick="document.getElementById('settings-modal').style.display='none'"
+                    style="background:white; color:#666; border:1px solid #ddd; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Cancel</button>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Activation Modal -->
-<div id="activation-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
-    <div style="background:#fff; width:100%; max-width:640px; border-radius:12px; overflow:hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); padding:30px;">
-        <h2 style="font-size:24px; font-weight:700; color:#111; margin-top:0; margin-bottom:12px;">Manage Profile Status</h2>
-        <p style="color:#666; margin-bottom:30px; font-size:14px; line-height:1.5;">Control whether your restaurant profile is visible to customers. When your profile is deactivated, it will no longer appear in searches or recommendations.</p>
-        
-        <div style="background:var(--paper); border:1px solid #f2cfd4; padding:20px; border-radius:8px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
+<div id="activation-modal"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); z-index:9999; justify-content:center; align-items:center; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+    <div
+        style="background:#fff; width:100%; max-width:640px; border-radius:12px; overflow:hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1); border: 1px solid rgba(0,0,0,0.05); padding:30px;">
+        <h2 style="font-size:24px; font-weight:700; color:#111; margin-top:0; margin-bottom:12px;">Manage Profile Status
+        </h2>
+        <p style="color:#666; margin-bottom:30px; font-size:14px; line-height:1.5;">Control whether your restaurant
+            profile is visible to customers. When your profile is deactivated, it will no longer appear in searches or
+            recommendations.</p>
+
+        <div
+            style="background:var(--paper); border:1px solid #f2cfd4; padding:20px; border-radius:8px; margin-bottom:24px; display:flex; justify-content:space-between; align-items:center;">
             <div>
                 <div style="font-weight:500; color:#333; margin-bottom:8px;">Profile Status</div>
                 <div id="mod-act-text" style="color:#888; font-size:13px;">Your profile is currently active</div>
             </div>
             <label style="position:relative; display:inline-block; width:44px; height:24px;">
-                <input type="checkbox" id="mod-act-enabled" onchange="updateActStatusBox()" style="opacity:0; width:0; height:0;" />
-                <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:24px;" id="mod-act-toggle-slider"></span>
-                <span style="position:absolute; content:''; height:18px; width:18px; left:3px; bottom:3px; background-color:white; transition:.4s; border-radius:50%;" id="mod-act-toggle-knob"></span>
+                <input type="checkbox" id="mod-act-enabled" onchange="updateActStatusBox()"
+                    style="opacity:0; width:0; height:0;" />
+                <span
+                    style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#ccc; transition:.4s; border-radius:24px;"
+                    id="mod-act-toggle-slider"></span>
+                <span
+                    style="position:absolute; content:''; height:18px; width:18px; left:3px; bottom:3px; background-color:white; transition:.4s; border-radius:50%;"
+                    id="mod-act-toggle-knob"></span>
             </label>
         </div>
-        
+
         <div style="background:#FFF5F5; border:1px solid #FFE2E2; padding:20px; border-radius:8px; margin-bottom:30px;">
-            <div style="font-weight:500; color:var(--red); margin-bottom:12px; font-size:14px;">What happens when you deactivate?</div>
+            <div style="font-weight:500; color:var(--red); margin-bottom:12px; font-size:14px;">What happens when you
+                deactivate?</div>
             <ul style="color:#666; font-size:13px; margin:0; padding-left:20px; line-height:2;">
                 <li>Your profile will be hidden from customer searches</li>
                 <li>Customers cannot make reservations or orders</li>
@@ -2172,12 +2324,18 @@
                 <li>You can still log in and edit information while inactive</li>
             </ul>
         </div>
-        
+
         <div style="display:flex; justify-content:center; gap:12px;">
-            <button onclick="document.getElementById('activation-modal').style.display='none'" style="background:white; color:var(--red); border:1px solid #f2cfd4; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Back to Profile</button>
-            <button onclick="saveActivationModal()" id="btn-save-act" style="background:var(--red); color:white; border:none; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Deactivate Profile</button>
+            <button onclick="document.getElementById('activation-modal').style.display='none'"
+                style="background:white; color:var(--red); border:1px solid #f2cfd4; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Back
+                to Profile</button>
+            <button onclick="saveActivationModal()" id="btn-save-act"
+                style="background:var(--red); color:white; border:none; padding:12px 24px; border-radius:8px; font-size:14px; cursor:pointer;">Deactivate
+                Profile</button>
         </div>
     </div>
 </div>
+
+
 
 {% endblock %}
