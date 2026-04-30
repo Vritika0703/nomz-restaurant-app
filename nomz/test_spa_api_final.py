@@ -20,6 +20,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
+from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
@@ -845,6 +846,40 @@ def test_restaurant_profile_get_success(api_client, owner_user):
     assert r.json()["has_restaurant"] is True
 
 
+def test_restaurant_profile_get_uses_approved_claim_fallback(api_client):
+    owner = User.objects.create_user(
+        username=_unique("claim_owner"),
+        email=f"{uuid.uuid4().hex}@example.com",
+        password="Str0ngPass!xyz",
+    )
+    UserProfile.objects.create(user=owner, role="restaurant", is_approved=True)
+    rest = Restaurant.objects.create(
+        name=_unique("Claimed Place"),
+        description="Claimed listing",
+        cuisine_type="italian",
+        price_range="$$",
+        is_active=True,
+        composite_score=78,
+        owner=None,
+    )
+    RestaurantOwnershipClaim.objects.create(
+        claimant=owner,
+        restaurant=rest,
+        status=RestaurantOwnershipClaim.STATUS_APPROVED,
+        reviewed_at=timezone.now(),
+    )
+
+    api_client.force_login(owner)
+    r = api_client.get("/api/restaurant/profile/")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["has_restaurant"] is True
+    assert body["restaurant"]["name"] == rest.name
+
+    rest.refresh_from_db()
+    assert rest.owner_id == owner.id
+
+
 def test_restaurant_profile_post_success(api_client, owner_user):
     owner, rest = owner_user
     Restaurant.objects.filter(pk=rest.pk).update(
@@ -1010,6 +1045,74 @@ def test_restaurant_performance_includes_neighborhood_comparison(
     assert cmp["percentile"] is not None
     assert cmp["average_score"] is not None
     assert cmp["delta_vs_average"] is not None
+
+
+def test_restaurant_performance_uses_approved_claim_fallback_and_history_seed(
+    api_client,
+):
+    owner = User.objects.create_user(
+        username=_unique("claim_perf_owner"),
+        email=f"{uuid.uuid4().hex}@example.com",
+        password="Str0ngPass!xyz",
+    )
+    UserProfile.objects.create(user=owner, role="restaurant", is_approved=True)
+    rest = Restaurant.objects.create(
+        name=_unique("Claimed Perf Place"),
+        description="Claimed listing",
+        cuisine_type="italian",
+        price_range="$$",
+        is_active=True,
+        neighborhood="SoHo",
+        borough="Manhattan",
+        composite_score=84.2,
+        owner=None,
+    )
+    RestaurantOwnershipClaim.objects.create(
+        claimant=owner,
+        restaurant=rest,
+        status=RestaurantOwnershipClaim.STATUS_APPROVED,
+        reviewed_at=timezone.now(),
+    )
+
+    api_client.force_login(owner)
+    r = api_client.get("/api/restaurant/performance/")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["composite_score"] == 84.2
+    assert len(body["history"]) == 1
+    assert body["history"][0]["score"] == 84.2
+
+    rest.refresh_from_db()
+    assert rest.owner_id == owner.id
+
+
+def test_restaurant_performance_derives_breakdown_when_history_missing(
+    api_client, owner_user, diner_user
+):
+    owner, rest = owner_user
+    Review.objects.create(
+        restaurant=rest,
+        user=diner_user,
+        rating=5,
+        food_quality_rating=5,
+        service_quality_rating=5,
+        ambience_rating=4,
+        location_rating=4,
+        value_rating=4,
+        dietary_accommodation_rating=4,
+        cleanliness_rating=5,
+    )
+    CompositeScoreHistory.objects.filter(restaurant=rest).delete()
+
+    api_client.force_login(owner)
+    r = api_client.get("/api/restaurant/performance/")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["breakdown"]
+    assert body["breakdown"][0]["score"] is not None
+    assert body["breakdown"][1]["score"] is not None
+    assert body["history"]
+    assert body["history"][0]["score"] is not None
 
 
 def test_restaurant_performance_error_forbidden_diner(api_client, diner_user):

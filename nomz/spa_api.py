@@ -76,6 +76,41 @@ def _staff_json_required(request):
     return None
 
 
+def _resolve_owner_restaurant(user: User, *, bind_from_claim: bool = False):
+    """Resolve the restaurant managed by a restaurant-role user.
+
+    Primary source is `Restaurant.owner`. For legacy claim records where
+    ownership may not have been backfilled, fallback to the latest approved
+    claim by the same user.
+    """
+    restaurant = Restaurant.objects.filter(owner=user).first()
+    if restaurant:
+        return restaurant
+
+    approved_claim = (
+        RestaurantOwnershipClaim.objects.filter(
+            claimant=user,
+            status=RestaurantOwnershipClaim.STATUS_APPROVED,
+        )
+        .select_related("restaurant")
+        .order_by("-reviewed_at", "-created_at")
+        .first()
+    )
+    if not approved_claim or not approved_claim.restaurant:
+        return None
+
+    restaurant = approved_claim.restaurant
+    if restaurant.owner_id not in (None, user.id):
+        # Defensive guard: never expose a profile owned by someone else.
+        return None
+
+    if bind_from_claim and restaurant.owner_id is None:
+        restaurant.owner = user
+        restaurant.save(update_fields=["owner", "updated_at"])
+
+    return restaurant
+
+
 def session_payload(request) -> dict:
     if not request.user.is_authenticated:
         return {"authenticated": False}
@@ -582,18 +617,7 @@ def admin_pending_approvals_data(request):
 
 
 def _serialize_admin_restaurant_account_row(u: User) -> dict:
-    # Try owner first, then fallback to most recent approved claim
-    restaurant = Restaurant.objects.filter(owner=u).first()
-    if not restaurant:
-        claim = (
-            RestaurantOwnershipClaim.objects.filter(
-                claimant=u, status=RestaurantOwnershipClaim.STATUS_APPROVED
-            )
-            .select_related("restaurant")
-            .first()
-        )
-        if claim:
-            restaurant = claim.restaurant
+    restaurant = _resolve_owner_restaurant(u)
 
     return {
         "id": u.id,
@@ -1456,7 +1480,7 @@ def restaurant_profile_api(request):
         return _json_error("Restaurant owners only.", status=403)
 
     base_choices = _cuisine_and_price_choices()
-    existing = Restaurant.objects.filter(owner=request.user).first()
+    existing = _resolve_owner_restaurant(request.user, bind_from_claim=True)
 
     if request.method == "GET":
         profile = getattr(request.user, "userprofile", None)
@@ -1554,7 +1578,9 @@ def restaurant_availability_api(request):
     if not _is_restaurant_owner(request.user):
         return _json_error("Restaurant owners only.", status=403)
 
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
+    restaurant = _resolve_owner_restaurant(request.user, bind_from_claim=True)
+    if not restaurant:
+        return _json_error("Restaurant profile not found.", status=404)
 
     if request.method == "GET":
         return JsonResponse(
@@ -1602,7 +1628,9 @@ def restaurant_communication_api(request):
     if not _is_restaurant_owner(request.user):
         return _json_error("Restaurant owners only.", status=403)
 
-    restaurant = get_object_or_404(Restaurant, owner=request.user)
+    restaurant = _resolve_owner_restaurant(request.user, bind_from_claim=True)
+    if not restaurant:
+        return _json_error("Restaurant profile not found.", status=404)
 
     if request.method == "GET":
         return JsonResponse(
@@ -1664,7 +1692,7 @@ def restaurant_performance_api(request):
     if not _is_restaurant_owner(request.user):
         return _json_error("Restaurant owners only.", status=403)
 
-    restaurant = Restaurant.objects.filter(owner=request.user).first()
+    restaurant = _resolve_owner_restaurant(request.user, bind_from_claim=True)
     if not restaurant:
         # Fallback to an empty shell so empty accounts see dashes but retain the layout structure
         return JsonResponse(
@@ -1717,6 +1745,7 @@ def restaurant_performance_api(request):
 
     from nomz.models import CompositeScoreHistory
     from django.db.models import Avg
+    from nomz.ingestion.utils.score import compute_restaurant_composite_score
 
     latest_history = (
         CompositeScoreHistory.objects.filter(restaurant=restaurant)
@@ -1724,20 +1753,43 @@ def restaurant_performance_api(request):
         .first()
     )
 
-    rc = float(latest_history.review_component_score or 0) if latest_history else None
-    ic = (
-        float(latest_history.inspection_component_score or 0)
-        if latest_history
-        else None
+    derived_score_data = None
+    if latest_history is None:
+        try:
+            # Legacy/backfilled datasets can have restaurant score fields but no
+            # CompositeScoreHistory snapshots. Derive factor scores on demand.
+            derived_score_data = compute_restaurant_composite_score(restaurant)
+        except Exception:
+            derived_score_data = None
+
+    if latest_history:
+        rc = float(latest_history.review_component_score or 0)
+        ic = float(latest_history.inspection_component_score or 0)
+        pv = float(latest_history.price_value_score or 0)
+        op = float(latest_history.operational_score or 0)
+        review_count = int(latest_history.review_count or 0)
+    elif derived_score_data:
+        rc = float(derived_score_data.get("review_component_score") or 0)
+        ic = float(derived_score_data.get("inspection_component_score") or 0)
+        pv = float(derived_score_data.get("price_value_score") or 0)
+        op = float(derived_score_data.get("operational_score") or 0)
+        review_count = int(derived_score_data.get("review_count") or 0)
+    else:
+        rc = ic = pv = op = None
+        review_count = 0
+
+    grade = (
+        (latest_history.grade if latest_history else None)
+        or (derived_score_data or {}).get("grade")
+        or restaurant.grade_latest
+        or "N/A"
     )
-    pv = float(latest_history.price_value_score or 0) if latest_history else None
-    op = float(latest_history.operational_score or 0) if latest_history else None
-    review_count = (
-        latest_history.review_count
-        if latest_history and latest_history.review_count
-        else 0
+    critical_violations = int(
+        (derived_score_data or {}).get("critical_violations") or 0
     )
-    grade = restaurant.grade_latest or "N/A"
+    noncritical_violations = int(
+        (derived_score_data or {}).get("noncritical_violations") or 0
+    )
 
     breakdown = [
         {
@@ -1754,7 +1806,7 @@ def restaurant_performance_api(request):
             "weight": 20,
             "score": round(ic, 1) if ic is not None else None,
             "description": (
-                f"Grade {grade} | Critical 0 | Non-critical 0"
+                f"Grade {grade} | Critical {critical_violations} | Non-critical {noncritical_violations}"
                 f" | Weighted contribution: {round(ic * 0.20, 2) if ic is not None else '—'}"
             ),
         },
@@ -1798,6 +1850,13 @@ def restaurant_performance_api(request):
         }
         for h in history_qs
     ]
+    if not history_data and restaurant.composite_score is not None:
+        history_data = [
+            {
+                "date": timezone.localtime().strftime("%b %d, %Y"),
+                "score": round(float(restaurant.composite_score), 1),
+            }
+        ]
 
     rank, total = _owner_visibility_rank(restaurant)
     approx_percentile = None
