@@ -524,7 +524,7 @@
         <p class="ad-page-subtitle">Welcome back, {{ user.username }}. Here's what's happening across the platform
             today.</p>
         <div class="ad-stats-grid">
-            <div class="ad-stat-card">
+            <a href="{% url 'admin_manage_users' %}?filter=active" class="ad-stat-card" style="text-decoration: none; display: block; color: inherit;">
                 <div class="ad-stat-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -537,7 +537,7 @@
                 <span class="ad-stat-badge-label">Total</span>
                 <p class="ad-stat-value" id="ad-active-users">—</p>
                 <p class="ad-stat-label">Active Users</p>
-            </div>
+            </a>
             <div class="ad-stat-card">
                 <div class="ad-stat-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -551,7 +551,7 @@
                 <p class="ad-stat-value" id="ad-restaurants">—</p>
                 <p class="ad-stat-label">Restaurants</p>
             </div>
-            <div class="ad-stat-card">
+            <a href="{% url 'admin_pending_approvals' %}" class="ad-stat-card" style="text-decoration: none; display: block; color: inherit;">
                 <div class="ad-stat-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -562,12 +562,12 @@
                 <span id="ad-pending-badge" class="ad-stat-badge" style="display:none;"></span>
                 <p class="ad-stat-value" id="ad-pending-approvals">—</p>
                 <p class="ad-stat-label">Pending Approvals</p>
-            </div>
+            </a>
         </div>
 
         <!-- Stats row 2 -->
         <div class="ad-stats-grid">
-            <div class="ad-stat-card">
+            <a href="{% url 'admin_moderation_dashboard' %}?filter=pending" class="ad-stat-card" style="text-decoration: none; display: block; color: inherit;">
                 <div class="ad-stat-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -577,8 +577,8 @@
                 </div>
                 <p class="ad-stat-value" id="ad-content-reports">—</p>
                 <p class="ad-stat-label">Content Reports</p>
-            </div>
-            <a href="/nomz-admin/logs/?filter=suspicious" class="ad-stat-card" style="text-decoration: none;">
+            </a>
+            <a href="{% url 'admin_login_logs' %}?filter=suspicious" class="ad-stat-card" style="text-decoration: none; display: block; color: inherit;">
                 <div class="ad-stat-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -592,7 +592,7 @@
                 <p class="ad-stat-value" id="ad-suspicious">—</p>
                 <p class="ad-stat-label">Suspicious Accounts</p>
             </a>
-            <div class="ad-stat-card">
+            <a href="{% url 'admin_manage_users' %}?filter=flagged" class="ad-stat-card" style="text-decoration: none; display: block; color: inherit;">
                 <div class="ad-stat-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -603,7 +603,7 @@
                 </div>
                 <p class="ad-stat-value" id="ad-flagged">—</p>
                 <p class="ad-stat-label">Flagged Content</p>
-            </div>
+            </a>
         </div>
 
         <!-- Action cards -->
