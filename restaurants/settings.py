@@ -50,6 +50,11 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 # Build ALLOWED_HOSTS list from config
 ALLOWED_HOSTS = list(config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv()))
 
+import os
+render_hostname = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if render_hostname:
+    ALLOWED_HOSTS.append(render_hostname)
+
 # Allow EC2 instance's own IP so EB health checks pass (required when DEBUG=False)
 try:
     local_ip = socket.gethostbyname(socket.gethostname())

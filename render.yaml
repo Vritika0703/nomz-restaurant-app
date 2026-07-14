@@ -1,0 +1,42 @@
+databases:
+  - name: nomz-db
+    plan: free
+    databaseName: nomz_db
+    user: postgres
+
+services:
+  - type: web
+    name: nomz-app
+    plan: free
+    env: python
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn restaurants.wsgi:application"
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: False
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DB_ENGINE
+        value: django.db.backends.postgresql
+      - key: DB_HOST
+        fromDatabase:
+          name: nomz-db
+          property: host
+      - key: DB_NAME
+        fromDatabase:
+          name: nomz-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: nomz-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: nomz-db
+          property: password
+      - key: DB_PORT
+        fromDatabase:
+          name: nomz-db
+          property: port
