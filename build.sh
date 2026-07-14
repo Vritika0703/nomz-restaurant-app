@@ -10,4 +10,4 @@ python manage.py collectstatic --no-input
 python manage.py migrate --no-input
 
 # Seed the database with sample data so the live deployment has content
-python manage.py seed_data
+python seed_data.py
