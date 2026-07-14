@@ -1,8 +1,6 @@
 databases:
   - name: nomz-db
     plan: free
-    databaseName: nomz_db
-    user: postgres
 
 services:
   - type: web
